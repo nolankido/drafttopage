@@ -1,0 +1,90 @@
+name: One-off live desk verification
+on:
+  pull_request:
+    branches: [main]
+    paths: ['.github/workflows/live-desk-verification.yml']
+permissions:
+  contents: read
+jobs:
+  live-public-desk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - name: Install isolated test-only browser tools
+        run: |
+          python3 -m venv /tmp/dtp-live
+          /tmp/dtp-live/bin/pip install --disable-pip-version-check playwright==1.57.0
+          /tmp/dtp-live/bin/python -m playwright install --with-deps chromium
+      - name: Check deployed controls with exact DOM booleans
+        run: |
+          /tmp/dtp-live/bin/python - <<'PY'
+          import json
+          from urllib.parse import urlparse
+          from playwright.sync_api import sync_playwright, expect
+          result = {'site': 'https://drafttopage.com/write/', 'mode': 'live public page, fictional input only', 'unexpected_requests': [], 'errors': []}
+          with sync_playwright() as p:
+              browser = p.chromium.launch(headless=True)
+              context = browser.new_context(accept_downloads=False)
+              def guard(route):
+                  request = route.request
+                  parsed = urlparse(request.url)
+                  if parsed.netloc != 'drafttopage.com' or request.method != 'GET' or parsed.path.startswith('/api/') or parsed.path.startswith('/pilot'):
+                      result['unexpected_requests'].append({'method': request.method, 'path': parsed.path})
+                      route.abort()
+                  else:
+                      route.continue_()
+              context.route('**/*', guard)
+              page = context.new_page()
+              page.on('pageerror', lambda error: result['errors'].append(str(error)))
+              response = page.goto(result['site'], wait_until='networkidle', timeout=45000)
+              result['http_status'] = response.status
+              result['csp'] = response.headers.get('content-security-policy')
+              assert response.status == 200
+              expect(page.locator('#desk-status')).to_contain_text('Manual writing desk ready')
+              def state():
+                  return page.evaluate('''() => ({
+                      disabled: document.querySelector('#download').disabled,
+                      disabledAttribute: document.querySelector('#download').hasAttribute('disabled'),
+                      reviewed: document.querySelector('#reviewed').checked,
+                      status: document.querySelector('#desk-status').textContent
+                  })''')
+              result['initial'] = state()
+              assert result['initial']['disabled'] is True
+              assert result['initial']['disabledAttribute'] is True
+              assert result['initial']['reviewed'] is False
+              values = {'title': 'Fictional QA article', 'excerpt': 'Fictional test summary.', 'description': 'Fictional local editing verification.', 'slug': 'fictional-qa-article', 'body': 'A fictional paragraph for a local editing check.'}
+              for key, value in values.items():
+                  page.fill('#' + key, value)
+              result['filled_unreviewed'] = state()
+              assert result['filled_unreviewed']['disabled'] is True
+              page.check('#reviewed')
+              result['reviewed'] = state()
+              assert result['reviewed']['disabled'] is False
+              assert result['reviewed']['reviewed'] is True
+              page.fill('#body', 'An edited fictional paragraph.')
+              result['edited'] = state()
+              assert result['edited']['disabled'] is True
+              assert result['edited']['reviewed'] is False
+              page.locator('.recovery-box summary').click()
+              expect(page.locator('#backup-help')).to_contain_text('unencrypted')
+              result['backup'] = {'saveInitiallyDisabled': page.locator('#save-backup').is_disabled(), 'restoreType': page.locator('#restore-backup').get_attribute('type')}
+              assert result['backup']['saveInitiallyDisabled'] is True
+              assert result['backup']['restoreType'] == 'file'
+              page.locator('#preview-panel summary').click()
+              page.fill('#body', '<img src="https://example.com/never-load" onerror="window.pwned=true">')
+              assert page.locator('#article-preview img').count() == 0
+              assert page.evaluate('window.pwned === undefined')
+              result['inert_preview'] = True
+              result['layout'] = {}
+              for width in (1440, 390, 320):
+                  page.set_viewport_size({'width': width, 'height': 900})
+                  overflow = page.evaluate('document.documentElement.scrollWidth > innerWidth')
+                  result['layout'][str(width)] = {'horizontalOverflow': overflow}
+                  assert not overflow
+              assert not result['errors']
+              assert not result['unexpected_requests']
+              browser.close()
+          result['result'] = 'PASS'
+          result['not_tested'] = ['AI generation', 'authentication', 'file restoration', 'actual downloads', 'provider settings']
+          print(json.dumps(result, indent=2))
+          PY
