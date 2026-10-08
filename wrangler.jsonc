@@ -3,46 +3,18 @@
   "name": "drafttopage",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-07",
+  "build": { "command": "node scripts/build-content.mjs" },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "not_found_handling": "404-page",
-    "run_worker_first": [
-      "/pilot",
-      "/pilot/*",
-      "/api/*"
-    ]
+    "run_worker_first": ["/pilot", "/pilot/*", "/api/*"]
   },
-  "durable_objects": {
-    "bindings": [
-      {
-        "name": "PILOT_QUOTA",
-        "class_name": "PilotQuota"
-      }
-    ]
-  },
-  "migrations": [
-    {
-      "tag": "pilot-quota-v1",
-      "new_sqlite_classes": [
-        "PilotQuota"
-      ]
-    }
-  ],
-  "observability": {
-    "enabled": false
-  },
+  "durable_objects": { "bindings": [{ "name": "PILOT_QUOTA", "class_name": "PilotQuota" }] },
+  "migrations": [{ "tag": "pilot-quota-v1", "new_sqlite_classes": ["PilotQuota"] }],
+  "observability": { "enabled": false },
   "previews": {
-    "durable_objects": {
-      "bindings": [
-        {
-          "name": "PILOT_QUOTA",
-          "class_name": "PilotQuota"
-        }
-      ]
-    },
-    "observability": {
-      "enabled": false
-    }
+    "durable_objects": { "bindings": [{ "name": "PILOT_QUOTA", "class_name": "PilotQuota" }] },
+    "observability": { "enabled": false }
   }
 }

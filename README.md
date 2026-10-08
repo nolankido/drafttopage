@@ -2,52 +2,63 @@
 
 Your ideas. Ready for your website.
 
-Public product-preview site plus a small, invitation-only publishing pilot. Domain: `drafttopage.com`. Repository: `nolankido/drafttopage`. Host: the existing Cloudflare Worker `drafttopage`.
+Public writing resources and a small, invitation-only publishing pilot. Domain: `drafttopage.com`. Repository: `nolankido/drafttopage`. Host: the existing Cloudflare Worker `drafttopage`.
 
-## Implemented in the private pilot
+## Public site and sample editor
 
-`/pilot` provides sign-in, three reusable writing profiles, source notes, optional audience and purpose, a structured Claude draft, editable title/excerpt/description/filename/body, review questions, and Markdown download or copy. The owner must configure private access and the API credential before using generation.
+Eleven public pages provide a clear product introduction, three complete fictional examples, six copyable note templates, an editable sample workspace, getting-started instructions, export help, troubleshooting, access information, two writing guides, and data-use information. There is also a useful 404 page.
 
-The public homepage remains a product preview. No public registration, billing, analytics, automatic publishing, customer database, audio/video handling, or server-side draft history is included. The homepage example is fictional, not claimed AI output or customer evidence. API output is unverified and must be reviewed.
+`/demo/` edits and exports prewritten fictional examples entirely in the open browser page. It is not live AI, does not call the generation API, and does not bypass private access. No autosave or persistent browser storage is included. Examples are illustrative, not customer evidence or actual model-quality results.
+
+`public/content-data.js` contains public-safe templates and examples. `scripts/build-content.mjs` deterministically generates HTML, sample Markdown, sitemap, robots instructions, and `/release.json`. Generated files are ignored rather than edited by hand. See [the content release notes](docs/CONTENT_RELEASE.md).
+
+## Private pilot
+
+`/pilot` provides sign-in, three built-in article types, source notes, optional audience and purpose, a structured Claude draft, editable title/excerpt/description/filename/body, suggested review questions, and Markdown download or copy. The workspace includes note outlines, rechecking a session without refreshing, and separate copy controls for notes, questions, and article body. Editing an article field clears export approval.
+
+Article types are Personal essay, Project update, and Practical guide. They are not custom saved website profiles or a learned personal voice. The owner must configure private access, quota protection, and the API credential before using generation. API output remains unverified and must be reviewed.
+
+No public registration, billing, analytics, automatic publishing, customer database, audio/video handling, or draft history is included. Help and disclaimers do not replace a genuine production acceptance test.
 
 ## Activate after review and merge
 
-See [the setup guide](docs/PILOT_SETUP.md) for exact dashboard fields, test steps, and rollback cautions.
+Follow [the owner activation checklist](docs/ACTIVATION_CHECKLIST.md) and [the original setup guide](docs/PILOT_SETUP.md).
 
-1. Keep the existing Worker, GitHub integration, domains, production branch `main`, blank build command, and deploy command `npx wrangler deploy`. Do not modify Squarespace or DNS.
-2. Deploy the reviewed code. `/pilot` fails closed until the owner supplies a strong private password. The public landing page still works without secrets.
-3. In the Worker's runtime **Settings > Variables and Secrets**, add **Secret** `PILOT_PASSWORD` containing a new password-manager-generated password, at least 24 characters. Do not use the local test password.
-4. In an appropriate Anthropic Console workspace, configure a small spending limit and obtain a project-specific API key. Add it as runtime **Secret** `ANTHROPIC_API_KEY`. A Claude chat subscription alone is not an API credential. Never put either secret in GitHub, a browser script, a screenshot, or a chat message.
-5. Save/deploy the secret changes, then visit `https://drafttopage.com/pilot` and test with fictional material. Adding both secrets enables real API use and may consume credits or money.
+1. Keep the existing Worker, GitHub integration, domains, production branch `main`, blank dashboard build command, and deploy command `npx wrangler deploy`. Do not modify Squarespace or DNS. Wrangler runs the repository's custom content build before bundling.
+2. Deploy the reviewed code. `/pilot` fails closed without valid private access and quota configuration. Public resources work without secrets.
+3. In the Worker's runtime **Settings > Variables and Secrets**, configure **Secret** `PILOT_PASSWORD` with a new, unique password-manager-generated password between 24 and 256 characters. Never use the local test password.
+4. Review the Anthropic workspace's data settings and small spending limit, then configure the project-specific API key as runtime **Secret** `ANTHROPIC_API_KEY`. A Claude chat subscription is not an API credential. Never put either secret in GitHub, browser scripts, screenshots, or chat.
+5. Confirm the existing `PILOT_QUOTA` binding. Save/deploy secret changes, then use fictional material for the owner acceptance test. Real generation may consume credits or money. Inspect existing configuration before replacing a secret; password rotation invalidates sessions.
 
-The Wrangler migration provisions a SQLite-backed Durable Object for usage counters. No paid plan upgrade is requested by this implementation. Hosting plan availability, quotas, and any actual charges still depend on the owner's Cloudflare account. Do not approve a billing upgrade without reviewing it.
+The existing migration provisions a SQLite-backed Durable Object for counters. No paid-plan upgrade is requested by this release. Account availability, quotas, and actual charges remain the owner's responsibility. Do not remove protection or approve an unexpected upgrade to make the app appear available.
 
 ## Safety boundaries
 
-- Secure, HttpOnly, SameSite=Strict, host-only signed cookies, four-hour sessions, exact-origin mutation checks, and a same-origin request header.
-- Protected HTML lives outside the public static directory. The Worker runs before `/pilot` and `/api/*`; generation authenticates every request. Alternate-domain pilot visits go to the canonical production domain.
-- One atomic Durable Object quota shared across users: 20 reserved generation attempts per UTC day and at least 30 seconds between attempts. Failures consume attempts. Ten total sign-in attempts per minute. No automatic provider retries. These limits are application guards, not a replacement for provider spending limits.
-- Up to 8,000 note characters and a bounded streaming request body; fixed model `claude-haiku-4-5-20251001`, 2,600 maximum output tokens, and a 60-second upstream timeout. Unknown input fields and malformed/truncated/refused output are rejected.
-- No notes, drafts, passwords, or API responses in application storage or logs. Only shared counters/timestamps persist in the Durable Object. Provider-side retention and operational processing are separate; read [the data-use notice](public/privacy/index.html).
-- Drafts appear as text values, not executed HTML. Exports are untrusted Markdown, marked `draft: true`, not automatically published or sanitized for every renderer. No notes or review questions are included in article exports.
-- Shared pilot password is intentionally a small owner/invitation-only arrangement, not multi-tenant authentication. No per-person revocation or recovery exists. Rotation invalidates all sessions; logout removes the cookie from that browser.
+- Signed, Secure, HttpOnly, SameSite=Strict, host-only cookies; four-hour sessions; exact-origin mutation checks; and a same-origin request header.
+- Protected HTML remains outside the static directory. Worker-first routing covers `/pilot` and `/api/*`; generation authenticates every request. Alternative-domain pilot visits go to the canonical production domain.
+- One shared atomic Durable Object quota: 20 reserved generation attempts per UTC day, at least 30 seconds apart. Failed provider attempts count. Ten total sign-in attempts per minute. No automatic provider retry. Application guards do not replace provider spending limits.
+- Up to 8,000 source-note characters; bounded streaming request input; fixed model `claude-haiku-4-5-20251001`; 2,600 maximum output tokens; 60-second upstream timeout. Unknown input fields and malformed, truncated, or refused output are rejected.
+- No notes, drafts, passwords, or API responses in application storage or logs. Only counters and timestamps persist in the Durable Object. Provider retention and operational processing are separate. The data-use notice is generated from `scripts/build-content.mjs` at `/privacy/`.
+- Drafts appear as text, not executed HTML. Exports are untrusted Markdown, not sanitized for every renderer. `draft: true` is not a universal publication lock. Source notes and review questions are omitted from article exports.
+- The shared pilot password is an owner/invitation-only arrangement, not multi-tenant authentication. There is no per-person revocation or recovery. Rotation invalidates all sessions; logout removes the browser cookie.
 
-## Local checks
+## Build and checks
 
-Requires Node.js 22 or newer. Runtime code has no third-party npm dependencies.
+Requires Node.js 22 or newer. No third-party runtime npm dependencies are added.
 
 ```sh
+npm run build
 npm test
 npm run check
 npm run preview:mock
 ```
 
-The mock preview binds only to `127.0.0.1:8790`. Its terminal prints an explicitly fake test-only password. It uses handcrafted fictional output and in-memory counter mocks. It makes no Claude requests and does not validate real provider access or actual Cloudflare Durable Object behavior. Never deploy the preview server or use its password in production.
+The test, check, and mock-preview commands build public content first. The mock preview binds to `127.0.0.1:8790` and prints an explicitly fake test-only password. It uses handcrafted output and in-memory counter mocks, not Claude or genuine Durable Object storage. Never deploy the preview server or use its password in production.
 
-Optional browser fixture tests: `python scripts/browser-smoke.py` with Python Playwright and Chromium installed. These test DOM behavior with injected local assets and mocked browser responses, not the deployed CSP, live sign-in, or network. See [the test report](docs/PILOT_TEST_REPORT.md) for exact checks and limitations.
+Optional browser checks: `python scripts/browser-smoke.py` with Python Playwright and Chromium installed. These are DOM-only fixtures with injected local assets and mocked responses. They do not verify hosted CSP, real cookies, actual provider behavior, or a user-device download. See [the release notes](docs/CONTENT_RELEASE.md) for scope and [the original implementation report](docs/PILOT_TEST_REPORT.md) for baseline history.
 
-For a real Cloudflare runtime dry-run, install Wrangler in a network-enabled development environment and run `npx wrangler deploy --dry-run`. No real credential is needed for bundling. In this change's authoring environment, that command was not available and Cloudflare deployment was not performed.
+PR CI runs the full Node suite, static checks, and a pinned Wrangler dry-run. Bundling does not activate the service or prove account configuration. Test real generation and a real edited download after owner activation before inviting anyone else.
 
 ## Change process
 
-Use feature branches and pull requests. Review before merging; merging `main` can trigger a production deployment. Keep all unrelated projects and private material out of this public repository. Test the runtime and one genuine fictional-notes API request after owner activation before inviting anyone else. Local mocked results are not evidence of real model output quality.
+Use feature branches and pull requests. Review before merging; `main` can trigger production deployment. Keep all unrelated projects and private material out of this public repository, including public branches and `docs/`. Distinguish local tests, repository changes, deployment, and genuine AI activation in every release report.

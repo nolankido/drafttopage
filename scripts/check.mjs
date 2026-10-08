@@ -12,18 +12,26 @@ const pages = [appPage, loginPage, unavailablePage, ...await Promise.all(sourceF
 for (const page of pages) {
   assert.equal((page.match(/<h1\b/g) || []).length, 1, 'One h1 per page');
   const ids = [...page.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
-  assert.equal(new Set(ids).size, ids.length, 'Unique IDs');
-  assert.ok(!page.includes('\u2014'), 'No em dashes');
+  assert.equal(new Set(ids).size, ids.length, 'Unique IDs'); assert.ok(!page.includes('\u2014'), 'No em dashes');
   for (const [, href] of page.matchAll(/(?:href|src)="([^"]+)"/g)) {
     if (href.startsWith('#')) assert.ok(ids.includes(href.slice(1)), `Missing anchor ${href}`);
-    else if (href.startsWith('/') && href !== '/pilot' && !href.startsWith('/api/')) {
-      const path = `public${href}${href.endsWith('/') ? 'index.html' : ''}`;
+    else if (href.startsWith('/')) {
+      assert.ok(!href.startsWith('//'), 'No protocol-relative assets or links');
+      const url = new URL(href, 'https://drafttopage.com');
+      if (url.pathname === '/pilot' || url.pathname.startsWith('/api/')) continue;
+      assert.equal(url.search, '', 'No public query-string links carrying content');
+      const path = `public${url.pathname}${url.pathname.endsWith('/') ? 'index.html' : ''}`;
       await access(path);
+      if (url.hash) {
+        const target = await readFile(path, 'utf8');
+        assert.ok(target.includes(`id="${decodeURIComponent(url.hash.slice(1))}"`), `Missing cross-page anchor ${href}`);
+      }
     }
   }
 }
 const config = JSON.parse(await readFile('wrangler.jsonc', 'utf8'));
 assert.equal(config.name, 'drafttopage'); assert.equal(config.main, 'src/worker.js');
+assert.equal(config.build.command, 'node scripts/build-content.mjs');
 assert.equal(config.assets.binding, 'ASSETS');
 assert.deepEqual(config.assets.run_worker_first, ['/pilot', '/pilot/*', '/api/*']);
 assert.ok(config.migrations[0].new_sqlite_classes.includes('PilotQuota'));
@@ -32,7 +40,9 @@ assert.deepEqual(config.previews.durable_objects.bindings, config.durable_object
 assert.equal(config.previews.observability.enabled, false);
 assert.ok(!config.previews.vars, 'No activation secrets in preview configuration');
 assert.ok(!config.vars, 'No secrets or deployment activation flags in source');
-const ui = await readFile('public/pilot.js', 'utf8');
-assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|eval\(/.test(ui));
+for (const path of ['public/pilot.js', 'public/resources.js']) {
+  const ui = await readFile(path, 'utf8');
+  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|eval\(/.test(ui), `No persistent browser storage or executable HTML insertion: ${path}`);
+}
 for (const file of sourceFiles.filter(p => p.startsWith('src/'))) assert.ok(!/console\.(log|warn|error)/.test(await readFile(file, 'utf8')), `No production content logging in ${file}`);
-console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, links, routing, and no persistent browser storage or production console logging.`);
+console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, assets, anchors, protected routing, and storage/logging guards.`);
