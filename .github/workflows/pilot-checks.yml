@@ -25,3 +25,21 @@ jobs:
           WRANGLER_SEND_METRICS: 'false'
           CI: 'true'
         run: npx --yes wrangler@4.148.0 deploy --dry-run --outdir /tmp/drafttopage-worker
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - run: npm run build
+      - name: Install test-only browser tooling
+        run: |
+          python3 -m venv /tmp/dtp-browser
+          /tmp/dtp-browser/bin/pip install --disable-pip-version-check playwright==1.57.0
+          /tmp/dtp-browser/bin/python -m playwright install --with-deps chromium
+      - name: Test actual module loading, CSP, and workspace downloads with routed fixtures
+        run: /tmp/dtp-browser/bin/python scripts/browser-smoke.py

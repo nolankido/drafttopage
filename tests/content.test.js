@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { ARTICLE_TYPES, TEMPLATES, EXAMPLES } from '../public/content-data.js';
 import { createMarkdown } from '../public/markdown.js';
 import { appPage, unavailablePage } from '../src/pages.js';
-const publicPages = ['index.html', 'examples/index.html', 'templates/index.html', 'demo/index.html', 'getting-started/index.html', 'help/index.html', 'help/markdown-export/index.html', 'access/index.html', 'guides/source-notes/index.html', 'guides/review/index.html', 'privacy/index.html', '404.html'];
+const publicPages = ['index.html', 'examples/index.html', 'templates/index.html', 'demo/index.html', 'write/index.html', 'help/local-workspace/index.html', 'getting-started/index.html', 'help/index.html', 'help/markdown-export/index.html', 'access/index.html', 'guides/source-notes/index.html', 'guides/review/index.html', 'privacy/index.html', '404.html'];
 test('Six public templates use exactly the three existing article types', () => {
   assert.equal(TEMPLATES.length, 6); assert.equal(new Set(TEMPLATES.map(t => t.id)).size, 6);
   for (const t of TEMPLATES) { assert.ok(ARTICLE_TYPES[t.profile]); assert.ok(t.outline.length >= 30 && t.outline.length <= 8000); assert.ok(t.caution); assert.ok(t.example); }
@@ -21,7 +21,7 @@ for (const path of publicPages) test(`Public page ${path} has a unique title, de
   assert.equal((html.match(/<h1\b/g) || []).length, 1);
   assert.match(html, /<title>[^<]+\| Draft to Page<\/title>/); assert.match(html, /name="description" content="[^"]+"/);
   assert.match(html, /rel="canonical"/); assert.match(html, /aria-label="Main navigation"/);
-  assert.match(html, /data-release="content-pilot-20261008"/);
+  assert.match(html, /data-release="local-desk-20261008"/);
   assert.doesNotMatch(html, /\u2014|<iframe|<script[^>]+src="https?:/);
   assert.doesNotMatch(html, /id="draft-form"|id="login-form"/);
 });
@@ -41,7 +41,7 @@ test('Every public page title and description is unique', async () => {
 });
 test('Sitemap omits protected and error routes', async () => {
   const map = await readFile('public/sitemap.xml', 'utf8');
-  assert.equal((map.match(/<url>/g) || []).length, 11); assert.doesNotMatch(map, /\/pilot|\/api\/|404\.html/);
+  assert.equal((map.match(/<url>/g) || []).length, 13); assert.doesNotMatch(map, /\/pilot|\/api\/|404\.html/);
 });
 test('Pilot guides open in new tabs, terminology is accurate, and activation stays separate', () => {
   assert.match(appPage, /for="profile">Article type/); assert.doesNotMatch(appPage, /for="profile">Website profile/);

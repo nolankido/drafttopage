@@ -1,5 +1,5 @@
 import { readFile, readdir, access } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { appPage, loginPage, unavailablePage } from '../src/pages.js';
@@ -13,6 +13,9 @@ for (const page of pages) {
   assert.equal((page.match(/<h1\b/g) || []).length, 1, 'One h1 per page');
   const ids = [...page.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);
   assert.equal(new Set(ids).size, ids.length, 'Unique IDs'); assert.ok(!page.includes('\u2014'), 'No em dashes');
+  for (const [, references] of page.matchAll(/aria-(?:labelledby|describedby)="([^"]+)"/g)) {
+    for (const id of references.split(/\s+/)) assert.ok(ids.includes(id), `Missing accessible reference ${id}`);
+  }
   for (const [, href] of page.matchAll(/(?:href|src)="([^"]+)"/g)) {
     if (href.startsWith('#')) assert.ok(ids.includes(href.slice(1)), `Missing anchor ${href}`);
     else if (href.startsWith('/')) {
@@ -31,7 +34,7 @@ for (const page of pages) {
 }
 const config = JSON.parse(await readFile('wrangler.jsonc', 'utf8'));
 assert.equal(config.name, 'drafttopage'); assert.equal(config.main, 'src/worker.js');
-assert.equal(config.build.command, 'node scripts/build-content.mjs');
+assert.equal(config.build.command, 'node scripts/build-site.mjs');
 assert.equal(config.assets.binding, 'ASSETS');
 assert.deepEqual(config.assets.run_worker_first, ['/pilot', '/pilot/*', '/api/*']);
 assert.ok(config.migrations[0].new_sqlite_classes.includes('PilotQuota'));
@@ -40,9 +43,15 @@ assert.deepEqual(config.previews.durable_objects.bindings, config.durable_object
 assert.equal(config.previews.observability.enabled, false);
 assert.ok(!config.previews.vars, 'No activation secrets in preview configuration');
 assert.ok(!config.vars, 'No secrets or deployment activation flags in source');
-for (const path of ['public/pilot.js', 'public/resources.js']) {
+for (const path of sourceFiles.filter(p => p.startsWith('public/') && p.endsWith('.js'))) {
   const ui = await readFile(path, 'utf8');
-  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|eval\(/.test(ui), `No persistent browser storage or executable HTML insertion: ${path}`);
+  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|indexedDB|eval\(/.test(ui), `No persistent browser storage or executable HTML insertion: ${path}`);
+  for (const [, dependency] of ui.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+    assert.ok(dependency.startsWith('./'), `Local browser import required: ${dependency}`);
+    const target = resolve(dirname(path), dependency);
+    assert.ok(target.startsWith(resolve('public') + '/'), 'Browser module stays in public assets');
+    await access(target);
+  }
 }
 for (const file of sourceFiles.filter(p => p.startsWith('src/'))) assert.ok(!/console\.(log|warn|error)/.test(await readFile(file, 'utf8')), `No production content logging in ${file}`);
-console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, assets, anchors, protected routing, and storage/logging guards.`);
+console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, assets, anchors, accessible references, browser imports, protected routing, and storage/logging guards.`);
