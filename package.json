@@ -5,8 +5,12 @@
   "type": "module",
   "engines": { "node": ">=22" },
   "scripts": {
+    "build": "node scripts/build-content.mjs",
+    "pretest": "npm run build",
     "test": "node --test tests/*.test.js",
+    "precheck": "npm run build",
     "check": "node scripts/check.mjs",
+    "prepreview:mock": "npm run build",
     "preview:mock": "node scripts/preview.mjs"
   }
 }
