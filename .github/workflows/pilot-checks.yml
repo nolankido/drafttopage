@@ -25,3 +25,19 @@ jobs:
           WRANGLER_SEND_METRICS: 'false'
           CI: 'true'
         run: npx --yes wrangler@4.148.0 deploy --dry-run --outdir /tmp/drafttopage-worker
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Install test-only browser tools
+        run: |
+          python -m pip install --disable-pip-version-check playwright==1.57.0
+          python -m playwright install --with-deps chromium
+      - name: Test editing, recovery, and responsive layout with mocked requests
+        run: python scripts/browser-smoke.py

@@ -10,3 +10,5 @@ Thumbs.db
 coverage/
 test-results/
 *.log
+# Downloaded workspace backups contain private source notes.
+drafttopage-workspace-*.json
