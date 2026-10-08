@@ -1,3 +1,5 @@
+import { installRecovery } from './recovery.js';
+import { validateDraft } from './workspace.js';
 import { createMarkdown } from './markdown.js';
 import { TEMPLATES, EXAMPLES } from './content-data.js';
 const $ = selector => document.querySelector(selector);
@@ -67,16 +69,18 @@ $('#copy-notes').addEventListener('click', () => copyText($('#notes').value, 'So
 $('#copy-questions').addEventListener('click', () => copyText([...$('#questions').children].map(li => `- ${li.textContent}`).join('\n'), 'Review questions copied. Save unresolved questions separately from the article.'));
 $('#draft-form').addEventListener('submit', async event => {
   event.preventDefault();
-  if (!ready || busy || checking || !$('#draft-form').reportValidity()) return;
+  if (!ready || busy || checking || recovery.reading() || !$('#draft-form').reportValidity()) return;
   if (TEMPLATES.some(t => t.outline.trim() === $('#notes').value.trim())) { status('Fill in the outline with your own facts before preparing a draft. No AI request was made.'); return; }
   if (!$('#editor').hidden && !confirm('Prepare another draft? A successful response will replace the article currently in the editor. Export any work you want to keep first.')) return;
-  busy = true; $('#source-fields').disabled = true; $('#logout').disabled = true; $('#clear').disabled = true; $('#reconnect').disabled = true;
+  let prepared = false;
+  busy = true; recovery.update(); $('.workspace').setAttribute('aria-busy', 'true'); $('#source-fields').disabled = true; $('#logout').disabled = true; $('#clear').disabled = true; $('#reconnect').disabled = true;
   for (const id of [...fields, 'reviewed']) $(`#${id}`).disabled = true;
   updateExports(); status('Preparing your draft. Keep this tab open. No automatic retry will be made.');
   try {
     const data = await api('generate', { notes: $('#notes').value, profile: $('#profile').value,
       audience: $('#audience').value, purpose: $('#purpose').value, consent: $('#consent').checked });
     // Validate the complete response before replacing any previous work.
+    validateDraft(data.draft);
     createMarkdown(data.draft);
     if (!Array.isArray(data.draft.questions) || data.draft.questions.some(q => typeof q !== 'string')) throw new Error('The response was incomplete. Your previous article is unchanged.');
     for (const id of fields) $(`#${id}`).value = data.draft[id];
@@ -84,12 +88,14 @@ $('#draft-form').addEventListener('submit', async event => {
     const questions = data.draft.questions.length ? data.draft.questions : ['No specific questions were returned. Independently review every factual claim and the writing.'];
     for (const question of questions) { const li = document.createElement('li'); li.textContent = question; $('#questions').append(li); }
     $('#editor').hidden = false; $('#empty-state').hidden = true; edited();
-    status(`Draft prepared. ${data.remainingToday} shared attempt(s) remain today. Review and edit before exporting.`); $('#title').focus();
+    status(`Draft prepared. ${data.remainingToday} shared attempt(s) remain today. Review and edit before exporting.`); prepared = true;
   } catch (error) { status(error.message || 'Connection failed. Your notes and previous draft are unchanged.'); }
   finally {
     busy = false; $('#source-fields').disabled = false; $('#logout').disabled = false; $('#clear').disabled = false; $('#reconnect').disabled = false; $('#generate').disabled = !ready;
     for (const id of [...fields, 'reviewed']) $(`#${id}`).disabled = false;
+    recovery.update(); $('.workspace').setAttribute('aria-busy', 'false');
     updateExports();
+    if (prepared) $('#title').focus();
   }
 });
 function getExport() {
@@ -110,9 +116,33 @@ function clearWorkspace() {
   $('#draft-form').reset(); fields.forEach(id => { $(`#${id}`).value = ''; }); $('#questions').replaceChildren();
   $('#editor').hidden = true; $('#empty-state').hidden = false; $('#reviewed').checked = false;
   $('#note-count').textContent = '0 / 8,000'; dirty = false; updateProfile(); updateExports();
+  $('#backup-private-ok').checked = false; recovery.update();
 }
-$('#clear').addEventListener('click', () => { if (dirty && !confirm('Discard these notes and the editable draft? There is no saved history.')) return; clearWorkspace(); status('Workspace cleared.'); });
-$('#logout').addEventListener('click', async () => { if (dirty && !confirm('Sign out and discard unsaved notes and edits?')) return; try { await api('logout', {}); clearWorkspace(); location.replace('/pilot'); } catch (error) { status(error.message); } });
+$('#clear').addEventListener('click', () => { if (recovery.reading()) return; if (dirty && !confirm('Discard these notes and the editable draft? There is no saved history.')) return; clearWorkspace(); status('Workspace cleared.'); });
+$('#logout').addEventListener('click', async () => { if (recovery.reading()) return; if (dirty && !confirm('Sign out and discard unsaved notes and edits?')) return; try { await api('logout', {}); clearWorkspace(); location.replace('/pilot'); } catch (error) { status(error.message); } });
 window.addEventListener('beforeunload', event => { if (dirty || busy) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('pageshow', event => { if (event.persisted) { clearWorkspace(); location.reload(); } });
+const recovery = installRecovery({
+  isBusy: () => busy,
+  hasWork: () => dirty,
+  report: status,
+  capture: () => ({
+    source: Object.fromEntries(['profile', 'notes', 'audience', 'purpose'].map(id => [id, $(`#${id}`).value])),
+    draft: $('#editor').hidden ? null : {
+      ...Object.fromEntries(fields.map(id => [id, $(`#${id}`).value])),
+      questions: [...$('#questions').children].map(li => li.textContent)
+    }
+  }),
+  restore: value => {
+    for (const id of ['profile', 'notes', 'audience', 'purpose']) $(`#${id}`).value = value.source[id];
+    for (const id of fields) $(`#${id}`).value = value.draft?.[id] ?? '';
+    $('#questions').replaceChildren(...(value.draft?.questions || []).map(text => {
+      const li = document.createElement('li'); li.textContent = text; return li;
+    }));
+    $('#editor').hidden = value.draft === null; $('#empty-state').hidden = value.draft !== null;
+    $('#consent').checked = false; $('#reviewed').checked = false;
+    $('#note-count').textContent = `${$('#notes').value.length.toLocaleString()} / 8,000`;
+    dirty = true; updateProfile(); updateExports(); $('#notes').focus();
+  }
+});
 connect();

@@ -1,8 +1,9 @@
+import { RECOVERY_HTML } from './recovery-markup.js';
 function shell(title, content, script = '') {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow"><title>${title} | Draft to Page</title>
-<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/pilot.css"><link rel="stylesheet" href="/content.css"></head>
+<link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/pilot.css"><link rel="stylesheet" href="/content.css"><link rel="stylesheet" href="/desk.css"></head>
 <body><a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header wrap"><a class="brand" href="/">Draft to Page<span aria-hidden="true">.</span></a><nav aria-label="Pilot navigation"><a href="/help/" target="_blank" rel="noopener">Help (new tab)</a><a href="/privacy/" target="_blank" rel="noopener">Data use (new tab)</a><span class="badge">Private pilot</span></nav></header>
 <main id="main" class="wrap pilot-main">${content}</main>
@@ -13,9 +14,9 @@ export const unavailablePage = shell('Pilot not activated', `
 <section class="pilot-card narrow"><p class="eyebrow">Invitation only</p><h1>The pilot is not activated yet.</h1>
 <p>Private access or usage protection still needs owner configuration. This is not a public sign-up page.</p>
 <p>No notes have been submitted and no AI request has been made.</p>
-<p>While access is being set up, you can edit and export a prewritten fictional sample or prepare your own source notes.</p>
+<p>While access is being set up, you can write and export your own article in the local writing desk, or try a prewritten fictional sample. Neither calls AI.</p>
 <div class="actions"><a class="button" href="/demo/">Try the sample editor</a><a href="/templates/">Browse note templates</a></div>
-<p><a href="/access/">Access and owner activation checklist</a></p></section>`);
+<p><a href="/write/">Open the local writing desk</a> · <a href="/access/">Access and owner activation checklist</a></p></section>`);
 export const loginPage = shell('Pilot sign-in', `
 <section class="pilot-card narrow"><p class="eyebrow">Invitation only</p><h1>Make room for your next page.</h1>
 <p>Use the password supplied by the owner. There is no public registration or individual password recovery.</p>
@@ -29,20 +30,21 @@ export const loginPage = shell('Pilot sign-in', `
 export const appPage = shell('Publishing workspace', `
 <section class="pilot-heading"><div><p class="eyebrow">Notes → draft → review → export</p><h1>Your next page starts here.</h1><p>Bring the facts. Shape the writing. Keep the final say.</p></div><button id="logout" class="secondary" type="button">Sign out</button></section>
 <p class="notice">Private pilot, not a public service. AI can invent or misstate facts. Nothing is automatically published.</p>
-<p class="notice save-warning"><strong>No autosave.</strong> Keep your original notes in your own document. Refreshing or leaving this page can discard your work. Download your reviewed article before you leave.</p>
+<p class="notice save-warning"><strong>No autosave.</strong> Keep your original notes in your own document. Refreshing or leaving this page can discard your work. Download a private workspace backup for unfinished work, or a reviewed article export before you leave.</p>
 <p class="pilot-links"><a href="/getting-started/" target="_blank" rel="noopener">First-use guide (new tab)</a><a href="/guides/review/" target="_blank" rel="noopener">Review checklist (new tab)</a></p>
 <div class="inline-tools"><button id="reconnect" class="secondary" type="button">Recheck connection</button><span class="small">Checks sign-in and configuration only. No AI request.</span></div>
-<p id="status" class="message" role="status" aria-live="polite">Checking the pilot connection…</p>
+<p id="status" class="message" role="status" aria-live="polite" aria-atomic="true">Checking the pilot connection…</p>
 <p id="reauth" class="notice" hidden>Your session ended. <a href="/pilot" target="_blank" rel="noopener">Sign in in a new tab</a>, then return here and select Recheck connection. Keep this tab open to preserve your notes.</p>
-<div class="workspace"><section class="pilot-card" aria-labelledby="source-title"><p class="eyebrow">01 / Bring the substance</p><h2 id="source-title">Your source notes</h2>
+${RECOVERY_HTML}
+<div class="workspace" aria-busy="false"><section class="pilot-card" aria-labelledby="source-title"><p class="eyebrow">01 / Bring the substance</p><h2 id="source-title">Your source notes</h2>
 <form id="draft-form" method="post" action="/api/pilot/generate"><fieldset id="source-fields"><legend class="sr-only">Prepare the article</legend>
-<label for="profile">Article type</label><select id="profile" name="profile" required><option value="personal">Personal essay</option><option value="update">Project update</option><option value="guide">Practical guide</option></select>
-<p id="profile-help" class="small">Three built-in writing presets, not saved website profiles or a learned personal voice.</p>
+<label for="profile">Article type</label><select id="profile" name="profile" required aria-describedby="profile-help"><option value="personal">Personal essay</option><option value="update">Project update</option><option value="guide">Practical guide</option></select>
+<p id="profile-help" class="small" aria-live="polite" aria-atomic="true">Three built-in writing presets, not saved website profiles or a learned personal voice.</p>
 <details class="source-template"><summary>Start with a note outline</summary><label for="note-template">Choose an outline</label><select id="note-template"><option value="reflection">Personal reflection</option><option value="learning">What I learned</option><option value="progress">Project progress update</option><option value="release">Release announcement</option><option value="process">Step-by-step process</option><option value="checklist">Practical checklist</option></select><button id="load-template" type="button" class="secondary">Load outline</button><p class="small">This replaces source notes only after confirmation, selects the matching article type, and makes no AI request. Replace the prompts with your own facts.</p></details>
 <label for="audience">Audience <span class="optional">(optional)</span></label><input id="audience" name="audience" maxlength="160" placeholder="Who is this page for?">
 <label for="purpose">Purpose <span class="optional">(optional)</span></label><input id="purpose" name="purpose" maxlength="240" placeholder="What should readers take away?">
 <div class="field-heading"><label for="notes">Notes or existing draft</label><span id="note-count" class="small">0 / 8,000</span></div>
-<textarea id="notes" name="notes" rows="13" minlength="30" maxlength="8000" aria-describedby="notes-help" required placeholder="Paste actual facts, observations, or ideas. Mark interpretation and uncertainty explicitly."></textarea>
+<textarea id="notes" name="notes" rows="13" minlength="30" maxlength="8000" aria-describedby="notes-help note-count" required placeholder="Paste actual facts, observations, or ideas. Mark interpretation and uncertainty explicitly."></textarea>
 <p id="notes-help" class="small">30 to 8,000 characters. Do not include passwords, confidential business material, sensitive personal information, or another person's writing without permission.</p>
 <div class="inline-tools"><button id="sample" type="button" class="secondary">Load fictional sample notes</button><button id="copy-notes" type="button" class="secondary">Copy source notes</button></div>
 <label class="check"><input id="consent" type="checkbox" required><span>I have permission to use these notes and understand that preparing a draft sends them, the article-type guidance, audience, and purpose to Anthropic. <a href="/privacy/" target="_blank" rel="noopener">Data use (new tab)</a></span></label>

@@ -6,13 +6,14 @@ node_modules/
 *.log
 test-results/
 .DS_Store
-# Deterministic output from scripts/build-content.mjs
+# Deterministic output from the content and local-writing builds
 public/index.html
 public/404.html
 public/privacy/index.html
 public/examples/
 public/templates/
 public/demo/
+public/write/
 public/getting-started/
 public/help/
 public/access/
@@ -21,3 +22,5 @@ public/samples/
 public/sitemap.xml
 public/robots.txt
 public/release.json
+# Never commit downloaded private writing, even by accident.
+drafttopage-private-workspace-*.json

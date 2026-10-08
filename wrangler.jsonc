@@ -3,7 +3,7 @@
   "name": "drafttopage",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-07",
-  "build": { "command": "node scripts/build-content.mjs" },
+  "build": { "command": "node scripts/build-site.mjs" },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
