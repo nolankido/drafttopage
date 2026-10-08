@@ -20,3 +20,8 @@ jobs:
           node-version: '22'
       - run: npm test
       - run: npm run check
+      - name: Bundle the Worker without deploying
+        env:
+          WRANGLER_SEND_METRICS: 'false'
+          CI: 'true'
+        run: npx --yes wrangler@4.148.0 deploy --dry-run --outdir /tmp/drafttopage-worker
