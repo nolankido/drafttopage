@@ -4,8 +4,9 @@ node_modules/
 .env.*
 .dev.vars
 .dev.vars.*
-!.env.example
 !.dev.vars.example
 .DS_Store
 Thumbs.db
+coverage/
+test-results/
 *.log
