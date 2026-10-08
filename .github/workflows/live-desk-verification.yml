@@ -28,7 +28,8 @@ jobs:
               def guard(route):
                   request = route.request
                   parsed = urlparse(request.url)
-                  if parsed.netloc != 'drafttopage.com' or request.method != 'GET' or parsed.path.startswith('/api/') or parsed.path.startswith('/pilot'):
+                  protected = parsed.path == '/pilot' or parsed.path.startswith('/pilot/') or parsed.path.startswith('/api/')
+                  if parsed.netloc != 'drafttopage.com' or request.method != 'GET' or protected:
                       result['unexpected_requests'].append({'method': request.method, 'path': parsed.path})
                       route.abort()
                   else:
@@ -81,6 +82,7 @@ jobs:
                   overflow = page.evaluate('document.documentElement.scrollWidth > innerWidth')
                   result['layout'][str(width)] = {'horizontalOverflow': overflow}
                   assert not overflow
+              print('OBSERVATIONS ' + json.dumps(result, sort_keys=True), flush=True)
               assert not result['errors']
               assert not result['unexpected_requests']
               browser.close()
