@@ -26,19 +26,22 @@ export const loginPage = shell('Pilot sign-in', `
 <p class="small">A secure sign-in cookie lasts up to four hours. Do not paste an API key here. <a href="/privacy/">Read the data-use notice.</a></p></section>`, 'login.js');
 
 export const appPage = shell('Publishing workspace', `
-<section class="pilot-heading"><div><p class="eyebrow">Notes → draft → review → export</p><h1>Your next page starts here.</h1><p>Bring the facts. Shape the writing. Keep the final say.</p></div><button id="logout" class="secondary" type="button">Sign out</button></section>
+<section class="pilot-heading"><div><p class="eyebrow">Notes → draft → review → export</p><h1>Your next page starts here.</h1><p>Bring the facts. Shape the writing. Keep the final say.</p></div><div class="pilot-tools"><button id="refresh" class="secondary" type="button">Refresh connection</button><button id="logout" class="secondary" type="button">Sign out</button></div></section>
 <p class="notice">Private pilot, not a public service. AI can invent or misstate facts. Nothing is automatically published.</p>
 <p id="status" class="message" role="status" aria-live="polite">Checking the pilot connection…</p>
+<details class="recovery"><summary>Save or restore your work</summary>
+<p id="backup-help" class="small">A workspace backup includes your source notes, article, and review questions. It is an unencrypted file on your device. Keep it private. No passwords or approvals are included, and restoring it makes no AI request.</p>
+<div class="pilot-tools"><button id="save-backup" class="secondary" type="button" aria-describedby="backup-help">Save workspace backup</button><div><label for="restore-backup">Restore workspace backup (.json)</label><input id="restore-backup" type="file" accept=".json,application/json" aria-describedby="backup-help"></div></div></details>
 <div class="workspace">
 <section class="pilot-card" aria-labelledby="source-title"><p class="eyebrow">01 / Bring the substance</p><h2 id="source-title">Your source notes</h2>
 <form id="draft-form" method="post" action="/api/pilot/generate">
 <fieldset id="source-fields"><legend class="sr-only">Prepare the article</legend>
-<label for="profile">Website profile</label><select id="profile" name="profile" required><option value="personal">Personal essay</option><option value="update">Project update</option><option value="guide">Practical guide</option></select>
-<p id="profile-help" class="small">Reusable writing guidance, configured for this pilot.</p>
+<label for="profile">Website profile</label><select id="profile" name="profile" aria-describedby="profile-help" required><option value="personal">Personal essay</option><option value="update">Project update</option><option value="guide">Practical guide</option></select>
+<p id="profile-help" class="small" aria-live="polite" aria-atomic="true">Reusable writing guidance, configured for this pilot.</p>
 <label for="audience">Audience <span class="optional">(optional)</span></label><input id="audience" name="audience" maxlength="160" placeholder="Who is this page for?">
 <label for="purpose">Purpose <span class="optional">(optional)</span></label><input id="purpose" name="purpose" maxlength="240" placeholder="What should readers take away?">
 <div class="field-heading"><label for="notes">Notes or existing draft</label><span id="note-count" class="small">0 / 8,000</span></div>
-<textarea id="notes" name="notes" rows="13" minlength="30" maxlength="8000" aria-describedby="notes-help" required placeholder="Paste the actual facts, observations, or ideas you want to work with."></textarea>
+<textarea id="notes" name="notes" rows="13" minlength="30" maxlength="8000" aria-describedby="notes-help note-count" required placeholder="Paste the actual facts, observations, or ideas you want to work with."></textarea>
 <p id="notes-help" class="small">30 to 8,000 characters. Do not include passwords, confidential business material, sensitive personal information, or another person's writing without permission.</p>
 <button id="sample" type="button" class="secondary">Load fictional sample notes</button>
 <label class="check"><input id="consent" type="checkbox" required><span>I have permission to use these notes and understand that generating a draft sends them and the selected profile to Anthropic. <a href="/privacy/">Data use</a></span></label>
@@ -56,8 +59,8 @@ export const appPage = shell('Publishing workspace', `
 <section class="review-box" aria-labelledby="review-title"><h3 id="review-title">Check before publishing</h3><p>These are AI-suggested questions, not a complete fact-check.</p><ul id="questions"></ul><p class="small">Verify names, dates, claims, links, permissions, and whether the writing sounds like you. Review Markdown in a safe editor before importing it into a website.</p></section>
 <label class="check"><input id="reviewed" type="checkbox"><span>I have reviewed this draft and its open questions. Exporting does not publish it.</span></label>
 <div class="actions"><button class="button" id="download" type="button" disabled>Download Markdown</button><button class="secondary" id="copy" type="button" disabled>Copy Markdown</button></div>
-<p class="small">Export includes a draft flag and page metadata, but not your private source notes. Review questions are not included in the article file. Save their text separately if needed.</p>
+<p class="small">Export includes a draft flag and page metadata, but not your private source notes. Review questions are not included in the article file. Use a workspace backup to keep your notes and questions separately from the publication file.</p>
 </div></section></div>
-<div class="pilot-bottom"><p class="small">No draft history or autosave. Refreshing, navigating away, or signing out can discard your work. Application code does not store notes or drafts on the server.</p><button class="secondary" id="clear" type="button">Clear this workspace</button></div>
-<p id="reauth" hidden>Your session ended. <a href="/pilot" target="_blank" rel="noopener">Sign in in a new tab</a>, then return here and retry. Keep this tab open to preserve your notes.</p>
+<div class="pilot-bottom"><p class="small">No automatic history or autosave. Save a workspace backup before leaving. Refreshing, navigating away, or signing out can discard unsaved work. Application code does not store notes or drafts on the server.</p><button class="secondary" id="clear" type="button">Clear this workspace</button></div>
+<p id="reauth" hidden>Your session ended. <a href="/pilot" target="_blank" rel="noopener">Sign in in a new tab</a>, then return here and select Refresh connection. This does not reload or clear your writing. Keep this tab open to preserve your notes.</p>
 <noscript><p>JavaScript is required for the workspace.</p></noscript>`, 'pilot.js');

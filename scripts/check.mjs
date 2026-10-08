@@ -1,5 +1,5 @@
 import { readFile, readdir, access } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { appPage, loginPage, unavailablePage } from '../src/pages.js';
@@ -21,6 +21,9 @@ for (const page of pages) {
       await access(path);
     }
   }
+  for (const [, references] of page.matchAll(/aria-(?:describedby|labelledby)="([^"]+)"/g)) {
+    for (const id of references.split(/\s+/)) assert.ok(ids.includes(id), `Missing accessible description ${id}`);
+  }
 }
 const config = JSON.parse(await readFile('wrangler.jsonc', 'utf8'));
 assert.equal(config.name, 'drafttopage'); assert.equal(config.main, 'src/worker.js');
@@ -32,7 +35,10 @@ assert.deepEqual(config.previews.durable_objects.bindings, config.durable_object
 assert.equal(config.previews.observability.enabled, false);
 assert.ok(!config.previews.vars, 'No activation secrets in preview configuration');
 assert.ok(!config.vars, 'No secrets or deployment activation flags in source');
-const ui = await readFile('public/pilot.js', 'utf8');
-assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|eval\(/.test(ui));
+for (const file of sourceFiles.filter(p => p.startsWith('public/') && p.endsWith('.js'))) {
+  const ui = await readFile(file, 'utf8');
+  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|eval\(/.test(ui), `No unsafe DOM or persistent storage API in ${file}`);
+  for (const [, dependency] of ui.matchAll(/from ['"](\.\.?\/[^'"]+)['"]/g)) await access(join(dirname(file), dependency));
+}
 for (const file of sourceFiles.filter(p => p.startsWith('src/'))) assert.ok(!/console\.(log|warn|error)/.test(await readFile(file, 'utf8')), `No production content logging in ${file}`);
-console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, links, routing, and no persistent browser storage or production console logging.`);
+console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, links, accessible descriptions, module imports, routing, and no persistent browser storage or production console logging.`);
