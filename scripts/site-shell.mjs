@@ -1,6 +1,6 @@
-export const RELEASE = 'revision-diff-compact-20261014';
+export const RELEASE = 'paste-wordpress-20261014';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const navigation = [['/write/', 'Write'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help'], ['/pilot', 'Pilot sign-in']];
+const navigation = [['/write/', 'Write'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false }) {
   const current = navigation.map(([href, label]) => '<a href="' + href + '"' + (route === href ? ' aria-current="page"' : '') + '>' + label + '</a>').join('');
   const canonical = 'https://drafttopage.com' + route;
@@ -18,6 +18,6 @@ export function renderPage({ route, title, description, body, script = '', wide 
     (route === '/' ? '' : 'wrap content-main' + (wide ? ' wide' : '') + (desk ? ' desk-main' : '')) +
     '" data-release="' + RELEASE + '">' + body + '</main>' +
     '<footer class="site-footer wrap"><div><a class="brand" href="/">Draft to Page.</a><p>Your ideas. Your voice. Your approval.</p></div>' +
-    '<nav aria-label="Footer navigation"><a href="/getting-started/">Getting started</a><a href="/about/">About &amp; support</a><a href="/access/">Access &amp; status</a><a href="/privacy/">Data use</a></nav><span class="badge">In development</span></footer>' +
+    '<nav aria-label="Footer navigation"><a href="/getting-started/">Getting started</a><a href="/about/">About &amp; support</a><a href="/access/">Access &amp; status</a><a href="/privacy/">Data use</a><a href="/pilot">Private pilot</a></nav><span class="badge">In development</span></footer>' +
     (script ? '<script type="module" src="' + script + '"></script>' : '') + '</body></html>\n';
 }

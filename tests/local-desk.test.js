@@ -77,7 +77,7 @@ test('Filename helper produces safe bounded names, including empty and non-ASCII
   assert.equal(suggestFilename('Café project'), 'cafe-project');
 });
 test('Local feature modules cannot upload or execute imported HTML', async () => {
-  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js', 'html-export.js', 'authoring.js', 'article-import.js', 'import-controls.js', 'editing.js', 'markdown-inline.js', 'draft-review.js', 'review-controls.js', 'publishing-kit.js', 'zip.js', 'export-controls.js', 'revisions.js', 'revision-controls.js', 'article-search.js', 'search-controls.js', 'article-sections.js', 'revision-diff.js', 'revision-diff-controls.js']) {
+  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js', 'html-export.js', 'authoring.js', 'article-import.js', 'import-controls.js', 'editing.js', 'markdown-inline.js', 'draft-review.js', 'review-controls.js', 'publishing-kit.js', 'zip.js', 'export-controls.js', 'revisions.js', 'revision-controls.js', 'article-search.js', 'search-controls.js', 'article-sections.js', 'revision-diff.js', 'revision-diff-controls.js', 'wordpress-export.js', 'quick-sample.js']) {
     const js = await readFile(`public/${file}`, 'utf8');
     assert.doesNotMatch(js, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|innerHTML|outerHTML|insertAdjacentHTML|eval\(|localStorage|sessionStorage|indexedDB/);
   }
@@ -98,7 +98,7 @@ test('Shared public build keeps stable URLs, template handoffs, and release outp
     run();
     const second = await Promise.all(paths.map(path => readFile(join(root, path), 'utf8')));
     assert.deepEqual(first, second);
-    assert.match(first[0], /Start with your notes/);
+    assert.match(first[0], /Paste a draft/);
     assert.match(first[1], /aria-current="page"/);
     assert.match(first[1], /id="template-progress"/);
     assert.match(first[2], /href="\/write\/#template-progress"/);

@@ -2,6 +2,8 @@ import { articleIssues } from './authoring.js';
 import { createFormattedArticle } from './html-export.js';
 import { publishingKitFiles, createPublishingKit } from './publishing-kit.js';
 import { downloadText } from './download.js';
+import { createWordPressArticle } from './wordpress-export.js';
+import { suggestFilename } from './preview.js';
 
 export function installPublishingExports({ getDraft, approved, changed, report }) {
   const $ = id => document.getElementById(id);
@@ -9,6 +11,16 @@ export function installPublishingExports({ getDraft, approved, changed, report }
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
   function update() {
     const draft = getDraft(), reviewed = $('reviewed').checked;
+    const wordpress = $('publishing-destination').value === 'wordpress';
+    $('wordpress-handoff').hidden = !wordpress;
+    let article = null;
+    try { article = createWordPressArticle(draft); } catch { /* Readiness below explains missing article. */ }
+    for (const id of ['copy-wordpress', 'download-wordpress']) $(id).disabled = !reviewed || !article || !wordpress;
+    $('copy-wordpress-title').disabled = !reviewed || !wordpress || Boolean(articleIssues(draft, 'html').title);
+    $('wordpress-readiness').textContent = !article ? 'Paste an article first. Page metadata is optional.' : article.blockCount + ' top-level blocks prepared locally. ' + (reviewed ? 'Copy or download, then inspect them in WordPress.' : 'Review your reading preview, then check the approval box to copy or download.') + (articleIssues(draft, 'html').title ? ' Add a title separately in WordPress.' : ' Your title stays separate from the body.');
+    $('wordpress-notices').replaceChildren(...(article?.notices || []).map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
+    // Clear hidden or unapproved output immediately after edits, restore, or clear.
+    $('wordpress-code-preview').value = wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
     $('copy-formatted').disabled = !reviewed || Object.keys(articleIssues(draft, $('copy-title').checked ? 'html' : 'body')).length > 0;
     let kit = null, error = '';
     try { kit = publishingKitFiles(draft, options()); }
@@ -27,6 +39,8 @@ export function installPublishingExports({ getDraft, approved, changed, report }
     }
   }
   $('publishing-kit-panel').addEventListener('toggle', update);
+  $('wordpress-code-panel').addEventListener('toggle', update);
+  $('publishing-destination').addEventListener('change', changed);
   $('copy-title').addEventListener('change', changed);
   $('copy-formatted').addEventListener('click', async () => {
     try {
@@ -48,5 +62,23 @@ export function installPublishingExports({ getDraft, approved, changed, report }
       report('Publishing kit download requested with ' + kit.files.length + ' article files. Extract and inspect them before sharing. Source notes and private review notes are excluded. Nothing was uploaded or published.');
     } catch (error) { report(error.message); }
   });
-  return { update, reset: () => { $('copy-title').checked = false; kitSnapshot = null; } };
+  $('copy-wordpress').addEventListener('click', async () => {
+    try {
+      approved(); const article = createWordPressArticle(getDraft());
+      await navigator.clipboard.writeText(article.html);
+      report('WordPress blocks copied without a title or page fields. Paste into the Code editor of a new WordPress draft, return to Visual editor, and inspect the result. Nothing was published.');
+    } catch (error) { report('WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks. ' + error.message); }
+  });
+  $('download-wordpress').addEventListener('click', () => {
+    try {
+      approved(); const draft = getDraft(), article = createWordPressArticle(draft);
+      downloadText(article.html, suggestFilename(draft.title) + '-wordpress.html', 'text/html;charset=utf-8');
+      report('WordPress blocks download requested. Open the file in a text editor and paste its contents into the WordPress Code editor. Opening it in a browser only shows its reading view. Nothing was published.');
+    } catch (error) { report(error.message); }
+  });
+  $('copy-wordpress-title').addEventListener('click', async () => {
+    try { approved(); const draft = getDraft(); if (articleIssues(draft, 'html').title) throw new Error('Add a valid title first.'); await navigator.clipboard.writeText(draft.title.trim()); report('Title copied separately. Paste into the WordPress title field. Nothing was published.'); }
+    catch (error) { report('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
+  });
+  return { update, reset: () => { $('copy-title').checked = false; $('publishing-destination').value = 'wordpress'; $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
 }

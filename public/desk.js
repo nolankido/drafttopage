@@ -12,6 +12,7 @@ import { installDraftReview } from './review-controls.js';
 import { installPublishingExports } from './export-controls.js';
 import { articleWordCount } from './draft-review.js';
 import { installRevisions } from './revision-controls.js';
+import { QUICK_SAMPLE } from './quick-sample.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
@@ -95,9 +96,27 @@ $('start-notes').addEventListener('click', () => {
   report('Choose an outline or enter your own notes. No text is generated automatically.');
 });
 $('start-draft').addEventListener('click', () => {
-  $('notes-panel').open = false; $('body').focus();
+  setFocus(true); $('notes-panel').open = false; $('body').focus();
   report('Paste or write your article. Page details can wait until you need a full Markdown export.');
 });
+$('start-review').addEventListener('click', () => {
+  $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
+  report('Read the preview and compare it with your source. Use Outline & draft checks for writing-pattern suggestions, then choose your export.');
+});
+$('start-handoff').addEventListener('click', () => {
+  $('publishing-destination').focus();
+  report('Choose WordPress blocks or another export. Review the article and check the approval box before copying or downloading.');
+});
+function loadSample() {
+  if (recovery.reading() || importer?.reading()) return;
+  const existing = capture();
+  if ((DRAFT_FIELDS.some(id => existing.draft[id].length) || importer?.pending()) && !confirm('Replace the current article with a fictional sample? A checkpoint keeps the current writing in this tab. Source notes and review questions are kept. Save a private backup to keep them after leaving.')) return;
+  try { revisions?.captureBefore('Before fictional sample'); } catch (error) { report(error.message); return; }
+  fill({ source: existing.source, draft: { ...QUICK_SAMPLE, questions: existing.draft.questions } });
+  setFocus(true); $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
+  report('Fictional sample loaded. Try the reading preview, review the article, then copy WordPress blocks or choose another export. Replace this sample before publishing.');
+}
+$('start-sample').addEventListener('click', loadSample);
 function loadOutline(id) {
   const template = TEMPLATES.find(item => item.id === id);
   if (!template || recovery.reading() || importer?.reading()) return;
@@ -114,6 +133,7 @@ function followFragment() {
   if (hash.startsWith('#template-')) loadOutline(hash.slice('#template-'.length));
   else if (hash === '#notes') $('start-notes').click();
   else if (hash === '#draft') $('start-draft').click();
+  else if (hash === '#sample') loadSample();
 }
 window.addEventListener('hashchange', followFragment);
 $('suggest-slug').addEventListener('click', () => {
@@ -259,6 +279,6 @@ loadEditingTool(() => import('./search-controls.js'), ({ installArticleSearch })
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });
-update();
+setFocus(true); update();
 report('Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();

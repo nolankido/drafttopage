@@ -28,6 +28,11 @@ source = {'profile':'update','notes':'Fictional source notes, not part of the ar
 draft = {'title':'An edited local article','excerpt':'A brief summary.','description':'A factual description.','slug':'edited-local-article','body':'An article paragraph.\n\n## A heading\n\n- One\n- Two','questions':['Does this preserve uncertainty?']}
 backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':draft}
 
+def open_more(page):
+    if not page.locator('#start-notes').is_visible():
+        page.click('#desk-more > summary')
+
+
 with sync_playwright() as p:
     options = {'headless':True,'args':['--no-sandbox','--disable-dev-shm-usage']}
     binary = shutil.which('chromium') or shutil.which('chromium-browser')
@@ -78,6 +83,29 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # The homepage sample uses the real workspace and approval-gated destination.
+    page,context,state=open_page('/write/#sample')
+    expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
+    assert page.locator('#preview-panel').get_attribute('open') is not None
+    assert page.locator('.source-editor').is_hidden()
+    assert page.locator('#copy-wordpress').is_disabled()
+    page.check('#reviewed')
+    page.click('#wordpress-code-panel > summary')
+    assert '<!-- wp:list-item -->' in page.locator('#wordpress-code-preview').input_value()
+    with page.expect_download() as info: page.click('#download-wordpress')
+    wptext=Path(info.value.path()).read_text()
+    assert '<!-- wp:paragraph -->' in wptext and '<h1>' not in wptext
+    page.fill('#body','A new article.')
+    assert not page.locator('#reviewed').is_checked() and page.locator('#wordpress-code-preview').input_value()==''
+    state['accept']=False; page.click('#start-sample')
+    assert page.locator('#body').input_value()=='A new article.'
+    state['accept']=True; page.click('#start-sample')
+    assert 'fictional sample article' in page.locator('#body').input_value()
+    page.select_option('#publishing-destination','other')
+    assert page.locator('#wordpress-handoff').is_hidden()
+    assert not page.locator('#reviewed').is_checked()
+    layout(page,'paste-first'); assert state['api']==[]; context.close()
+    report['checks'].append('Paste-first sample: same workspace, approved WordPress file, stale-output clearing, sample confirmation, destination reset, mobile layouts')
     page,context,state=open_page('/write/')
     expect(page.locator('#desk-status')).to_contain_text('ready')
     assert page.locator('#download').is_disabled()
@@ -102,7 +130,7 @@ with sync_playwright() as p:
     layout(reader,'reading-page')
     reader.close()
     page.locator('#page-details summary').click()
-    page.locator('#notes-panel > summary').click()
+    open_more(page); page.click('#start-notes')
     for key in ['title','excerpt','description','slug','body']: page.fill('#'+key,draft[key])
     page.fill('#notes',source['notes'])
     page.check('#reviewed')
@@ -147,7 +175,7 @@ with sync_playwright() as p:
     page,context,state=open_page('/write/')
     assert page.locator('#title').get_attribute('aria-invalid') is None
     assert not page.locator('#title-error').is_visible()
-    page.click('#start-notes'); page.fill('#notes',source['notes'])
+    open_more(page); page.click('#start-notes'); page.fill('#notes',source['notes'])
     page.click('#start-import')
     sample=(root/'public/samples/studio.md').read_bytes()
     page.locator('#import-file').set_input_files({'name':'a-custom-article-name.md','mimeType':'text/markdown','buffer':sample})
@@ -181,12 +209,12 @@ with sync_playwright() as p:
     page.click('#clear'); restore(page,review_backup)
     expect(page.locator('#review-question-1')).to_have_value('Check the destination title once more.')
     assert not page.locator('#reviewed').is_checked()
-    page.click('#toggle-focus'); assert page.locator('.source-editor').is_hidden()
+    open_more(page); page.click('#toggle-focus'); assert page.locator('.source-editor').is_hidden()
     page.fill('#body','One two three')
     page.locator('#body').evaluate('(el)=>el.setSelectionRange(4,7)')
     page.click('[data-format=bold]'); expect(page.locator('#body')).to_have_value('One **two** three')
     page.click('[data-format=bold]'); expect(page.locator('#body')).to_have_value('One two three')
-    page.click('#toggle-focus'); assert page.locator('.source-editor').is_visible()
+    open_more(page); page.click('#toggle-focus'); assert page.locator('.source-editor').is_visible()
     page.click('#start-import')
     page.fill('#import-text','---\ntitle: A fictional article\nlayout: article\n---\n\nBody.')
     page.click('#preview-import'); assert page.locator('#apply-import').is_disabled()
@@ -208,8 +236,8 @@ with sync_playwright() as p:
     page,context,state=open_page('/write/')
     body='## A fictional update\n\nTODO: add context.\n\n## Next step\n\nRead [A resource](https://example.test/a_(b)) and [relative](/local).\n\n![Image](https://example.test/image.png)'
     page.fill('#title','A fictional update'); page.fill('#body',body)
-    page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE CHECK SENTINEL')
-    page.click('#start-checks')
+    open_more(page); page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE CHECK SENTINEL')
+    open_more(page); page.click('#start-checks')
     expect(page.locator('#article-outline li')).to_have_count(2)
     page.check('#reviewed'); page.click('#run-checks')
     assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
@@ -318,7 +346,7 @@ with sync_playwright() as p:
     page.evaluate('window.savedClipboardItem=window.ClipboardItem; window.ClipboardItem=undefined')
     page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('Formatted copy unavailable')
     page.evaluate('() => { window.ClipboardItem=window.savedClipboardItem; }')
-    page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE KIT SENTINEL')
+    open_more(page); page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE KIT SENTINEL')
     page.locator('#review-panel > summary').click(); page.click('#add-question')
     page.fill('#review-question-0','PRIVATE QUESTION KIT SENTINEL')
     page.locator('#publishing-kit-panel > summary').click()
@@ -346,7 +374,7 @@ with sync_playwright() as p:
     page.check('#reviewed')
     with page.expect_download() as info: page.click('#download-kit')
     with zipfile.ZipFile(info.value.path()) as z: assert z.read('article-body.md').decode('utf-8')=='An updated fictional handoff.\n'
-    page.click('#start-checks')
+    open_more(page); page.click('#start-checks')
     expect(page.locator('#draft-check-stats')).to_contain_text('4 approximate words')
     expect(page.locator('#body-count')).to_contain_text('4 approximate words')
     page.locator('.recovery-box > summary').click(); page.check('#backup-private-ok')
@@ -364,7 +392,7 @@ with sync_playwright() as p:
     page.locator('#checkpoint-panel > summary').click()
     page.click('#save-checkpoint'); expect(page.locator('#desk-status')).to_contain_text('Add writing')
     page.fill('#title','Fictional first version'); page.fill('#body','Original article text.')
-    page.click('#start-notes'); page.fill('#notes','Fictional private revision source.')
+    open_more(page); page.click('#start-notes'); page.fill('#notes','Fictional private revision source.')
     page.click('#add-question'); page.fill('#review-question-0','Fictional private review question?')
     page.fill('#checkpoint-label','Before revision'); page.check('#reviewed'); page.click('#save-checkpoint')
     assert page.locator('#reviewed').is_checked()
@@ -409,7 +437,7 @@ with sync_playwright() as p:
     page.locator('.recovery-box summary').click(); restore(page,backup)
     expect(page.locator('#desk-status')).to_contain_text('restored locally')
     page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
-    page.click('#start-notes'); page.select_option('#template-select','progress'); page.click('#load-outline')
+    open_more(page); page.click('#start-notes'); page.select_option('#template-select','progress'); page.click('#load-outline')
     assert page.locator('#notes').input_value()!='Fictional private revision source.'
     page.click('#restore-checkpoint'); expect(page.locator('#notes')).to_have_value('Fictional private revision source.')
     if not page.locator('#review-panel').evaluate('el=>el.open'): page.locator('#review-panel > summary').click()
