@@ -1,5 +1,20 @@
 export const MAX_DIFF_CELLS = 160000;
 export const DIFF_GROUP_LIMIT = 40;
+export const DIFF_PREVIEW_LINES = 8;
+export const DIFF_PREVIEW_CHARACTERS = 800;
+
+export function previewArticleChange(text) {
+  if (typeof text !== 'string' || text.length > 12000 || text.includes('\u0000')) throw new Error('Choose a bounded article passage.');
+  let cut = Math.min(text.length, DIFF_PREVIEW_CHARACTERS), lineEnd = -1;
+  for (let line = 0; line < DIFF_PREVIEW_LINES; line++) {
+    lineEnd = text.indexOf('\n', lineEnd + 1);
+    if (lineEnd < 0) break;
+    if (line === DIFF_PREVIEW_LINES - 1) cut = Math.min(cut, lineEnd + 1);
+  }
+  // Do not split a UTF-16 surrogate pair at the preview boundary.
+  if (cut > 0 && /[\uDC00-\uDFFF]/.test(text[cut] || '') && /[\uD800-\uDBFF]/.test(text[cut - 1])) cut--;
+  return { text: text.slice(0, cut), truncated: cut < text.length };
+}
 
 // Exact line tokens include their line endings and the absence of a final one.
 const lines = text => text.match(/[^\n]*\n|[^\n]+$/g) || [];

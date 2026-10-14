@@ -1,4 +1,4 @@
-import { compareArticleLines, DIFF_GROUP_LIMIT } from './revision-diff.js';
+import { compareArticleLines, DIFF_GROUP_LIMIT, previewArticleChange } from './revision-diff.js';
 
 export function installRevisionDiff({ getComparison, compare = compareArticleLines }) {
   const $ = id => document.getElementById(id);
@@ -25,8 +25,15 @@ export function installRevisionDiff({ getComparison, compare = compareArticleLin
         li.className = 'article-diff-' + group.kind;
         const start = group.kind === 'removed' ? group.savedLine : group.currentLine;
         label.textContent = (group.kind === 'removed' ? 'Removed from saved article' : 'Added in current article') + ': ' + (group.lineCount === 1 ? 'line ' + start : 'lines ' + start + '–' + (start + group.lineCount - 1)) + (group.text.trim() ? '' : ' (whitespace only)');
-        text.textContent = group.text;
+        const preview = previewArticleChange(group.text);
+        text.className = 'article-diff-preview'; text.textContent = preview.text;
         li.append(label, text);
+        if (preview.truncated) {
+          const note = document.createElement('p'), details = document.createElement('details'), summary = document.createElement('summary'), full = document.createElement('pre');
+          note.className = 'small'; note.textContent = 'Shortened preview. Open the complete passage to review all ' + group.lineCount.toLocaleString() + ' lines.';
+          summary.textContent = 'Show complete ' + (group.kind === 'removed' ? 'saved' : 'current') + ' passage'; full.textContent = group.text;
+          details.className = 'article-diff-complete'; details.append(summary, full); li.append(note, details);
+        }
         if (group.text.includes('\r') || !group.text.endsWith('\n')) {
           const note = document.createElement('p'); note.className = 'small';
           note.textContent = (group.text.includes('\r\n') ? 'Contains CRLF line breaks. ' : '') + (!group.text.endsWith('\n') ? 'No final line break in this passage.' : '');
