@@ -62,7 +62,7 @@ npm run preview:mock
 
 ## Tests and their limits
 
-GitHub CI runs the complete Node suite, syntax/asset/anchor/accessibility-reference checks, and a pinned Wrangler dry-run. A separate read-only browser job installs Playwright 1.57.0 as test-only tooling and executes `python scripts/browser-smoke.py`.
+GitHub Actions workflows have been removed by owner request. Do not add or dispatch Actions jobs or cron schedules. Run `npm test` and `npm run check` locally; the latter rejects workflow YAML under `.github/workflows`. Run `python3 scripts/browser-smoke.py` manually when Playwright and Chromium are available. A pinned Wrangler dry-run is also a manual check, not an Actions job. See [the automation policy](docs/AUTOMATION_POLICY.md).
 
 The browser suite loads actual ES modules using local Playwright response routes with CSP headers. It checks desktop/narrow layouts, export approval, actual temporary-browser download bytes, backup restoration and cancellation, hostile text, sample/template regressions, and simulated pilot session failures. These routes are test fixtures, not real Cloudflare authentication, Durable Object execution, or genuine provider requests. No test secrets or real private writing are used.
 
@@ -78,5 +78,5 @@ User writing and imported markup are treated as text. The local preview creates 
 
 ## Change process
 
-Use feature branches and reviewed pull requests. Keep private material out of all public branches and documents. Preserve existing work when reconciling older branches. Distinguish source changes, local tests, CI, deployment, and genuine AI activation in release reports.
+Use feature branches and reviewed pull requests. Keep private material out of all public branches and documents. Preserve existing work when reconciling older branches. Distinguish source changes, local/manual tests, native Cloudflare deployment, and genuine AI activation in release reports. Do not start GitHub Actions for validation.
 

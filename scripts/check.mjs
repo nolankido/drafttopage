@@ -7,6 +7,11 @@ async function files(dir) {
   return (await Promise.all((await readdir(dir, { withFileTypes: true })).map(e => e.isDirectory() ? files(join(dir, e.name)) : join(dir, e.name)))).flat();
 }
 const sourceFiles = (await Promise.all(['src', 'public', 'scripts', 'tests'].map(files))).flat();
+const workflowFiles = await files('.github/workflows').catch(error => {
+  if (error.code === 'ENOENT') return [];
+  throw error;
+});
+assert.ok(!workflowFiles.some(file => /\.ya?ml$/i.test(file)), 'GitHub Actions workflows are stopped by owner request. Run validation locally.');
 for (const file of sourceFiles.filter(p => /\.(m?js)$/.test(p))) execFileSync(process.execPath, ['--check', file]);
 const pages = [appPage, loginPage, unavailablePage, ...await Promise.all(sourceFiles.filter(p => p.endsWith('.html')).map(p => readFile(p, 'utf8')))];
 for (const page of pages) {
@@ -54,4 +59,5 @@ for (const path of sourceFiles.filter(p => p.startsWith('public/') && p.endsWith
   }
 }
 for (const file of sourceFiles.filter(p => p.startsWith('src/'))) assert.ok(!/console\.(log|warn|error)/.test(await readFile(file, 'utf8')), `No production content logging in ${file}`);
-console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, assets, anchors, accessible references, browser imports, protected routing, and storage/logging guards.`);
+console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, assets, anchors, accessible references, browser imports, protected routing, storage/logging guards, and no GitHub Actions workflows.`);
+
