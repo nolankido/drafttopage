@@ -106,6 +106,26 @@ with sync_playwright() as p:
     assert not page.locator('#reviewed').is_checked()
     layout(page,'paste-first'); assert state['api']==[]; context.close()
     report['checks'].append('Paste-first sample: same workspace, approved WordPress file, stale-output clearing, sample confirmation, destination reset, mobile layouts')
+    page,context,state=open_page('/write/#sample')
+    page.fill('#body','A fictional opening.\n\n  - Nested list\n\n![image](https://example.test/image.png)\n\nTODO: inspect.')
+    expect(page.locator('#wordpress-review-status')).to_contain_text('item(s) to inspect')
+    assert page.locator('#wordpress-findings li').count()==3
+    page.locator('#wordpress-findings button').first.click()
+    assert page.locator('#body').evaluate('(el) => el.value.slice(el.selectionStart, el.selectionEnd)')=='  - Nested list'
+    page.click('#wordpress-kit-panel > summary')
+    assert page.locator('#wordpress-kit-files li').count()==6
+    assert page.locator('#download-wordpress-kit').is_disabled()
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-wordpress-kit')
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None and len(z.namelist())==6
+        assert b'TODO' in z.read('REVIEW.txt') and b'wp:paragraph' in z.read('wordpress-blocks.html')
+    page.click('#wordpress-edit-fields'); expect(page.locator('#excerpt')).to_be_focused()
+    page.fill('#excerpt','A fictional handoff summary.'); assert not page.locator('#reviewed').is_checked()
+    page.fill('#body','A revised fictional article.'); assert page.locator('#wordpress-findings li').count()==0
+    page.select_option('#publishing-destination','other'); assert page.locator('#wordpress-kit-files li').count()==0
+    layout(page,'wordpress-handoff'); assert state['api']==[]; context.close()
+    report['checks'].append('WordPress handoff: current findings and source selection, approved six-file ZIP, optional field editing, stale findings clearing, responsive layouts')
     page,context,state=open_page('/write/')
     expect(page.locator('#desk-status')).to_contain_text('ready')
     assert page.locator('#download').is_disabled()

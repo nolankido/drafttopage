@@ -14,3 +14,5 @@
 .article-diff-complete{margin-top:.5rem}.article-diff-complete>summary{cursor:pointer;font-size:.85rem;font-weight:600}.article-diff-complete[open]{border-top:1px solid var(--line);padding-top:.5rem}
 
 .desk-more>summary{cursor:pointer;font-weight:600}.desk-more .desk-start{margin-top:.8rem}#wordpress-handoff{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1rem;margin-top:1rem;min-width:0}#wordpress-handoff h4{margin-top:0}.handoff-steps{padding-left:1.3rem;overflow-wrap:anywhere}.handoff-steps li{margin:.8rem 0}#wordpress-code-preview{width:100%;min-width:0;max-width:100%;font:.8rem/1.5 ui-monospace,monospace}#publishing-destination{max-width:100%;width:100%}
+
+.wordpress-findings{padding-left:1.2rem;max-width:100%;overflow-wrap:anywhere}.wordpress-findings li{border-bottom:1px solid var(--line);padding-bottom:.8rem;margin:.8rem 0}.wordpress-findings p{margin:.35rem 0}.wordpress-findings button{font-size:.8rem}#wordpress-review-panel>summary,#wordpress-kit-panel>summary{font-weight:650;cursor:pointer}#wordpress-handoff h5{font:650 1rem/1.4 var(--sans);margin:1.2rem 0 .5rem}

@@ -4,9 +4,11 @@ import { publishingKitFiles, createPublishingKit } from './publishing-kit.js';
 import { downloadText } from './download.js';
 import { createWordPressArticle } from './wordpress-export.js';
 import { suggestFilename } from './preview.js';
+import { installWordPressHandoff } from './wordpress-handoff-controls.js';
 
-export function installPublishingExports({ getDraft, approved, changed, report }) {
+export function installPublishingExports({ getDraft, approved, changed, report, isBusy }) {
   const $ = id => document.getElementById(id);
+  const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy });
   let kitSnapshot = null;
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
   function update() {
@@ -21,6 +23,7 @@ export function installPublishingExports({ getDraft, approved, changed, report }
     $('wordpress-notices').replaceChildren(...(article?.notices || []).map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
     // Clear hidden or unapproved output immediately after edits, restore, or clear.
     $('wordpress-code-preview').value = wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
+    handoff.update();
     $('copy-formatted').disabled = !reviewed || Object.keys(articleIssues(draft, $('copy-title').checked ? 'html' : 'body')).length > 0;
     let kit = null, error = '';
     try { kit = publishingKitFiles(draft, options()); }
@@ -80,5 +83,5 @@ export function installPublishingExports({ getDraft, approved, changed, report }
     try { approved(); const draft = getDraft(); if (articleIssues(draft, 'html').title) throw new Error('Add a valid title first.'); await navigator.clipboard.writeText(draft.title.trim()); report('Title copied separately. Paste into the WordPress title field. Nothing was published.'); }
     catch (error) { report('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
   });
-  return { update, reset: () => { $('copy-title').checked = false; $('publishing-destination').value = 'wordpress'; $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
+  return { update, reset: () => { handoff.reset(); $('copy-title').checked = false; $('publishing-destination').value = 'wordpress'; $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
 }

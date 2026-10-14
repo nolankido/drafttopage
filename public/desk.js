@@ -254,7 +254,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()) });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
 // An optional editing tool must not block the core writing/recovery workspace.
 loadEditingTool(() => import('./revision-diff-controls.js'), ({ installRevisionDiff }) => {
