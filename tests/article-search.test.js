@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { findArticleMatches, navigateArticleMatch, replaceArticleMatch, previewArticleReplacements } from '../public/article-search.js';
 import { installArticleSearch } from '../public/search-controls.js';
 import { createCheckpointHistory } from '../public/revisions.js';
-import { loadEditingTool } from '../public/editing.js';
+import { loadEditingTool, revealArticleSelection } from '../public/editing.js';
 
 test('Find treats all pattern punctuation literally and returns exact Unicode textarea offsets', () => {
   for (const query of ['[a]', 'a.b', '$&', '\\', '(foo)', '*+?^${}|[]']) {
@@ -77,6 +77,22 @@ test('Optional module loading succeeds deliberately and contains load/installati
   assert.equal(installed, 1); assert.equal(unavailable, 2);
   assert.deepEqual(writing, { body: 'Existing fictional writing.', approved: true });
 });
+test('Selection measurement uses inert text and always removes its temporary mirror', () => {
+  const previous = { document: globalThis.document, getComputedStyle: globalThis.getComputedStyle };
+  let removed = false, failure = false, mirror, marker;
+  const writing = { value: '<script>literal()</script> needle tail', selectionStart: 27, selectionEnd: 33, clientWidth: 250, clientHeight: 400, scrollTop: 0 };
+  globalThis.getComputedStyle = () => ({ lineHeight: '24px', fontSize: '16px' });
+  globalThis.document = {
+    body: { append: () => {} },
+    createElement: type => type === 'div' ? (mirror = { style: {}, setAttribute() {}, append(...values) { this.values = values; }, getBoundingClientRect: () => ({ top: 100 }), remove() { removed = true; } }) : (marker = { textContent: '', getBoundingClientRect() { if (failure) throw new Error('Fixture geometry failure'); return { top: 2600 }; } })
+  };
+  try {
+    revealArticleSelection(writing);
+    assert.equal(writing.scrollTop, 2312); assert.equal(marker.textContent, 'needle');
+    assert.equal(mirror.values[0], '<script>literal()</script> '); assert.equal(mirror.style.width, '250px'); assert.equal(removed, true);
+    removed = false; failure = true; assert.throws(() => revealArticleSelection(writing)); assert.equal(removed, true);
+  } finally { Object.assign(globalThis, previous); }
+});
 
 // Controller contract tests, with event-bearing controls. These do not assert browser rendering.
 function fakeControls() {
@@ -102,7 +118,7 @@ function withEditor(run) {
   const source = { profile: 'personal', notes: 'Private fictional source.', audience: '', purpose: '' };
   const draft = () => ({ title: 'Fictional search', excerpt: '', description: '', slug: '', body: $('body').value, questions: ['Private fictional question?'] });
   try {
-    const ui = installArticleSearch({ isBusy: () => busy, report: text => { message = text; }, apply: (plan, label) => {
+    const ui = installArticleSearch({ isBusy: () => busy, reveal: () => {}, report: text => { message = text; }, apply: (plan, label) => {
       if (failure) throw new Error('Checkpoint unavailable. Current writing is unchanged.');
       history.save({ source, draft: draft() }, label);
       $('body').value = plan.body; $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd); approved = false;

@@ -1,6 +1,7 @@
 import { findArticleMatches, navigateArticleMatch, replaceArticleMatch, previewArticleReplacements } from './article-search.js';
+import { revealArticleSelection } from './editing.js';
 
-export function installArticleSearch({ apply, isBusy, report }) {
+export function installArticleSearch({ apply, isBusy, report, reveal = revealArticleSelection }) {
   const $ = id => document.getElementById(id), body = $('body');
   let matches = [], searchKey = null, active = -1, candidate = null;
   const options = () => ({ matchCase: $('find-case').checked });
@@ -37,9 +38,7 @@ export function installArticleSearch({ apply, isBusy, report }) {
     refresh(); if (isBusy() || !matches.length) return;
     active = navigateArticleMatch(matches, body.selectionStart, body.selectionEnd, direction);
     const match = matches[active]; body.focus(); body.setSelectionRange(match.start, match.end);
-    // Same line navigation used by draft checks; exact selected offsets remain authoritative.
-    const line = body.value.slice(0, match.start).split('\n').length;
-    body.scrollTop = Math.max(0, (line - 2) * (parseFloat(getComputedStyle(body).lineHeight) || 24));
+    try { reveal(body); } catch { /* Keep the exact selection if layout measurement is unavailable. */ }
     refresh(); report('Selected match ' + (active + 1) + ' of ' + matches.length + '. Searching kept your writing and review approval.');
   }
   $('start-find').addEventListener('click', () => { $('find-panel').open = true; $('find-text').focus(); refresh(); });

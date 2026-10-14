@@ -34,3 +34,19 @@ export async function loadEditingTool(load, install, unavailable) {
   try { install(await load()); return true; }
   catch { unavailable(); return false; }
 }
+
+// Measure the actual wrapped text rather than estimating from newline counts.
+export function revealArticleSelection(body) {
+  const style = getComputedStyle(body), mirror = document.createElement('div'), marker = document.createElement('span');
+  mirror.setAttribute('aria-hidden', 'true');
+  mirror.style.cssText = 'position:absolute;left:-100000px;top:0;visibility:hidden;pointer-events:none;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:break-word;';
+  mirror.style.width = body.clientWidth + 'px';
+  for (const key of ['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'fontStretch', 'fontVariant', 'lineHeight', 'letterSpacing', 'wordSpacing', 'textIndent', 'textAlign', 'direction', 'tabSize', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'wordBreak']) mirror.style[key] = style[key];
+  marker.textContent = body.value.slice(body.selectionStart, body.selectionEnd) || '\u200b';
+  mirror.append(body.value.slice(0, body.selectionStart), marker, body.value.slice(body.selectionEnd));
+  try {
+    document.body.append(mirror);
+    const top = marker.getBoundingClientRect().top - mirror.getBoundingClientRect().top;
+    body.scrollTop = Math.max(0, top - body.clientHeight / 2 + (parseFloat(style.lineHeight) || 24) / 2);
+  } finally { mirror.remove(); }
+}
