@@ -289,7 +289,7 @@ with sync_playwright() as p:
     page.click('#copy-body'); assert page.evaluate('window.bodyCopyFixture')==body
     page.evaluate('window.savedClipboardItem=window.ClipboardItem; window.ClipboardItem=undefined')
     page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('Formatted copy unavailable')
-    page.evaluate('window.ClipboardItem=window.savedClipboardItem')
+    page.evaluate('() => { window.ClipboardItem=window.savedClipboardItem; }')
     page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE KIT SENTINEL')
     page.locator('#review-panel > summary').click(); page.click('#add-question')
     page.fill('#review-question-0','PRIVATE QUESTION KIT SENTINEL')
