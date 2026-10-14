@@ -82,7 +82,7 @@ function fill(value) {
   publishingExports?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -212,7 +212,7 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0,
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); }, report,
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
@@ -226,7 +226,14 @@ $('import-text').addEventListener('input', () => {
   updateExitWarning();
 });
 renderQuestions();
-draftReview = installDraftReview({ getDraft: () => capture().draft, report });
+draftReview = installDraftReview({
+  getDraft: () => capture().draft, isBusy: () => recovery.reading() || Boolean(importer?.reading()), report,
+  applySectionMove: (plan, label) => {
+    revisions.captureBefore(label);
+    $('body').value = plan.body; touched.add('body'); changed();
+    $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
+  }
+});
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
 // An optional editing tool must not block the core writing/recovery workspace.

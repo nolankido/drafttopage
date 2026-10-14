@@ -1,12 +1,14 @@
-import { analyzeDraft, articleStructure, REVIEW_LIMIT } from './draft-review.js';
+import { analyzeDraft, REVIEW_LIMIT } from './draft-review.js';
+import { articleSections, moveArticleSection } from './article-sections.js';
+import { revealArticleSelection } from './editing.js';
 
-export function installDraftReview({ getDraft, report }) {
+export function installDraftReview({ getDraft, applySectionMove, isBusy = () => false, report, reveal = revealArticleSelection }) {
   const $ = id => document.getElementById(id);
   let checked = null, snapshot = '', outlineBody = null;
   const signature = draft => JSON.stringify([draft.title, draft.body]);
   function jump(item) {
     const body = $('body'); body.focus(); body.setSelectionRange(item.start, item.end);
-    body.scrollTop = Math.max(0, (item.line - 2) * (parseFloat(getComputedStyle(body).lineHeight) || 24));
+    try { reveal(body); } catch { /* The exact selection remains available. */ }
     report('Selected article text on line ' + item.line + '. Edit it in the article field.');
   }
   function button(item, label) {
@@ -16,13 +18,40 @@ export function installDraftReview({ getDraft, report }) {
   function outline() {
     const body = getDraft().body;
     // Preserve button nodes through editor blur, so a pending click still fires.
-    if (body === outlineBody) return;
+    if (body === outlineBody) {
+      for (const control of $('article-outline').querySelectorAll('[data-section-move]')) control.disabled = isBusy() || control.dataset.available !== 'true';
+      return;
+    }
     outlineBody = body;
-    const headings = articleStructure(body).filter(block => block.kind === 'heading');
-    $('outline-status').textContent = headings.length ? headings.length + ' heading(s). Select one to edit its source.' + (headings.length > REVIEW_LIMIT ? ' Showing the first ' + REVIEW_LIMIT + '.' : '') : 'No Markdown headings yet. Add a heading with the formatting tools when it helps the reader.';
+    const { sections: headings, movable } = articleSections(body);
+    $('outline-status').textContent = headings.length ? headings.length + ' heading(s). Select one to edit its source.' + (headings.length > REVIEW_LIMIT ? ' Showing the first ' + REVIEW_LIMIT + '; moves are limited to these headings.' : '') + (movable ? '' : ' Close the unfinished code fence to enable section moves.') : 'No Markdown headings yet. Add a heading with the formatting tools when it helps the reader.';
     $('article-outline').replaceChildren(...headings.slice(0, REVIEW_LIMIT).map(item => {
       const li = document.createElement('li');
-      li.append(button(item, 'Line ' + item.line + ': ' + '#'.repeat(item.level) + ' ' + (item.text.slice(0, 120) || '(empty heading)'))); return li;
+      li.append(button(item, 'Line ' + item.line + ': ' + '#'.repeat(item.level) + ' ' + (item.text.slice(0, 120) || '(empty heading)')));
+      const actions = document.createElement('div'); actions.className = 'section-moves';
+      for (const direction of ['up', 'down']) {
+        const control = document.createElement('button'); control.type = 'button'; control.className = 'secondary'; control.textContent = 'Move ' + direction;
+        control.setAttribute('aria-label', 'Move ' + (item.text.slice(0, 120) || 'empty heading on line ' + item.line) + ' ' + direction);
+        control.dataset.sectionMove = direction; control.dataset.headingStart = String(item.start);
+        control.dataset.available = String(Boolean(applySectionMove) && movable && item[direction] !== null && item[direction] < REVIEW_LIMIT);
+        control.disabled = isBusy() || control.dataset.available !== 'true';
+        control.addEventListener('click', () => {
+          if (isBusy() || control.dataset.available !== 'true') return;
+          if (getDraft().body !== body) { outline(); report('The article changed. Choose a section from its current outline.'); return; }
+          try {
+            const plan = moveArticleSection(body, item.start, direction);
+            applySectionMove(plan, 'Before moving a section ' + direction);
+            refresh();
+            const moved = $('article-outline').querySelector('[data-section-move="' + direction + '"][data-heading-start="' + plan.selectionStart + '"]');
+            // Keep keyboard users in the outline for another move or navigation.
+            if (moved && !moved.disabled) moved.focus();
+            else moved?.closest('li').querySelector('.review-jump').focus();
+            report('Section moved ' + direction + ' with its subsections. Previous writing is in Revisions in this tab. Review approval was cleared.');
+          } catch (error) { report(error.message); }
+        });
+        actions.append(control);
+      }
+      li.append(actions); return li;
     }));
   }
   function refresh() {
@@ -32,7 +61,7 @@ export function installDraftReview({ getDraft, report }) {
       $('draft-check-stats').textContent = '';
       $('draft-link-status').textContent = 'The article changed. Run checks again to inspect its current links.';
     }
-    if ($('draft-check-panel').open) outline();
+    if ($('draft-check-panel').open || !getDraft().body) outline();
   }
   $('draft-check-panel').addEventListener('toggle', refresh);
   $('start-checks').addEventListener('click', () => {
