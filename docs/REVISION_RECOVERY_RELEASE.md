@@ -20,4 +20,19 @@ No timer, keystroke autosave, persistent browser storage, server history, AI cal
 - The local Playwright browser suite is expanded for revision recovery. The current environment could not install a usable Chromium binary, so an expanded-suite pass is not claimed. Direct live-browser validation is required separately.
 - No Actions workflow may be restored to perform validation. Native Cloudflare Git publishing is separate.
 
-Publication and live verification are reported in the pull request. The private AI pilot remains unactivated and genuine provider acceptance is not claimed.
+## Published result and direct live verification
+
+PR #12 merged as `0d2b192a74488d664c9ad51332e8ed6bc1f1e719`. The native Cloudflare Workers build succeeded and published version `c63b1dc8-489a-4c21-b52d-e7d0f5579c01`. The live `/write/` page reported `revision-recovery-20261014`.
+
+Using only disposable fictional writing, direct live-browser checks confirmed:
+
+- Empty checkpoint handling, labeled saving without clearing existing approval, and exact saved/current field comparison.
+- A real 552-byte selected-checkpoint download, independently read from disk: the saved article, source and review notes, and exact version-1 workspace shape, without labels/history/authentication/approval fields.
+- Cancelled restore leaves current writing intact; restore clears approval/preferences and retains displaced writing; restoring again recovers that displaced version.
+- Previous writing retained around formatting, article import, outline replacement, review-note removal, and restoring the downloaded workspace file. Imports kept source notes, and restoring the prior checkpoint recovered private review notes.
+- The five-checkpoint limit, cancelled clearing, and confirmed clearing of article/source/questions/history and hidden comparison/import-preview values. An open empty reading preview correctly shows only the generic `Untitled article` heading, with no prior article text.
+- No Draft to Page page errors in the observed browser logs and no horizontal overflow at the observed desktop viewport. Browser-extension errors are separate. Expanded automated narrow-layout tests remain unrun because Chromium installation failed; no new real-mobile or screen-reader audit is claimed.
+
+GitHub Actions had no runs for the feature or production commits and no running or queued jobs. Both source trees contained no workflow files. Cloudflare's check was produced by its native GitHub App, not GitHub Actions. Repository administrator Actions permissions were not changed; configured workflow jobs were removed and guarded against reintroduction.
+
+The live private pilot still reported that it was not activated. Genuine provider acceptance is not claimed.
