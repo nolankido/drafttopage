@@ -6,17 +6,20 @@ import { renderPreview, suggestFilename } from './preview.js';
 import { articleIssues, articleBody, makeDraftingBrief } from './authoring.js';
 import { createReadingPage } from './html-export.js';
 import { TEMPLATES } from './content-data.js';
+import { installArticleImport } from './import-controls.js';
+import { formatMarkdown } from './editing.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [];
+let questions = [], importer = null;
+const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
 const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
-const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0;
+const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending());
 const filename = () => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test($('slug').value) && $('slug').value.length <= 80 ? $('slug').value : suggestFilename($('title').value);
 function update() {
   const value = capture();
@@ -28,8 +31,9 @@ function update() {
   const issues = articleIssues(value.draft);
   for (const id of DRAFT_FIELDS) {
     const error = $(id + '-error');
-    error.textContent = issues[id] || ''; error.hidden = !issues[id];
-    if (issues[id]) $(id).setAttribute('aria-invalid', 'true'); else $(id).removeAttribute('aria-invalid');
+    const showError = Boolean(issues[id]) && (touched.has(id) || $(id).value.length > 0);
+    error.textContent = issues[id] || ''; error.hidden = !showError;
+    if (showError) $(id).setAttribute('aria-invalid', 'true'); else $(id).removeAttribute('aria-invalid');
   }
   const reviewed = $('reviewed').checked;
   for (const id of ['download', 'copy']) $(id).disabled = !reviewed || Object.keys(issues).length > 0;
@@ -42,7 +46,8 @@ function update() {
   catch (error) { $('drafting-brief').value = error.message; }
   if ($('preview-panel').open) renderPreview($('article-preview'), $('title').value, $('body').value);
 }
-function changed() {
+function changed(event) {
+  if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
   $('reviewed').checked = false;
   window.removeEventListener('beforeunload', warn);
   if (hasWork()) window.addEventListener('beforeunload', warn);
@@ -52,23 +57,22 @@ function fill(value) {
   for (const id of sourceFields) $(id).value = value.source[id];
   for (const id of DRAFT_FIELDS) $(id).value = value.draft?.[id] ?? '';
   questions = value.draft?.questions ? [...value.draft.questions] : [];
-  $('questions').replaceChildren(...questions.map(text => {
-    const li = document.createElement('li'); li.textContent = text; return li;
-  }));
-  $('imported-questions').hidden = questions.length === 0;
+  touched.clear(); renderQuestions(); setFocus(false);
+  importer?.clear(); $('import-text').value = '';
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: fill, hasWork, isBusy: () => false, report });
+const recovery = installRecovery({ capture, restore: fill, hasWork, isBusy: () => Boolean(importer?.reading()), report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
+for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
 $('reviewed').addEventListener('change', update);
 $('preview-panel').addEventListener('toggle', update);
 $('template-select').addEventListener('change', update);
 $('export-format').addEventListener('change', changed);
 $('start-notes').addEventListener('click', () => {
-  $('notes-panel').open = true; $('template-select').focus();
+  setFocus(false); $('notes-panel').open = true; $('template-select').focus();
   report('Choose an outline or enter your own notes. No text is generated automatically.');
 });
 $('start-draft').addEventListener('click', () => {
@@ -77,10 +81,10 @@ $('start-draft').addEventListener('click', () => {
 });
 function loadOutline(id) {
   const template = TEMPLATES.find(item => item.id === id);
-  if (!template || recovery.reading()) return;
+  if (!template || recovery.reading() || importer?.reading()) return;
   if ($('notes').value && !confirm('Replace the source notes with this outline? Save any notes you want to keep first. The current article is kept.')) return;
   $('notes').value = template.outline; $('profile').value = template.profile;
-  $('template-select').value = template.id; $('notes-panel').open = true;
+  $('template-select').value = template.id; setFocus(false); $('notes-panel').open = true;
   changed(); $('notes').focus();
   report('Outline loaded locally. Replace its prompts with your own facts. The existing article is kept; compare it with the new notes before approving.');
 }
@@ -134,13 +138,66 @@ $('copy-brief').addEventListener('click', () => {
   catch (error) { report(error.message); $('notes').focus(); }
 });
 $('clear').addEventListener('click', () => {
-  if (recovery.reading()) return;
+  if (recovery.reading() || importer?.reading()) return;
   if (hasWork() && !confirm('Clear the notes, article, and questions in this tab? Download a private backup first to keep unfinished work.')) return;
   fill({ source: { profile: 'personal', audience: '', purpose: '', notes: '' }, draft: null });
   $('template-select').value = '';
   $('backup-private-ok').checked = false; recovery.update(); update();
   report('Writing desk cleared. Files already downloaded to your device are unchanged.');
 });
+function setFocus(active) {
+  $('main').classList.toggle('desk-focus', active);
+  document.querySelector('.source-editor').hidden = active;
+  $('toggle-focus').setAttribute('aria-pressed', String(active));
+  $('toggle-focus').textContent = active ? 'Show source & review' : 'Focus on article';
+}
+$('toggle-focus').addEventListener('click', () => setFocus($('toggle-focus').getAttribute('aria-pressed') !== 'true'));
+for (const button of document.querySelectorAll('[data-format]')) button.addEventListener('click', () => {
+  try {
+    const result = formatMarkdown($('body').value, $('body').selectionStart, $('body').selectionEnd, button.dataset.format);
+    $('body').value = result.body; $('body').focus(); $('body').setSelectionRange(result.selectionStart, result.selectionEnd);
+    touched.add('body'); changed(); report('Formatting applied locally. Review approval was cleared.');
+  } catch (error) { report(error.message); }
+});
+function renderQuestions() {
+  $('questions').replaceChildren(...questions.map((text, index) => {
+    const item = document.createElement('li');
+    const label = document.createElement('label'); label.htmlFor = 'review-question-' + index; label.textContent = 'Review note ' + (index + 1);
+    const input = document.createElement('textarea'); input.id = label.htmlFor; input.rows = 3; input.maxLength = 500; input.value = text;
+    input.addEventListener('input', () => { questions[index] = input.value; changed(); });
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Remove note ' + (index + 1);
+    remove.addEventListener('click', () => {
+      questions.splice(index, 1); renderQuestions(); changed();
+      $('add-question').focus(); report('Review note removed from this workspace. Downloaded backups are unchanged.');
+    });
+    item.append(label, input, remove); return item;
+  }));
+  $('question-count').textContent = questions.length + ' / 12 review notes; up to 500 characters each';
+  $('add-question').disabled = questions.length >= 12;
+  $('copy-questions').disabled = questions.length === 0;
+  if (questions.length) $('review-panel').open = true;
+}
+$('add-question').addEventListener('click', () => {
+  if (questions.length >= 12) return;
+  questions.push(''); renderQuestions(); changed();
+  $('questions').lastElementChild.querySelector('textarea').focus();
+});
+$('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
+importer = installArticleImport({
+  hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0,
+  isBusy: () => recovery.reading(), busyChanged: () => recovery.update(), report,
+  apply: draft => {
+    for (const id of DRAFT_FIELDS) $(id).value = draft[id];
+    questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
+    $('export-format').value = 'page'; changed(); $('body').focus();
+  }
+});
+$('start-import').addEventListener('click', () => { $('import-panel').open = true; $('import-file').focus(); });
+$('import-text').addEventListener('input', () => {
+  window.removeEventListener('beforeunload', warn);
+  if (hasWork()) window.addEventListener('beforeunload', warn);
+});
+renderQuestions();
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });

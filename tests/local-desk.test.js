@@ -77,7 +77,7 @@ test('Filename helper produces safe bounded names, including empty and non-ASCII
   assert.equal(suggestFilename('Café project'), 'cafe-project');
 });
 test('Local feature modules cannot upload or execute imported HTML', async () => {
-  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js', 'html-export.js', 'authoring.js']) {
+  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js', 'html-export.js', 'authoring.js', 'article-import.js', 'import-controls.js', 'editing.js']) {
     const js = await readFile(`public/${file}`, 'utf8');
     assert.doesNotMatch(js, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|innerHTML|outerHTML|insertAdjacentHTML|eval\(|localStorage|sessionStorage|indexedDB/);
   }
@@ -102,7 +102,7 @@ test('Shared public build keeps stable URLs, template handoffs, and release outp
     assert.match(first[1], /aria-current="page"/);
     assert.match(first[1], /id="template-progress"/);
     assert.match(first[2], /href="\/write\/#template-progress"/);
-    assert.equal((first[5].match(/<url>/g) || []).length, 14);
+    assert.equal((first[5].match(/<url>/g) || []).length, 15);
     assert.equal(JSON.parse(first[6]).release, RELEASE);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

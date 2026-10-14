@@ -11,7 +11,11 @@ Repository: `nolankido/drafttopage`. Domain: `drafttopage.com`. Hosting: the exi
 - `/demo/`: practice with prewritten fictional examples. These are illustrative, not actual model responses or customer evidence.
 - `/pilot`: private AI assistance requires owner activation and genuine hosted acceptance testing. Generation remains separate from the public workspace.
 
-The public site has fourteen indexable pages plus a useful 404, including note templates, three complete examples, source/review/export guides, about and support, and data-use guidance. There is no public registration, billing, tracking, automatic publishing, or server-side draft history.
+The public site has fifteen indexable pages plus a useful 404, including note templates, three complete examples, source/review/export guides, about and support, and data-use guidance. There is no public registration, billing, tracking, automatic publishing, or server-side draft history.
+
+The public desk also supports previewed local Markdown and structured-article JSON imports, including selected UTF-8 files up to 48 KiB. Applying an import keeps source notes, replaces article fields and review questions after confirmation, and clears approval. Unmapped scalar front matter requires a deliberate destination decision. Complex YAML, unknown JSON fields, oversized input, and malformed data are rejected before replacement. Import previews are temporary and are not in backups until applied.
+
+Review questions are editable, with twelve notes of up to 500 characters, and use the unchanged version-1 backup contract. Local formatting tools preserve text outside the selection and respect the editor limit. Focus mode hides the source/review panel without deleting data. Blank untouched fields do not show error styling; readiness remains visible.
 
 The public reading preview and standalone HTML export support headings, lists, simple emphasis, code, and quotations through bounded text parsing. Links, images, and source HTML remain text; no external resources are loaded. The exported HTML document includes local styling and a restrictive document CSP. It is not a full Markdown renderer or a verified integration with any particular website. Page Markdown remains untrusted input for the destination.
 
@@ -42,7 +46,7 @@ npm run preview:mock
 
 `npm run build` invokes `scripts/build-site.mjs`, which builds all public pages through `scripts/build-content.mjs`. The shared page shell, navigation, footer, metadata, and release identifier are in `scripts/site-shell.mjs`. No generated-HTML patching layer remains. Generated HTML and downloads are ignored by Git; edit build sources instead. Wrangler invokes the same build before deployment.
 
-`public/content-data.js` contains public fictional examples and outlines. The desk markup is `scripts/writing-desk.html`, composed by `scripts/writing-pages.mjs`. `public/workspace.js` preserves the existing version-1 private-backup contract. `public/authoring.js` separates body, reading-page, and complete-page validation and assembles the local drafting brief. `public/html-export.js` generates a standalone reading document without source markup execution. `public/preview.js` supplies the shared bounded reading blocks.
+`public/content-data.js` contains public fictional examples and outlines. The desk markup is `scripts/writing-desk.html`, composed by `scripts/writing-pages.mjs`. `public/workspace.js` preserves the existing version-1 private-backup contract. `public/authoring.js` separates body, reading-page, and complete-page validation and assembles the local drafting brief, which requests the same six-field structured article shape the importer accepts. `public/article-import.js` bounds and parses article files; `public/import-controls.js` stages a preview before applying; `public/editing.js` provides pure selection transformations. `public/html-export.js` generates a standalone reading document without source markup execution. `public/preview.js` supplies the shared bounded reading blocks.
 
 ## Tests and their limits
 
