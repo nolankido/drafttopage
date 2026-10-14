@@ -5,7 +5,7 @@ import { ARTICLE_TYPES, TEMPLATES, EXAMPLES } from '../public/content-data.js';
 import { createMarkdown } from '../public/markdown.js';
 import { RELEASE } from '../scripts/site-shell.mjs';
 import { appPage, unavailablePage } from '../src/pages.js';
-const publicPages = ['index.html', 'examples/index.html', 'templates/index.html', 'demo/index.html', 'write/index.html', 'help/local-workspace/index.html', 'getting-started/index.html', 'help/index.html', 'help/markdown-export/index.html', 'access/index.html', 'guides/source-notes/index.html', 'guides/review/index.html', 'privacy/index.html', 'about/index.html', 'help/article-import/index.html', '404.html'];
+const publicPages = ['index.html', 'examples/index.html', 'templates/index.html', 'demo/index.html', 'write/index.html', 'help/local-workspace/index.html', 'getting-started/index.html', 'help/index.html', 'help/markdown-export/index.html', 'access/index.html', 'guides/source-notes/index.html', 'guides/review/index.html', 'privacy/index.html', 'about/index.html', 'help/article-import/index.html', 'help/draft-checks/index.html', '404.html'];
 test('Six public templates use exactly the three existing article types', () => {
   assert.equal(TEMPLATES.length, 6); assert.equal(new Set(TEMPLATES.map(t => t.id)).size, 6);
   for (const t of TEMPLATES) { assert.ok(ARTICLE_TYPES[t.profile]); assert.ok(t.outline.length >= 30 && t.outline.length <= 8000); assert.ok(t.caution); assert.ok(t.example); }
@@ -42,7 +42,7 @@ test('Every public page title and description is unique', async () => {
 });
 test('Sitemap omits protected and error routes', async () => {
   const map = await readFile('public/sitemap.xml', 'utf8');
-  assert.equal((map.match(/<url>/g) || []).length, 15); assert.doesNotMatch(map, /\/pilot|\/api\/|404\.html/);
+  assert.equal((map.match(/<url>/g) || []).length, 16); assert.doesNotMatch(map, /\/pilot|\/api\/|404\.html/);
 });
 test('Pilot guides open in new tabs, terminology is accurate, and activation stays separate', () => {
   assert.match(appPage, /for="profile">Article type/); assert.doesNotMatch(appPage, /for="profile">Website profile/);

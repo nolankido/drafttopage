@@ -1,4 +1,4 @@
-export const RELEASE = 'article-import-review-20261014';
+export const RELEASE = 'draft-checks-links-20261014';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const navigation = [['/write/', 'Write'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help'], ['/pilot', 'Pilot sign-in']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false }) {

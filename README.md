@@ -11,13 +11,15 @@ Repository: `nolankido/drafttopage`. Domain: `drafttopage.com`. Hosting: the exi
 - `/demo/`: practice with prewritten fictional examples. These are illustrative, not actual model responses or customer evidence.
 - `/pilot`: private AI assistance requires owner activation and genuine hosted acceptance testing. Generation remains separate from the public workspace.
 
-The public site has fifteen indexable pages plus a useful 404, including note templates, three complete examples, source/review/export guides, about and support, and data-use guidance. There is no public registration, billing, tracking, automatic publishing, or server-side draft history.
+The public site has sixteen indexable pages plus a useful 404, including note templates, three complete examples, source/review/export guides, about and support, and data-use guidance. There is no public registration, billing, tracking, automatic publishing, or server-side draft history.
 
 The public desk also supports previewed local Markdown and structured-article JSON imports, including selected UTF-8 files up to 48 KiB. Applying an import keeps source notes, replaces article fields and review questions after confirmation, and clears approval. Unmapped scalar front matter requires a deliberate destination decision. Complex YAML, unknown JSON fields, oversized input, and malformed data are rejected before replacement. Import previews are temporary and are not in backups until applied.
 
 Review questions are editable, with twelve notes of up to 500 characters, and use the unchanged version-1 backup contract. Local formatting tools preserve text outside the selection and respect the editor limit. Focus mode hides the source/review panel without deleting data. Blank untouched fields do not show error styling; readiness remains visible.
 
-The public reading preview and standalone HTML export support headings, lists, simple emphasis, code, and quotations through bounded text parsing. Links, images, and source HTML remain text; no external resources are loaded. The exported HTML document includes local styling and a restrictive document CSP. It is not a full Markdown renderer or a verified integration with any particular website. Page Markdown remains untrusted input for the destination.
+The public reading preview and standalone HTML export support headings, lists, simple emphasis, code, and quotations through bounded text parsing. Simple inline links to absolute HTTP(S) addresses without credentials become protected new-tab links. Images, source HTML, and unsupported link formats remain text; no external resources are loaded until a reader follows a link. The exported HTML document includes local styling and a restrictive document CSP. It is not a full Markdown renderer or a verified integration with any particular website. Page Markdown remains untrusted input for the destination.
+
+The article outline and optional local draft checks help locate unfinished placeholders, repeated passages, empty sections, skipped headings, long prose paragraphs, unclosed code fences, and unsupported inline link/image syntax. Findings select their editor passage and clear after article changes. These are bounded editorial patterns, not factual, grammatical, link-availability, or source-quality verification. Results do not gate export and are excluded from workspace backups. See `/help/draft-checks/`.
 
 ## Explicit files, not autosave
 
@@ -46,7 +48,7 @@ npm run preview:mock
 
 `npm run build` invokes `scripts/build-site.mjs`, which builds all public pages through `scripts/build-content.mjs`. The shared page shell, navigation, footer, metadata, and release identifier are in `scripts/site-shell.mjs`. No generated-HTML patching layer remains. Generated HTML and downloads are ignored by Git; edit build sources instead. Wrangler invokes the same build before deployment.
 
-`public/content-data.js` contains public fictional examples and outlines. The desk markup is `scripts/writing-desk.html`, composed by `scripts/writing-pages.mjs`. `public/workspace.js` preserves the existing version-1 private-backup contract. `public/authoring.js` separates body, reading-page, and complete-page validation and assembles the local drafting brief, which requests the same six-field structured article shape the importer accepts. `public/article-import.js` bounds and parses article files; `public/import-controls.js` stages a preview before applying; `public/editing.js` provides pure selection transformations. `public/html-export.js` generates a standalone reading document without source markup execution. `public/preview.js` supplies the shared bounded reading blocks.
+`public/content-data.js` contains public fictional examples and outlines. The desk markup is `scripts/writing-desk.html`, composed by `scripts/writing-pages.mjs`. `public/workspace.js` preserves the existing version-1 private-backup contract. `public/authoring.js` separates body, reading-page, and complete-page validation and assembles the local drafting brief, which requests the same six-field structured article shape the importer accepts. `public/article-import.js` bounds and parses article files; `public/import-controls.js` stages a preview before applying; `public/editing.js` provides pure selection transformations. `public/html-export.js` generates a standalone reading document without source markup execution. `public/preview.js` supplies the shared bounded reading blocks. `public/markdown-inline.js` shares inline parsing and safe URL validation across review, preview, and HTML export. `public/draft-review.js` supplies pure bounded checks; `public/review-controls.js` supplies live outline navigation, stale-result handling, and explicit summary copying.
 
 ## Tests and their limits
 
@@ -62,7 +64,7 @@ Signed Secure, HttpOnly, SameSite=Strict host-only pilot cookies expire after fo
 
 No notes, drafts, authentication values, or provider responses are saved in application storage or logs. Only shared counters/timestamps persist in the existing Durable Object. Infrastructure/provider processing is separate from application storage. The privacy notice explains these boundaries and explicitly downloaded files.
 
-User writing and imported markup are treated as text. The local preview creates no links or images and executes no source HTML. Standalone reading-page exports escape supplied markup and have no scripts or external assets. Markdown exports remain untrusted input for the destination, not sanitized for every renderer. `draft: true` is not a universal publication lock.
+User writing and imported markup are treated as text. The local preview creates only validated HTTP(S) links and no images, and executes no source HTML. The same parser and protected links are used in reading exports. Standalone reading-page exports escape supplied markup and have no scripts or external assets. Markdown exports remain untrusted input for the destination, not sanitized for every renderer. `draft: true` is not a universal publication lock.
 
 ## Change process
 
