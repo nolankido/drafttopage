@@ -395,6 +395,59 @@ with sync_playwright() as p:
     assert state['api']==[]
     report['checks'].append('Revisions: empty/save/compare/private download, cancellation, restore/redo, approval/preferences reset, automatic snapshots around formatting/import/file restore/outline/review-note removal, count bounds, clear purge, expanded narrow layouts, and no API calls')
     context.close()
+    page,context,state=open_page('/write/')
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    page.locator('.recovery-box summary').click(); restore(page,backup)
+    expect(page.locator('#desk-status')).to_contain_text('restored locally')
+    original_search_body='foo and FOO and foo $& []'
+    page.fill('#body',original_search_body); page.check('#reviewed')
+    page.click('#start-find'); page.fill('#find-text','foo')
+    expect(page.locator('#find-status')).to_contain_text('3 match')
+    assert page.locator('#reviewed').is_checked() and page.locator('#replace-match').is_disabled()
+    page.press('#find-text','Enter')
+    assert page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')==[0,3]
+    page.click('#find-next'); assert page.locator('#body').evaluate('el=>el.selectionStart')==8
+    page.click('#find-previous'); assert page.locator('#body').evaluate('el=>el.selectionStart')==0
+    page.fill('#replace-text','$&'); page.click('#replace-match')
+    expect(page.locator('#body')).to_have_value('$& and FOO and foo $& []')
+    assert not page.locator('#reviewed').is_checked()
+    page.locator('#checkpoint-panel > summary').click(); page.click('#restore-checkpoint')
+    expect(page.locator('#body')).to_have_value(original_search_body)
+    assert page.locator('#find-text').input_value()=='' and page.locator('#replace-text').input_value()==''
+    page.fill('#find-text','foo'); page.fill('#replace-text','<script>fictional()</script>'); page.check('#reviewed')
+    page.click('#preview-replace-all')
+    expect(page.locator('#replace-summary')).to_contain_text('change 3 of 3')
+    assert page.locator('#replace-examples li').count()==3 and page.locator('#replace-examples script,img,a').count()==0
+    assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==original_search_body
+    page.check('#find-case'); assert page.locator('#replace-preview').is_hidden()
+    page.uncheck('#find-case'); page.click('#preview-replace-all')
+    page.fill('#body',original_search_body+'!'); assert page.locator('#replace-preview').is_hidden()
+    page.check('#reviewed'); page.click('#preview-replace-all')
+    state['accept']=False; page.click('#apply-replace-all')
+    expect(page.locator('#desk-status')).to_contain_text('cancelled')
+    assert page.locator('#body').input_value()==original_search_body+'!' and page.locator('#reviewed').is_checked()
+    layout(page,'article-search-preview')
+    state['accept']=True; page.click('#apply-replace-all')
+    applied='<script>fictional()</script> and <script>fictional()</script> and <script>fictional()</script> $& []!'
+    expect(page.locator('#body')).to_have_value(applied)
+    assert page.locator('#notes').input_value()==source['notes'] and page.locator('#questions li').count()==1
+    assert not page.locator('#reviewed').is_checked() and page.locator('#replace-examples li').count()==0
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-body')
+    assert Path(info.value.path()).read_text()==applied+'\n'
+    page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value(original_search_body+'!')
+    page.fill('#body','x'*12000); page.fill('#find-text','x'); page.fill('#replace-text','xx'); page.check('#reviewed')
+    page.click('#preview-replace-all'); expect(page.locator('#desk-status')).to_contain_text('exceed 12,000')
+    assert page.locator('#body').input_value()=='x'*12000 and page.locator('#reviewed').is_checked()
+    page.fill('#replace-text',''); page.click('#preview-replace-all'); page.click('#apply-replace-all')
+    expect(page.locator('#body')).to_have_value('')
+    assert not page.locator('#reviewed').is_checked() and page.locator('#notes').input_value()==source['notes']
+    page.click('#clear')
+    assert page.locator('#find-text').input_value()=='' and page.locator('#replace-text').input_value()==''
+    assert page.locator('#replace-preview').is_hidden() and page.locator('#replace-examples li').count()==0
+    assert state['api']==[]
+    report['checks'].append('Article search: exact literal selection and keyboard navigation, approval-preserving preview, single/bulk checkpoint recovery, stale/cancelled/oversized protection, private source/review retention, inert examples, actual edited-body download, deletion, clear purge, expanded narrow layouts, and no API calls')
+    context.close()
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()

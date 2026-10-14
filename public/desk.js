@@ -12,10 +12,11 @@ import { installDraftReview } from './review-controls.js';
 import { installPublishingExports } from './export-controls.js';
 import { articleWordCount } from './draft-review.js';
 import { installRevisions } from './revision-controls.js';
+import { installArticleSearch } from './search-controls.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
@@ -61,6 +62,7 @@ function update() {
   draftReview?.refresh();
   publishingExports?.update();
   revisions?.update();
+  articleSearch?.refresh();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -74,13 +76,14 @@ function fill(value) {
   questions = value.draft?.questions ? [...value.draft.questions] : [];
   touched.clear(); renderQuestions(); setFocus(false);
   importer?.clear(); $('import-text').value = '';
+  articleSearch?.clear();
   $('article-preview').replaceChildren(); previewSnapshot = null;
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
   publishingExports?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => revisions?.update(), report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -210,10 +213,11 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0,
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); }, report,
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
+    articleSearch?.clear();
     questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
     $('export-format').value = 'page'; changed(); $('body').focus();
   }
@@ -226,6 +230,14 @@ renderQuestions();
 draftReview = installDraftReview({ getDraft: () => capture().draft, report });
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+articleSearch = installArticleSearch({
+  isBusy: () => recovery.reading() || Boolean(importer?.reading()), report,
+  apply: (plan, label) => {
+    revisions.captureBefore(label);
+    $('body').value = plan.body; touched.add('body'); changed();
+    $('body').focus(); $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
+  }
+});
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });
