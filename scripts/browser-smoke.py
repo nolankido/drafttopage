@@ -438,6 +438,9 @@ with sync_playwright() as p:
     with page.expect_download() as info: page.click('#download-body')
     assert Path(info.value.path()).read_text()==applied+'\n'
     page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value(original_search_body+'!')
+    page.fill('#body','x '*5997+'needle'); page.fill('#find-text','needle'); page.press('#find-text','Enter')
+    wrapped=page.locator('#body').evaluate('el=>({selected:el.value.slice(el.selectionStart,el.selectionEnd),scroll:el.scrollTop,maximum:el.scrollHeight-el.clientHeight})')
+    assert wrapped['selected']=='needle' and wrapped['scroll']>=wrapped['maximum']-48 and wrapped['scroll']>0
     page.fill('#body','x'*12000); page.fill('#find-text','x'); page.fill('#replace-text','xx'); page.check('#reviewed')
     page.click('#preview-replace-all'); expect(page.locator('#desk-status')).to_contain_text('exceed 12,000')
     assert page.locator('#body').input_value()=='x'*12000 and page.locator('#reviewed').is_checked()

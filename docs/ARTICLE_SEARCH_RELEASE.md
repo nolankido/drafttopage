@@ -16,12 +16,20 @@ Article/query/case/replacement edits invalidate pending bulk previews. Imports, 
 
 ## Validation
 
-- All 165 local Node tests passed. New coverage includes literal metacharacters, dollar replacement text, Unicode positions/case, non-overlap, navigation/wrap, deletion, no-op counts, preview bounds, independent split/join output comparison, full article bounds, stale preview invalidation, approval preservation, selection changes, cancellation, busy state, checkpoint failure, private source retention, IME handling, clearing, and optional module load/installation failure.
+- All 166 local Node tests passed. New coverage includes literal metacharacters, dollar replacement text, Unicode positions/case, non-overlap, navigation/wrap, deletion, no-op counts, preview bounds, independent split/join output comparison, full article bounds, stale preview invalidation, approval preservation, selection changes, cancellation, busy state, checkpoint failure, private source retention, IME handling, clearing, optional module load/installation failure, and inert selection measurement with cleanup.
 - Controller tests use minimal event-bearing controls and do not substitute for browser rendering.
 - Source checks validate generated pages, syntax, local imports, assets/links, accessible references, protected routes, storage/logging restrictions, and absence of Actions workflows.
 - The browser fixture suite is extended to cover real selection, replacement, recovery, downloads, hostile replacement strings, approval behavior, clearing, and expanded 1440/390/320-pixel layouts. Chromium remains unavailable locally, so no expanded-suite pass is claimed. Direct live checks follow native Cloudflare publication.
 
 GitHub Actions remain stopped. Native Cloudflare Git publishing is separate. Genuine provider acceptance, destination compatibility, real-mobile testing, and independent screen-reader/security audits are separate work.
+
+## Direct live checks
+
+The initial search feature was published through PR #14 (`231072ba4b5aea6d6bbbac83f462ac3b6b729d95`), followed by independent optional loading in PR #15 (`5d949502d08edb3a8d69b52a3f36d81f7e8924a7`). Both native Cloudflare builds succeeded. A fresh live writing desk initialized its core controls and then enabled search.
+
+Fictional writing verified exact case-insensitive selection, Enter/next navigation, literal dollar-sign replacement of one occurrence, checkpoint restoration, three-match bulk preview, invalidation after changing case settings, cancellation preserving approval/writing, and confirmed replacement preserving title/source/review notes while clearing approval. The actual downloaded body was independently checked: 79 bytes, with all edits and no source/review text.
+
+A maximum-length wrapped-paragraph test selected the correct final occurrence but exposed an offscreen selection. Navigation now measures wrapped text in a temporary, inert, screen-reader-hidden mirror and removes it immediately. It uses the actual text-area width/font/padding, rather than newline counts. Exact selection still works if layout measurement is unavailable. The browser fixture includes the 12,000-character end-of-paragraph case. Final long-paragraph/clear verification follows publication of this fix.
 
 ## Optional feature loading
 
