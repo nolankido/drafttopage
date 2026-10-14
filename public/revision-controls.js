@@ -1,10 +1,10 @@
 import { createCheckpointHistory, compareWorkspaces, MAX_CHECKPOINTS, MAX_CHECKPOINT_BYTES } from './revisions.js';
 import { downloadText } from './download.js';
 
-export function installRevisions({ capture, restore, isBusy, workChanged, report }) {
+export function installRevisions({ capture, restore, isBusy, workChanged, report, comparisonChanged = () => {} }) {
   const $ = id => document.getElementById(id);
   const history = createCheckpointHistory();
-  let historyKey = '', comparison = [], currentKey = '';
+  let historyKey = '', comparison = [], currentKey = '', articleComparison = null;
   const selected = () => Number($('checkpoint-select').value);
   const showField = () => {
     const field = comparison.find(item => item.id === $('checkpoint-field').value);
@@ -32,6 +32,7 @@ export function installRevisions({ capture, restore, isBusy, workChanged, report
       comparison = []; currentKey = '';
       $('checkpoint-field').replaceChildren(); $('checkpoint-differences').textContent = '';
       $('checkpoint-saved').value = ''; $('checkpoint-current').value = '';
+      articleComparison = null; comparisonChanged();
       $('restore-checkpoint').disabled = true; return;
     }
     try {
@@ -50,10 +51,14 @@ export function installRevisions({ capture, restore, isBusy, workChanged, report
         currentKey = snapshot; showField();
       }
       $('restore-checkpoint').disabled = busy || !comparison.some(field => field.changed);
+      const body = comparison.find(field => field.id === 'body');
+      articleComparison = { saved: body.saved, current: body.current };
     } catch (error) {
+      articleComparison = null;
       $('checkpoint-differences').textContent = error.message + ' Correct the current field before comparing or restoring.';
       $('restore-checkpoint').disabled = true;
     }
+    comparisonChanged();
   }
   function save(label) {
     const result = history.save(capture(), label);
@@ -96,6 +101,7 @@ export function installRevisions({ capture, restore, isBusy, workChanged, report
   update();
   return {
     update,
+    articleComparison: () => articleComparison ? { ...articleComparison } : null,
     hasWriting: history.hasWriting,
     captureBefore(label) { const result = save(label); return result; },
     clear() { history.clear(); $('checkpoint-label').value = ''; $('checkpoint-private-ok').checked = false; update(); }

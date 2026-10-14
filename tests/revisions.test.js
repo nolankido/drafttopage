@@ -76,6 +76,8 @@ test('Controller saves without changing approval, compares edits, cancels safely
     $('save-checkpoint').fire(); const original = $('checkpoint-select').value;
     assert.ok(ui.hasWriting()); assert.equal(approved, true); assert.ok(warningUpdates > 0);
     current = fixture('After'); ui.update(); assert.equal($('checkpoint-saved').value, 'Before'); assert.equal($('checkpoint-current').value, 'After');
+    assert.deepEqual(ui.articleComparison(), { saved: 'Before', current: 'After' });
+    const independent = ui.articleComparison(); independent.saved = 'Changed copy'; assert.equal(ui.articleComparison().saved, 'Before');
     $('checkpoint-private-ok').checked = true; $('checkpoint-private-ok').fire('change'); assert.equal($('download-checkpoint').disabled, false);
     $('restore-checkpoint').fire(); assert.equal(current.draft.body, 'After'); assert.equal(approved, true); assert.match(message, /cancelled/);
     accepted = true; $('restore-checkpoint').fire(); assert.equal(current.draft.body, 'Before'); assert.equal(approved, false);
@@ -86,6 +88,7 @@ test('Controller saves without changing approval, compares edits, cancels safely
     busy = false; ui.clear(); assert.equal(ui.hasWriting(), false); assert.equal($('checkpoint-comparison').hidden, true);
     assert.equal($('checkpoint-saved').value, ''); assert.equal($('checkpoint-current').value, '');
     assert.equal($('checkpoint-field').children.length, 0);
+    assert.equal(ui.articleComparison(), null);
   } finally { globalThis.document = previous.document; globalThis.confirm = previous.confirm; }
 });
 test('Controller captures before replacement and blocks loss when current writing cannot be checkpointed', () => {
@@ -97,6 +100,7 @@ test('Controller captures before replacement and blocks loss when current writin
     assert.equal(fake.document.getElementById('checkpoint-saved').value, 'Original');
     current.draft.body = 'x'.repeat(12001); assert.throws(() => ui.captureBefore('Before another import'));
     assert.equal(fake.document.getElementById('checkpoint-saved').value, 'Original');
+    ui.update(); assert.equal(ui.articleComparison(), null);
   } finally { globalThis.document = previous; }
 });
 test('Restoring the oldest full-history checkpoint remains safe when retaining current writing evicts that target', () => {
