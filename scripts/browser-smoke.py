@@ -420,12 +420,22 @@ with sync_playwright() as p:
         page.fill('#body','Fictional bounded version '+str(i)); page.click('#save-checkpoint')
     assert page.locator('#checkpoint-select option').count()==5
     page.select_option('#checkpoint-field','body'); layout(page,'revisions-expanded')
+    page.fill('#body','a\n'*4000); page.click('#save-checkpoint'); page.fill('#body','b\n'*4000)
+    expect(page.locator('#article-diff-status')).to_contain_text('Large changed region grouped')
+    assert page.locator('#article-diff-groups .article-diff-preview').all_text_contents()==['a\n'*8,'b\n'*8]
+    assert page.locator('.article-diff-complete[open]').count()==0
+    layout(page,'revision-diff-large')
+    page.check('#reviewed'); page.locator('.article-diff-complete > summary').first.click()
+    assert page.locator('.article-diff-complete').first.locator('pre').inner_text()=='a\n'*4000
+    assert page.locator('#reviewed').is_checked()
+    page.locator('.article-diff-complete > summary').first.click()
     state['accept']=False; page.click('#clear'); assert page.locator('#checkpoint-select option').count()==5
     state['accept']=True; page.click('#clear')
     expect(page.locator('#checkpoint-count')).to_contain_text('0 / 5')
     assert page.locator('#checkpoint-comparison').is_hidden() and page.locator('#body').input_value()==''
     assert page.locator('#checkpoint-saved').input_value()=='' and page.locator('#checkpoint-current').input_value()==''
     assert page.locator('#article-diff-groups li').count()==0
+    assert page.locator('.article-diff-complete').count()==0
     assert page.locator('#import-body-preview').input_value()==''
     assert page.locator('#article-preview').inner_text().strip()=='Untitled article'
     assert state['api']==[]

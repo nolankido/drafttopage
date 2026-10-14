@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compareArticleLines, MAX_DIFF_CELLS, DIFF_GROUP_LIMIT } from '../public/revision-diff.js';
+import { compareArticleLines, MAX_DIFF_CELLS, DIFF_GROUP_LIMIT, previewArticleChange } from '../public/revision-diff.js';
 import { installRevisionDiff } from '../public/revision-diff-controls.js';
 
 const reconstruct = (result, excluded) => result.groups.filter(group => group.kind !== excluded).map(group => group.text).join('');
@@ -57,6 +57,14 @@ test('Invalid text rejects before allocating comparison state', () => {
     assert.throws(() => compareArticleLines(value, 'Valid'));
     assert.throws(() => compareArticleLines('Valid', value));
   }
+});
+test('Long previews cap line and character counts without splitting Unicode pairs or changing the source', () => {
+  const many = 'Line.\n'.repeat(100), dense = 'x'.repeat(799) + '😀tail';
+  assert.deepEqual(previewArticleChange(many), { text: 'Line.\n'.repeat(8), truncated: true });
+  assert.deepEqual(previewArticleChange(dense), { text: 'x'.repeat(799), truncated: true });
+  assert.deepEqual(previewArticleChange('Short.\n'), { text: 'Short.\n', truncated: false });
+  assert.equal(previewArticleChange('x'.repeat(12000)).text.length, 800);
+  assert.equal(many.length, 600); assert.throws(() => previewArticleChange(null));
 });
 test('Small repeated-line alignments agree with an independent exhaustive subsequence oracle', () => {
   for (let seed = 0; seed < 32; seed++) {
@@ -127,7 +135,11 @@ test('Visible group limits and coarse processing are disclosed while underlying 
   assert.match($('article-diff-status').textContent, /first 40 change groups/);
   setPair({ saved: 'a\n'.repeat(4000), current: 'b\n'.repeat(4000) });
   assert.match($('article-diff-status').textContent, /Large changed region grouped/);
-  assert.equal($('article-diff-groups').children[0].children[1].textContent, 'a\n'.repeat(4000));
+  const group = $('article-diff-groups').children[0];
+  assert.equal(group.children[1].textContent, 'a\n'.repeat(8));
+  assert.equal(group.children[3].tag, 'details'); assert.equal(group.children[3].open, false);
+  assert.equal(group.children[3].children[1].textContent, 'a\n'.repeat(4000));
+  setPair(null); assert.equal($('article-diff-groups').children.length, 0);
 }));
 test('Comparison errors preserve the read-only fallback and refresh can recover', () => withChanges(({ $, ui, setFailure }) => {
   $('checkpoint-panel').open = $('article-diff-panel').open = true; setFailure(true); ui.refresh();
