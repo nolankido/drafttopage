@@ -260,6 +260,32 @@ with sync_playwright() as p:
     page.fill('#body','<script>bad()</script>\n\n## <img src=x onerror=bad()>\nTODO')
     page.click('#run-checks')
     assert page.locator('#draft-check-panel script, #draft-check-panel img').count()==0
+    # Section moves carry descendants, retain checkpoints, invalidate checks,
+    # and keep keyboard focus in the outline. These are actual UI assertions.
+    sections='Opening.\n\n## First\nTODO\n\n### Detail\nNested.\n\n## Second\nDone.'
+    moved='Opening.\n\n## Second\nDone.\n\n## First\nTODO\n\n### Detail\nNested.'
+    page.fill('#body',sections); page.click('#run-checks'); page.check('#reviewed')
+    page.get_by_role('button',name='Move First down',exact=True).click()
+    assert page.locator('#body').input_value()==moved
+    assert not page.locator('#reviewed').is_checked()
+    assert page.locator('#draft-findings li').count()==0
+    assert page.locator('#checkpoint-saved').input_value()==sections
+    assert page.locator('#article-outline .review-jump').nth(1).evaluate('(node)=>node===document.activeElement')
+    page.get_by_role('button',name='Move First up',exact=True).click()
+    assert page.locator('#body').input_value()==sections
+    layout(page,'section-order')
+    page.fill('#body','## One\nText.\n## Two\n~~~\nUnfinished'); page.click('#run-checks')
+    assert page.get_by_role('button',name='Move One down',exact=True).is_disabled()
+    expect(page.locator('#outline-status')).to_contain_text('unfinished code fence')
+    # Wrapped line geometry must reveal a finding far below the textarea viewport.
+    page.fill('#body','word '*2200+'TODO'); page.click('#run-checks')
+    page.locator('#draft-findings .review-jump').last.click()
+    selection=page.locator('#body').evaluate('(node)=>({text:node.value.slice(node.selectionStart,node.selectionEnd),scroll:node.scrollTop})')
+    assert selection['text']=='TODO' and selection['scroll']>0
+    page.locator('#draft-check-panel > summary').click()
+    page.click('#clear')
+    assert page.locator('#article-outline li').count()==0
+    assert page.locator('#body').input_value()==''
     layout(page,'draft-checks')
     assert state['api']==[]
     context.close()
