@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { previewBlocks, suggestFilename } from '../public/preview.js';
 import { createWorkspaceBackup, parseWorkspaceBackup, MAX_BACKUP_BYTES } from '../public/workspace.js';
 import { createMarkdown } from '../public/markdown.js';
-import { extendSite, RELEASE } from '../scripts/extend-site.mjs';
+import { execFileSync } from 'node:child_process';
+import { RELEASE } from '../scripts/site-shell.mjs';
 import { appPage } from '../src/pages.js';
 const source = { profile: 'personal', notes: 'Fictional working notes.', audience: 'Readers', purpose: 'Explain' };
 const draft = { title: 'A draft', excerpt: 'An excerpt', description: 'Description', slug: 'a-draft', body: 'Article body.', questions: ['Is it accurate?'] };
@@ -76,7 +77,7 @@ test('Filename helper produces safe bounded names, including empty and non-ASCII
   assert.equal(suggestFilename('Café project'), 'cafe-project');
 });
 test('Local feature modules cannot upload or execute imported HTML', async () => {
-  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js']) {
+  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js', 'html-export.js', 'authoring.js']) {
     const js = await readFile(`public/${file}`, 'utf8');
     assert.doesNotMatch(js, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|innerHTML|outerHTML|insertAdjacentHTML|eval\(|localStorage|sessionStorage|indexedDB/);
   }
@@ -87,20 +88,21 @@ test('Pilot uses shared recovery markup and accessible profile guidance', () => 
   assert.match(appPage, /id="profile-help"[^>]*aria-live="polite"[^>]*aria-atomic="true"/);
   assert.match(appPage, /aria-describedby="notes-help note-count"/);
 });
-test('Site extension is deterministic and retains existing pages while adding the shared navigation', async () => {
+test('Shared public build keeps stable URLs, template handoffs, and release output across repeated builds', async () => {
   const root = await mkdtemp(join(tmpdir(), 'dtp-build-'));
   try {
-    await writeFile(join(root, 'index.html'), '<header class="site-header wrap"><nav aria-label="Main navigation"></nav></header><main data-release="old"><h1>Original</h1><section class="section wrap status"></section></main><footer class="site-footer wrap">Footer</footer>');
-    await writeFile(join(root, 'sitemap.xml'), '<urlset><url><loc>https://drafttopage.com/</loc></url></urlset>');
-    await extendSite(root);
-    const paths = ['index.html', 'write/index.html', 'help/local-workspace/index.html', 'sitemap.xml', 'release.json'];
+    const run = () => execFileSync(process.execPath, ['scripts/build-site.mjs', root]);
+    const paths = ['index.html', 'write/index.html', 'templates/index.html', 'help/local-workspace/index.html', 'about/index.html', 'sitemap.xml', 'release.json'];
+    run();
     const first = await Promise.all(paths.map(path => readFile(join(root, path), 'utf8')));
-    await extendSite(root);
+    run();
     const second = await Promise.all(paths.map(path => readFile(join(root, path), 'utf8')));
     assert.deepEqual(first, second);
-    assert.match(first[0], /<h1>Original<\/h1>/); assert.equal((first[0].match(/data-local-desk-nav/g) || []).length, 1);
-    assert.equal((first[0].match(/id="writing-options"/g) || []).length, 1);
-    assert.match(first[1], /aria-current="page"/); assert.equal((first[3].match(/<url>/g) || []).length, 3);
-    assert.equal(JSON.parse(first[4]).release, RELEASE);
+    assert.match(first[0], /Start with your notes/);
+    assert.match(first[1], /aria-current="page"/);
+    assert.match(first[1], /id="template-progress"/);
+    assert.match(first[2], /href="\/write\/#template-progress"/);
+    assert.equal((first[5].match(/<url>/g) || []).length, 14);
+    assert.equal(JSON.parse(first[6]).release, RELEASE);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

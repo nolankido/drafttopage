@@ -4,13 +4,16 @@ Your ideas. Ready for your website.
 
 Repository: `nolankido/drafttopage`. Domain: `drafttopage.com`. Hosting: the existing Cloudflare Worker `drafttopage`.
 
-## Three ways to work
+## Public writing workflow
 
-- `/write/`: a local, manual writing desk for your own article. Edit page details and Markdown, inspect a deliberately limited text-only preview, and export after review. It does not call AI, upload writing, or publish anything.
-- `/demo/`: practice on prewritten fictional examples. These remain illustrative, not actual model responses or customer evidence.
-- `/pilot`: an invitation-only AI-assisted workflow that requires owner activation. Its article types are Personal essay, Project update, and Practical guide, not custom saved profiles or a learned voice.
+- `/write/`: start from notes or edit an existing article. Six outlines load directly into the workspace. A locally assembled drafting brief can be copied into a tool the author chooses; the public workspace itself never calls AI or uploads writing.
+- Copy or download the reviewed article body without page metadata. Add a title for a standalone HTML reading page. Complete title, excerpt, description, filename, and body for a page Markdown export, with an explicit choice about the title heading.
+- `/demo/`: practice with prewritten fictional examples. These are illustrative, not actual model responses or customer evidence.
+- `/pilot`: private AI assistance requires owner activation and genuine hosted acceptance testing. Generation remains separate from the public workspace.
 
-The public site has thirteen indexable pages plus a useful 404, including six source-note templates, three complete examples with synchronized Markdown downloads, getting-started/export/review guidance, help, data use, and access information. No public registration, billing, tracking, automatic publishing, audio/video processing, or server-side draft history is introduced.
+The public site has fourteen indexable pages plus a useful 404, including note templates, three complete examples, source/review/export guides, about and support, and data-use guidance. There is no public registration, billing, tracking, automatic publishing, or server-side draft history.
+
+The public reading preview and standalone HTML export support headings, lists, simple emphasis, code, and quotations through bounded text parsing. Links, images, and source HTML remain text; no external resources are loaded. The exported HTML document includes local styling and a restrictive document CSP. It is not a full Markdown renderer or a verified integration with any particular website. Page Markdown remains untrusted input for the destination.
 
 ## Explicit files, not autosave
 
@@ -37,9 +40,9 @@ npm run check
 npm run preview:mock
 ```
 
-`npm run build` invokes `scripts/build-site.mjs`. It first runs the existing content builder, then the deterministic local-writing extension. The extension shares the generated header/footer, adds the writing desk and file-help page, updates navigation/data-use guidance, and rebuilds the sitemap and release marker. Generated HTML and downloads are ignored by Git. Edit the build sources, not generated files. The same build runs before tests/checks/mock preview and automatically through Wrangler before deployment.
+`npm run build` invokes `scripts/build-site.mjs`, which builds all public pages through `scripts/build-content.mjs`. The shared page shell, navigation, footer, metadata, and release identifier are in `scripts/site-shell.mjs`. No generated-HTML patching layer remains. Generated HTML and downloads are ignored by Git; edit build sources instead. Wrangler invokes the same build before deployment.
 
-Public fictional data remains in `public/content-data.js`. Writing-desk page source is in `scripts/writing-pages.mjs`. `public/workspace.js` is the bounded file contract reused from the earlier recovery work; `src/recovery-markup.js` and `public/recovery.js` share the controls between the manual desk and pilot.
+`public/content-data.js` contains public fictional examples and outlines. The desk markup is `scripts/writing-desk.html`, composed by `scripts/writing-pages.mjs`. `public/workspace.js` preserves the existing version-1 private-backup contract. `public/authoring.js` separates body, reading-page, and complete-page validation and assembles the local drafting brief. `public/html-export.js` generates a standalone reading document without source markup execution. `public/preview.js` supplies the shared bounded reading blocks.
 
 ## Tests and their limits
 
@@ -55,8 +58,9 @@ Signed Secure, HttpOnly, SameSite=Strict host-only pilot cookies expire after fo
 
 No notes, drafts, authentication values, or provider responses are saved in application storage or logs. Only shared counters/timestamps persist in the existing Durable Object. Infrastructure/provider processing is separate from application storage. The privacy notice explains these boundaries and explicitly downloaded files.
 
-User writing and imported markup are treated as text. The local preview creates no links or images and executes no HTML. Markdown exports remain untrusted input for the destination, not sanitized for every renderer. `draft: true` is not a universal publication lock.
+User writing and imported markup are treated as text. The local preview creates no links or images and executes no source HTML. Standalone reading-page exports escape supplied markup and have no scripts or external assets. Markdown exports remain untrusted input for the destination, not sanitized for every renderer. `draft: true` is not a universal publication lock.
 
 ## Change process
 
 Use feature branches and reviewed pull requests. Keep private material out of all public branches and documents. Preserve existing work when reconciling older branches. Distinguish source changes, local tests, CI, deployment, and genuine AI activation in release reports.
+

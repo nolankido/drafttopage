@@ -1,0 +1,51 @@
+<header class="desk-intro">
+<p class="eyebrow">Public writing workspace</p>
+<h1>Your next article starts here.</h1>
+<p>Bring notes or an existing draft. Edit, review, and take a file into your own publishing workflow.</p>
+<div class="desk-start"><button id="start-notes" type="button" class="secondary">Start with notes</button><button id="start-draft" type="button" class="secondary">Edit an existing draft</button><a href="#exports">Review &amp; export</a></div>
+<p class="small">Manual workspace. Writing stays in this tab. Save a private backup before leaving; there is no autosave. <a href="/access/" target="_blank" rel="noopener">Private AI pilot status (new tab)</a></p>
+</header>
+<noscript><p>This workspace needs JavaScript. <a href="/templates/">Copy a note outline</a> or <a href="/examples/">read the examples</a> without it.</p></noscript>
+<p id="desk-status" class="message" role="status" aria-live="polite" aria-atomic="true"></p>
+<!--WORKSPACE_RECOVERY-->
+<div class="desk-columns">
+<section id="draft" class="paper article-editor" aria-labelledby="article-heading">
+<h2 id="article-heading">Your article</h2>
+<label for="title">Article title</label><input id="title" maxlength="160" autocomplete="off" aria-describedby="title-error"><p id="title-error" class="field-error small" hidden></p>
+<label for="body">Article body, in Markdown</label><textarea id="body" rows="16" maxlength="12000" aria-describedby="body-count body-error"></textarea><p id="body-count" class="small">0 approximate words; 0 / 12,000 characters</p><p id="body-error" class="field-error small" hidden></p>
+<details id="preview-panel"><summary>Show reading preview</summary><p class="small">Headings, lists, emphasis, code, and quotes. Links, images, and HTML stay as text. Your website can render differently.</p><div id="article-preview" class="article-preview"></div></details>
+<details id="page-details"><summary>Page details for Markdown export</summary>
+<p class="small">These fields are required for a page Markdown file. Copying the body needs only the article; a reading page needs the title and article.</p>
+<label for="excerpt">Short excerpt</label><textarea id="excerpt" rows="2" maxlength="300" aria-describedby="excerpt-help excerpt-error"></textarea><p id="excerpt-help" class="small">A listing summary, up to 300 characters.</p><p id="excerpt-error" class="field-error small" hidden></p>
+<label for="description">Page description</label><textarea id="description" rows="2" maxlength="160" aria-describedby="description-count description-error"></textarea><p id="description-count" class="small">0 / 160 characters</p><p id="description-error" class="field-error small" hidden></p>
+<label for="slug">Filename, without an extension</label><input id="slug" maxlength="80" spellcheck="false" autocomplete="off" aria-describedby="slug-help slug-error"><p id="slug-help" class="small">Lowercase letters, digits, and separating hyphens.</p><p id="slug-error" class="field-error small" hidden></p><button id="suggest-slug" type="button" class="secondary">Suggest filename from title</button>
+</details>
+<section id="exports" class="export-panel" aria-labelledby="export-heading">
+<h3 id="export-heading">Review &amp; export</h3>
+<p id="export-readiness" class="small" aria-live="polite"></p>
+<label class="check"><input id="reviewed" type="checkbox"><span>I have reviewed the article and understand that exporting does not publish it.</span></label>
+<div class="actions"><button id="copy-body" type="button" class="secondary" disabled>Copy article body</button><button id="download-body" type="button" class="secondary" disabled>Download article body</button><button id="download-html" type="button" class="secondary" disabled>Download reading page</button></div>
+<p class="small">Body: Markdown without title or metadata. Reading page: a standalone HTML file with a title and basic formatting, ready to open in your browser.</p>
+<label for="export-format">Page Markdown format</label><select id="export-format"><option value="page">Website supplies the title heading</option><option value="document">Include a title heading in the file</option></select>
+<div class="actions"><button id="download" type="button" class="button" disabled>Download Markdown</button><button id="copy" type="button" class="secondary" disabled>Copy Markdown</button></div>
+<p class="small">Article files exclude source notes and review questions. Check the saved file and preview your destination before publishing. <a href="/help/markdown-export/" target="_blank" rel="noopener">Choose the right export (new tab)</a></p>
+</section>
+</section>
+<aside class="paper source-editor" aria-labelledby="source-heading">
+<details id="notes-panel"><summary id="source-heading">Source notes &amp; review</summary>
+<p class="small">Keep your facts and uncertainties beside the article. These fields go into a private workspace backup, not an article export.</p>
+<!--TEMPLATE_ANCHORS-->
+<label for="template-select">Start from a note outline</label><select id="template-select"><option value="">Choose an outline</option><!--TEMPLATE_OPTIONS--></select><button id="load-outline" type="button" class="secondary" disabled>Load outline</button>
+<label for="profile">Article type</label><select id="profile"><option value="personal">Personal essay</option><option value="update">Project update</option><option value="guide">Practical guide</option></select>
+<label for="audience">Audience, optional</label><input id="audience" maxlength="160" autocomplete="off">
+<label for="purpose">Purpose, optional</label><input id="purpose" maxlength="240" autocomplete="off">
+<label for="notes">Source notes, optional</label><textarea id="notes" rows="10" maxlength="8000" aria-describedby="note-count"></textarea><p id="note-count" class="small">0 / 8,000 characters</p>
+<details class="drafting-brief"><summary>Prepare a brief for your chosen writing tool</summary><p class="small">This assembles your notes and editorial instructions locally. Copy it into a tool you choose, then bring the draft back here. Copying makes no AI request; review that tool's data handling before sending material.</p><label for="drafting-brief">Copyable drafting brief</label><textarea id="drafting-brief" rows="7" readonly></textarea><button id="copy-brief" type="button" class="secondary">Copy drafting brief</button></details>
+<section id="imported-questions" hidden><h3>Questions from the restored workspace</h3><ul id="questions"></ul><p class="small">Compare these with the current source and article. They can be incomplete or out of date.</p></section>
+<h3>Compare before approving</h3><p class="small">Check names, dates, claims, uncertainty, and permissions against your source. Editing notes clears export approval. This workspace does not independently verify facts.</p>
+<a href="/guides/review/" target="_blank" rel="noopener">Open the review checklist (new tab)</a>
+</details>
+<p class="small"><a href="/templates/" target="_blank" rel="noopener">All note templates (new tab)</a> · <a href="/demo/" target="_blank" rel="noopener">Try a fictional sample (new tab)</a></p>
+<button id="clear" type="button" class="secondary">Clear this writing desk</button>
+<p class="small"><a href="/help/local-workspace/" target="_blank" rel="noopener">Save-and-restore help (new tab)</a> · <a href="/privacy/" target="_blank" rel="noopener">Data use (new tab)</a></p>
+</aside></div>
