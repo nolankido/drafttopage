@@ -1,9 +1,11 @@
 <header class="desk-intro">
-<p class="eyebrow">Public writing workspace</p>
-<h1>Your next article starts here.</h1>
-<p>Bring notes or an existing draft. Edit, review, and take a file into your own publishing workflow.</p>
-<div class="desk-start"><button id="start-notes" type="button" class="secondary">Start with notes</button><button id="start-draft" type="button" class="secondary">Edit an existing draft</button><button id="start-import" type="button" class="secondary">Import an article</button><button id="toggle-focus" type="button" class="secondary" aria-pressed="false">Focus on article</button><button id="start-checks" type="button" class="secondary">Check draft</button><a href="#exports">Review &amp; export</a></div>
-<p class="small">Manual workspace. Writing stays in this tab. Save a private backup before leaving; there is no autosave. <a href="/access/" target="_blank" rel="noopener">Private AI pilot status (new tab)</a></p>
+<p class="eyebrow">Free article preparation</p>
+<h1>From draft to your next post.</h1>
+<p>Paste plain text or Markdown, review the article, then take editable blocks into WordPress or export for another editor. No account needed.</p>
+<nav class="desk-start" aria-label="Prepare your article"><button id="start-draft" type="button" class="button">1. Paste a draft</button><button id="start-review" type="button" class="secondary">2. Review the article</button><button id="start-handoff" type="button" class="secondary">3. Choose your export</button></nav>
+<p id="sample" class="small">Nothing to paste yet? <button id="start-sample" type="button" class="secondary">Try a fictional sample</button> Use the same workspace and exports.</p>
+<details id="desk-more" class="desk-more"><summary>Start from notes or use more tools</summary><div class="desk-start"><button id="start-notes" type="button" class="secondary">Start with notes</button><button id="start-import" type="button" class="secondary">Import an article</button><button id="toggle-focus" type="button" class="secondary" aria-pressed="false">Focus on article</button><button id="start-checks" type="button" class="secondary">Check draft</button></div></details>
+<p class="small">Writing stays in this tab. Save a private backup before leaving; there is no autosave. <a href="/help/local-workspace/" target="_blank" rel="noopener">How to keep your work (new tab)</a></p>
 </header>
 <noscript><p>This workspace needs JavaScript. <a href="/templates/">Copy a note outline</a> or <a href="/examples/">read the examples</a> without it.</p></noscript>
 <p id="desk-status" class="message" role="status" aria-live="polite" aria-atomic="true"></p>
@@ -12,11 +14,11 @@
 <!--ARTICLE_IMPORT-->
 <div class="desk-columns">
 <section id="draft" class="paper article-editor" aria-labelledby="article-heading">
-<h2 id="article-heading">Your article</h2>
+<h2 id="article-heading">1. Paste or edit your draft</h2>
 <label for="title">Article title</label><input id="title" maxlength="160" autocomplete="off" aria-describedby="title-error"><p id="title-error" class="field-error small" hidden></p>
 <label for="body">Article body, in Markdown</label>
 <div class="format-tools" role="group" aria-label="Article editing"><button type="button" class="secondary" data-format="bold">Bold</button><button type="button" class="secondary" data-format="italic">Italic</button><button type="button" class="secondary" data-format="heading">Heading</button><button type="button" class="secondary" data-format="list">Bullet list</button><button type="button" class="secondary" data-format="numbered">Numbered list</button><button type="button" class="secondary" data-format="code">Inline code</button><button id="start-find" type="button" class="secondary" disabled>Find &amp; replace</button></div>
-<p class="small">Select text or place the cursor, then choose formatting. Previous writing is kept under Revisions in this tab. You can also edit Markdown directly.</p><textarea id="body" rows="16" maxlength="12000" aria-describedby="body-count body-error"></textarea><p id="body-count" class="small">0 approximate words; 0 / 12,000 characters</p><p id="body-error" class="field-error small" hidden></p>
+<p class="small">Paste plain text or Markdown here. Rich formatting from Word or Google Docs is not imported by pasting. Select text, then choose a formatting tool. Revisions keeps previous writing in this tab.</p><textarea id="body" rows="16" maxlength="12000" placeholder="Paste your draft here, or try the fictional sample above." aria-describedby="body-count body-error"></textarea><p id="body-count" class="small">0 approximate words; 0 / 12,000 characters</p><p id="body-error" class="field-error small" hidden></p>
 <!--ARTICLE_SEARCH-->
 <details id="draft-check-panel"><summary>Outline &amp; draft checks</summary>
 <p class="small">Find unfinished placeholders, repeated passages, empty sections, heading jumps, and paragraphs over 120 approximate words. These suggestions do not verify facts, sources, permissions, grammar, or whether a web address works. <a href="/help/draft-checks/" target="_blank" rel="noopener">How checks work (new tab)</a></p>
@@ -25,7 +27,7 @@
 <p id="draft-check-stats" class="small"></p><p id="draft-check-status" class="small" role="status" aria-live="polite" aria-atomic="true">Run checks when you are ready to review. Nothing is changed automatically.</p><ol id="draft-findings" class="draft-findings" aria-label="Draft check suggestions"></ol>
 <details><summary>Links &amp; image handoff</summary><p id="draft-link-status" class="small">Run draft checks to inspect inline link and image syntax.</p><ul id="draft-links" class="draft-findings"></ul></details>
 </details>
-<details id="preview-panel"><summary>Show reading preview</summary><p class="small">Headings, lists, emphasis, code, and quotes. Inline links with an absolute http:// or https:// address open a new tab when selected; no address is loaded until then. Images, source HTML, and other link formats stay as text. Your website can render differently.</p><div id="article-preview" class="article-preview"></div></details>
+<details id="preview-panel"><summary>Show reading preview</summary><p class="small">Headings, flat lists, simple emphasis, code, and quotes. Inline links with an absolute http:// or https:// address open a new tab when selected; no address is loaded until then. Images, source HTML, and other link formats stay as text. Your website can render differently.</p><div id="article-preview" class="article-preview"></div></details>
 <details id="page-details"><summary>Page details for Markdown export</summary>
 <p class="small">These fields are required for a page Markdown file. Copying the body needs only the article; a reading page needs the title and article.</p>
 <label for="excerpt">Short excerpt</label><textarea id="excerpt" rows="2" maxlength="300" aria-describedby="excerpt-help excerpt-error"></textarea><p id="excerpt-help" class="small">A listing summary, up to 300 characters.</p><p id="excerpt-error" class="field-error small" hidden></p>
@@ -33,9 +35,18 @@
 <label for="slug">Filename, without an extension</label><input id="slug" maxlength="80" spellcheck="false" autocomplete="off" aria-describedby="slug-help slug-error"><p id="slug-help" class="small">Lowercase letters, digits, and separating hyphens.</p><p id="slug-error" class="field-error small" hidden></p><button id="suggest-slug" type="button" class="secondary">Suggest filename from title</button>
 </details>
 <section id="exports" class="export-panel" aria-labelledby="export-heading">
-<h3 id="export-heading">Review &amp; export</h3>
+<h3 id="export-heading">3. Choose your export</h3>
 <p id="export-readiness" class="small" aria-live="polite"></p>
 <label class="check"><input id="reviewed" type="checkbox"><span>I have reviewed the article and understand that exporting does not publish it.</span></label>
+<label for="publishing-destination">Where will you take this article?</label><select id="publishing-destination"><option value="wordpress">WordPress block editor</option><option value="other">Another editor or Markdown site</option></select>
+<section id="wordpress-handoff" aria-labelledby="wordpress-heading">
+<h4 id="wordpress-heading">Continue in WordPress</h4>
+<p id="wordpress-readiness" class="small" role="status" aria-live="polite" aria-atomic="true"></p><ul id="wordpress-notices" class="small"></ul>
+<ol class="handoff-steps"><li>Create a new, empty draft post in WordPress. Enter your article title in its title field.</li><li>Open the editor Options menu, select Code editor, and paste the copied blocks into the post body. This is for the block editor, not a Custom HTML block or the Classic Editor.</li><li>Return to Visual editor. Inspect headings, lists, quotes, and links. Add images and page fields yourself, then preview the post before publishing.</li></ol>
+<div class="actions"><button id="copy-wordpress" type="button" class="button" disabled>Copy WordPress blocks</button><button id="download-wordpress" type="button" class="secondary" disabled>Download WordPress blocks</button><button id="copy-wordpress-title" type="button" class="secondary" disabled>Copy title separately</button></div>
+<p class="small">The body becomes editable blocks. The title, excerpt, description, source notes, and review questions are excluded. Images and complex Markdown stay as text; add or rebuild them in WordPress. Numbered lists start at 1. Nothing connects to your WordPress account. <a href="/help/publishing-handoff/#wordpress" target="_blank" rel="noopener">WordPress handoff help (new tab)</a></p>
+<details id="wordpress-code-panel"><summary>Inspect or manually copy the approved blocks</summary><label for="wordpress-code-preview">WordPress block code, available after review</label><textarea id="wordpress-code-preview" rows="8" readonly spellcheck="false"></textarea></details>
+</section>
 <h4>Continue in an editor</h4>
 <label class="check"><input id="copy-title" type="checkbox"><span>Include the title when copying formatted text</span></label>
 <div class="actions"><button id="copy-formatted" type="button" class="button" disabled>Copy formatted article</button><button id="copy-body" type="button" class="secondary" disabled>Copy article body</button></div>

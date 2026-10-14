@@ -1,0 +1,8 @@
+// Public fictional material for trying the same editor and exports as a real draft.
+export const QUICK_SAMPLE = Object.freeze({
+  title: 'A simpler way to keep a project log',
+  excerpt: 'A fictional guide to keeping a short, useful project log.',
+  description: 'A fictional sample showing headings, lists, quotes, and links before a manual WordPress handoff.',
+  slug: 'a-simpler-project-log',
+  body: 'This is a **fictional sample article**. Replace it with your own writing before publishing.\n\n## Keep the useful details\n\nA project log can be short. Record the decision, what prompted it, and what you need to check next.\n\n- What changed?\n- Why did it change?\n- What remains uncertain?\n\n## Make the next step clear\n\n1. Write one observation.\n2. Separate the observation from your interpretation.\n3. Name the next thing to check.\n\n> A small, honest note is more useful than a polished guess.\n\nFor an example of a publishing destination, visit [WordPress](https://wordpress.org/). This sample does not represent a real project or its results.'
+});
