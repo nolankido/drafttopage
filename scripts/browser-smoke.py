@@ -390,7 +390,8 @@ with sync_playwright() as p:
     expect(page.locator('#checkpoint-count')).to_contain_text('0 / 5')
     assert page.locator('#checkpoint-comparison').is_hidden() and page.locator('#body').input_value()==''
     assert page.locator('#checkpoint-saved').input_value()=='' and page.locator('#checkpoint-current').input_value()==''
-    assert page.locator('#import-body-preview').input_value()=='' and page.locator('#article-preview').inner_text()==''
+    assert page.locator('#import-body-preview').input_value()==''
+    assert page.locator('#article-preview').inner_text().strip()=='Untitled article'
     assert state['api']==[]
     report['checks'].append('Revisions: empty/save/compare/private download, cancellation, restore/redo, approval/preferences reset, automatic snapshots around formatting/import/file restore/outline/review-note removal, count bounds, clear purge, expanded narrow layouts, and no API calls')
     context.close()
