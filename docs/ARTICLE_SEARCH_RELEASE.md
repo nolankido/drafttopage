@@ -16,9 +16,13 @@ Article/query/case/replacement edits invalidate pending bulk previews. Imports, 
 
 ## Validation
 
-- All 164 local Node tests passed. New coverage includes literal metacharacters, dollar replacement text, Unicode positions/case, non-overlap, navigation/wrap, deletion, no-op counts, preview bounds, independent split/join output comparison, full article bounds, stale preview invalidation, approval preservation, selection changes, cancellation, busy state, checkpoint failure, private source retention, IME handling, and clearing.
+- All 165 local Node tests passed. New coverage includes literal metacharacters, dollar replacement text, Unicode positions/case, non-overlap, navigation/wrap, deletion, no-op counts, preview bounds, independent split/join output comparison, full article bounds, stale preview invalidation, approval preservation, selection changes, cancellation, busy state, checkpoint failure, private source retention, IME handling, clearing, and optional module load/installation failure.
 - Controller tests use minimal event-bearing controls and do not substitute for browser rendering.
 - Source checks validate generated pages, syntax, local imports, assets/links, accessible references, protected routes, storage/logging restrictions, and absence of Actions workflows.
 - The browser fixture suite is extended to cover real selection, replacement, recovery, downloads, hostile replacement strings, approval behavior, clearing, and expanded 1440/390/320-pixel layouts. Chromium remains unavailable locally, so no expanded-suite pass is claimed. Direct live checks follow native Cloudflare publication.
 
 GitHub Actions remain stopped. Native Cloudflare Git publishing is separate. Genuine provider acceptance, destination compatibility, real-mobile testing, and independent screen-reader/security audits are separate work.
+
+## Optional feature loading
+
+The search controller loads independently after the core desk initializes. Search controls stay disabled while loading. A rejected request or installation failure leaves writing, formatting, review, exports, and recovery available, and displays an unavailable message within the search panel. Source validation also checks local dynamic-import paths. This avoids turning an optional editing-tool load failure into an unusable workspace.

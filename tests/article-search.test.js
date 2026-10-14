@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { findArticleMatches, navigateArticleMatch, replaceArticleMatch, previewArticleReplacements } from '../public/article-search.js';
 import { installArticleSearch } from '../public/search-controls.js';
 import { createCheckpointHistory } from '../public/revisions.js';
+import { loadEditingTool } from '../public/editing.js';
 
 test('Find treats all pattern punctuation literally and returns exact Unicode textarea offsets', () => {
   for (const query of ['[a]', 'a.b', '$&', '\\', '(foo)', '*+?^${}|[]']) {
@@ -64,6 +65,17 @@ test('Exact-case bulk output matches an independent split/join reference across 
     const query = words[index % words.length], replacement = words[(index + 2) % words.length];
     assert.equal(previewArticleReplacements(body, query, replacement, { matchCase: true }).body, body.split(query).join(replacement));
   }
+});
+test('Optional module loading succeeds deliberately and contains load/installation failures', async () => {
+  const writing = { body: 'Existing fictional writing.', approved: true };
+  let unavailable = 0, installed = 0;
+  assert.equal(await loadEditingTool(async () => { throw new Error('Fixture network failure'); }, () => installed++, () => unavailable++), false);
+  assert.equal(installed, 0); assert.equal(unavailable, 1);
+  assert.equal(await loadEditingTool(async () => ({}), () => { throw new Error('Fixture installation failure'); }, () => unavailable++), false);
+  assert.equal(unavailable, 2);
+  assert.equal(await loadEditingTool(async () => ({ ready: true }), module => { assert.equal(module.ready, true); installed++; }, () => unavailable++), true);
+  assert.equal(installed, 1); assert.equal(unavailable, 2);
+  assert.deepEqual(writing, { body: 'Existing fictional writing.', approved: true });
 });
 
 // Controller contract tests, with event-bearing controls. These do not assert browser rendering.

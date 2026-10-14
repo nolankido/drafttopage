@@ -7,12 +7,11 @@ import { articleIssues, articleBody, makeDraftingBrief } from './authoring.js';
 import { createReadingPage } from './html-export.js';
 import { TEMPLATES } from './content-data.js';
 import { installArticleImport } from './import-controls.js';
-import { formatMarkdown } from './editing.js';
+import { formatMarkdown, loadEditingTool } from './editing.js';
 import { installDraftReview } from './review-controls.js';
 import { installPublishingExports } from './export-controls.js';
 import { articleWordCount } from './draft-review.js';
 import { installRevisions } from './revision-controls.js';
-import { installArticleSearch } from './search-controls.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
@@ -230,13 +229,20 @@ renderQuestions();
 draftReview = installDraftReview({ getDraft: () => capture().draft, report });
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
-articleSearch = installArticleSearch({
-  isBusy: () => recovery.reading() || Boolean(importer?.reading()), report,
-  apply: (plan, label) => {
-    revisions.captureBefore(label);
-    $('body').value = plan.body; touched.add('body'); changed();
-    $('body').focus(); $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
-  }
+// An optional editing tool must not block the core writing/recovery workspace.
+loadEditingTool(() => import('./search-controls.js'), ({ installArticleSearch }) => {
+  articleSearch = installArticleSearch({
+    isBusy: () => recovery.reading() || Boolean(importer?.reading()), report,
+    apply: (plan, label) => {
+      revisions.captureBefore(label);
+      $('body').value = plan.body; touched.add('body'); changed();
+      $('body').focus(); $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
+    }
+  });
+  $('start-find').disabled = false;
+}, () => {
+  $('start-find').disabled = true;
+  $('find-status').textContent = 'Find and replace could not load in this browser. Continue editing the article directly. Your writing is kept.';
 });
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }

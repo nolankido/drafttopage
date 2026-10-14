@@ -57,6 +57,12 @@ for (const path of sourceFiles.filter(p => p.startsWith('public/') && p.endsWith
     assert.ok(target.startsWith(resolve('public') + '/'), 'Browser module stays in public assets');
     await access(target);
   }
+  for (const [, dependency] of ui.matchAll(/\bimport\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+    assert.ok(dependency.startsWith('./'), `Local dynamic browser import required: ${dependency}`);
+    const target = resolve(dirname(path), dependency);
+    assert.ok(target.startsWith(resolve('public') + '/'), 'Dynamic browser module stays in public assets');
+    await access(target);
+  }
 }
 for (const file of sourceFiles.filter(p => p.startsWith('src/'))) assert.ok(!/console\.(log|warn|error)/.test(await readFile(file, 'utf8')), `No production content logging in ${file}`);
 console.log(`Static checks passed: ${pages.length} HTML pages, script syntax, assets, anchors, accessible references, browser imports, protected routing, storage/logging guards, and no GitHub Actions workflows.`);
