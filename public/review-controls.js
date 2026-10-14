@@ -2,7 +2,7 @@ import { analyzeDraft, articleStructure, REVIEW_LIMIT } from './draft-review.js'
 
 export function installDraftReview({ getDraft, report }) {
   const $ = id => document.getElementById(id);
-  let checked = null, snapshot = '';
+  let checked = null, snapshot = '', outlineBody = null;
   const signature = draft => JSON.stringify([draft.title, draft.body]);
   function jump(item) {
     const body = $('body'); body.focus(); body.setSelectionRange(item.start, item.end);
@@ -14,7 +14,11 @@ export function installDraftReview({ getDraft, report }) {
     button.addEventListener('click', () => jump(item)); return button;
   }
   function outline() {
-    const headings = articleStructure(getDraft().body).filter(block => block.kind === 'heading');
+    const body = getDraft().body;
+    // Preserve button nodes through editor blur, so a pending click still fires.
+    if (body === outlineBody) return;
+    outlineBody = body;
+    const headings = articleStructure(body).filter(block => block.kind === 'heading');
     $('outline-status').textContent = headings.length ? headings.length + ' heading(s). Select one to edit its source.' + (headings.length > REVIEW_LIMIT ? ' Showing the first ' + REVIEW_LIMIT + '.' : '') : 'No Markdown headings yet. Add a heading with the formatting tools when it helps the reader.';
     $('article-outline').replaceChildren(...headings.slice(0, REVIEW_LIMIT).map(item => {
       const li = document.createElement('li');

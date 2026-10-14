@@ -228,6 +228,11 @@ with sync_playwright() as p:
     assert links.count()==1 and links.get_attribute('href')=='https://example.test/a_(b)'
     assert links.get_attribute('rel')=='noopener noreferrer' and links.get_attribute('target')=='_blank'
     assert page.locator('#article-preview img, #article-preview script').count()==0
+    # Leaving the editor must not replace a link before its click is dispatched.
+    page.locator('#body').focus()
+    page.evaluate("document.querySelector('#article-preview a').addEventListener('click',event=>{event.preventDefault();window.previewLinkClicked=true})")
+    links.click()
+    assert page.evaluate('window.previewLinkClicked') is True
     page.check('#reviewed')
     with page.expect_download() as info: page.click('#download-html')
     html=Path(info.value.path()).read_text()
