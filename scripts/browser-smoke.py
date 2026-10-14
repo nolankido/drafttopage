@@ -98,7 +98,7 @@ with sync_playwright() as p:
     assert reader.locator('h1').count()==1 and reader.locator('script, img, a').count()==0
     reader.close()
     page.locator('#page-details summary').click()
-    page.locator('#notes-panel summary').click()
+    page.locator('#notes-panel > summary').click()
     for key in ['title','excerpt','description','slug','body']: page.fill('#'+key,draft[key])
     page.fill('#notes',source['notes'])
     page.check('#reviewed')
