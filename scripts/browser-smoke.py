@@ -78,6 +78,28 @@ with sync_playwright() as p:
     page,context,state=open_page('/write/')
     expect(page.locator('#desk-status')).to_contain_text('ready')
     assert page.locator('#download').is_disabled()
+    # Body copying/downloading must work before page metadata is supplied.
+    page.fill('#body','Body without page metadata.')
+    page.check('#reviewed')
+    assert page.locator('#copy-body').is_enabled() and page.locator('#download').is_disabled()
+    page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedFixture=text}}})")
+    page.click('#copy-body')
+    assert page.evaluate('window.copiedFixture')=='Body without page metadata.'
+    with page.expect_download() as info: page.click('#download-body')
+    assert Path(info.value.path()).read_text()=='Body without page metadata.\n'
+    page.fill('#title','A fictional reading page')
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-html')
+    reading_text=Path(info.value.path()).read_text()
+    assert '<h1>A fictional reading page</h1>' in reading_text
+    assert '<script' not in reading_text and 'default-src' in reading_text
+    reader=context.new_page()
+    reader.set_content(reading_text)
+    assert reader.locator('h1').count()==1 and reader.locator('script, img, a').count()==0
+    layout(reader,'reading-page')
+    reader.close()
+    page.locator('#page-details summary').click()
+    page.locator('#notes-panel > summary').click()
     for key in ['title','excerpt','description','slug','body']: page.fill('#'+key,draft[key])
     page.fill('#notes',source['notes'])
     page.check('#reviewed')
@@ -114,6 +136,7 @@ with sync_playwright() as p:
     page.fill('#body',draft['body']); page.fill('#title',draft['title'])
     layout(page,'write')
     assert state['api']==[]
+    report['checks'].append('Public workflow: body copy/download without metadata, standalone HTML download and inert browser rendering')
     report['checks'].append('Local desk: actual Markdown and private-JSON download bytes, restore, invalid/oversized/cancelled files, approval reset, inert preview, and no API calls')
     context.close()
     if not args.desk_only:
@@ -123,6 +146,16 @@ with sync_playwright() as p:
             page,context,state=open_page(url,js=False); layout(page,relative)
             context.close()
         report['checks'].append('All generated public pages readable without JavaScript at 1440, 390, and 320 pixels')
+        page,context,state=open_page('/write/#template-progress')
+        assert 'What is completed:' in page.locator('#notes').input_value()
+        assert page.locator('#profile').input_value()=='update'
+        page.locator('.drafting-brief summary').click()
+        page.click('#copy-brief'); expect(page.locator('#desk-status')).to_contain_text('Fill in the outline')
+        page.fill('#notes',source['notes'])
+        assert source['notes'] in page.locator('#drafting-brief').input_value()
+        assert state['api']==[]
+        context.close()
+        report['checks'].append('Direct template handoff and local drafting brief with untouched-outline guard and no API calls')
         page,context,state=open_page('/demo/')
         expect(page.locator('#demo-title')).not_to_have_value('')
         page.select_option('#demo-example','meeting'); page.click('#demo-load')
@@ -146,6 +179,11 @@ with sync_playwright() as p:
         page.click('#sample'); page.check('#consent'); page.click('#generate'); expect(page.locator('#editor')).to_be_visible()
         expect(page.locator('#title')).to_be_focused()
         assert page.locator('.workspace').get_attribute('aria-busy')=='false'
+        page.check('#reviewed')
+        page.fill('#audience','A more specific readership')
+        assert not page.locator('#reviewed').is_checked()
+        page.check('#reviewed'); page.fill('#purpose','Describe the limits clearly.')
+        assert not page.locator('#reviewed').is_checked()
         page.fill('#title','A pilot edit'); page.check('#reviewed')
         with page.expect_download() as info: page.click('#download')
         assert 'A pilot edit' in Path(info.value.path()).read_text()
@@ -169,3 +207,4 @@ assert not report['unexpected_requests'], report['unexpected_requests']
 report['result']='PASS'
 (out/'browser-results.json').write_text(json.dumps(report,indent=2))
 print(json.dumps(report,indent=2))
+

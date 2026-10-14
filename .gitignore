@@ -24,3 +24,8 @@ public/robots.txt
 public/release.json
 # Never commit downloaded private writing, even by accident.
 drafttopage-private-workspace-*.json
+
+public/about/
+
+__pycache__/
+*.pyc

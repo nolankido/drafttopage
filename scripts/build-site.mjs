@@ -1,4 +1,2 @@
-// Compose the existing content build with the local-writing feature. All work is local.
+// All public pages use a shared shell and a deterministic local build.
 import './build-content.mjs';
-import { extendSite } from './extend-site.mjs';
-await extendSite();

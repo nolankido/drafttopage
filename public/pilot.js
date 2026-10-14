@@ -1,6 +1,7 @@
 import { installRecovery } from './recovery.js';
 import { validateDraft } from './workspace.js';
 import { createMarkdown } from './markdown.js';
+import { articleBody } from './authoring.js';
 import { TEMPLATES, EXAMPLES } from './content-data.js';
 const $ = selector => document.querySelector(selector);
 let ready = false, busy = false, checking = false, dirty = false, profiles = {};
@@ -43,9 +44,9 @@ async function connect() {
   finally { checking = false; $('#reconnect').disabled = false; $('#generate').disabled = !ready; }
 }
 $('#reconnect').addEventListener('click', connect);
-$('#profile').addEventListener('change', () => { updateProfile(); dirty = true; });
-$('#notes').addEventListener('input', () => { $('#note-count').textContent = `${$('#notes').value.length.toLocaleString()} / 8,000`; dirty = true; });
-for (const id of ['audience', 'purpose']) $(`#${id}`).addEventListener('input', () => { dirty = true; });
+$('#profile').addEventListener('change', () => { updateProfile(); edited(); });
+$('#notes').addEventListener('input', () => { $('#note-count').textContent = `${$('#notes').value.length.toLocaleString()} / 8,000`; edited(); });
+for (const id of ['audience', 'purpose']) $(`#${id}`).addEventListener('input', edited);
 for (const id of fields) $(`#${id}`).addEventListener('input', edited);
 $('#reviewed').addEventListener('change', updateExports);
 function replaceNotes(text, profile, message) {
@@ -111,7 +112,7 @@ $('#download').addEventListener('click', () => {
   } catch (error) { status(error.message); }
 });
 $('#copy').addEventListener('click', () => { try { copyText(getExport(), 'Markdown copied. Nothing was published. Follow the export guide before importing it.'); } catch (error) { status(error.message); } });
-$('#copy-body').addEventListener('click', () => { try { getExport(); copyText($('#body').value.trim(), 'Article body copied as Markdown, without the title or metadata. Add those separately in your publishing editor. Nothing was published.'); } catch (error) { status(error.message); } });
+$('#copy-body').addEventListener('click', () => { try { if (!$('#reviewed').checked) throw new Error('Review the draft first.'); copyText(articleBody({ body: $('#body').value }), 'Article body copied as Markdown, without the title or metadata. Add those separately in your publishing editor. Nothing was published.'); } catch (error) { status(error.message); } });
 function clearWorkspace() {
   $('#draft-form').reset(); fields.forEach(id => { $(`#${id}`).value = ''; }); $('#questions').replaceChildren();
   $('#editor').hidden = true; $('#empty-state').hidden = false; $('#reviewed').checked = false;
