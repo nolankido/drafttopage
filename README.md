@@ -33,6 +33,10 @@ Editor and review word counts now share the same limited Markdown-aware estimate
 
 ## Explicit files, not autosave
 
+The public desk keeps bounded revision checkpoints in tab memory: at most five and 384 KiB of serialized writing. Authors can save labeled checkpoints and compare exact field text with current writing. Imports, workspace restores, toolbar formatting, outline replacement, filename suggestions, and review-note removal retain previous writing before mutation. Invalid current writing blocks these replacements rather than losing a version that could not be checkpointed. Restoring a checkpoint requires confirmation, retains displaced writing when nonempty, and clears approval and export preferences. Clear this writing desk purges all checkpoints after confirmation. There is no checkpoint on each keystroke, timer, network request, or persistent storage.
+
+A selected checkpoint can be downloaded after a separate private-content acknowledgement. It uses the unchanged version-1 workspace format and includes only that version, without checkpoint labels or history. Current article exports exclude checkpoints and private source/review fields. Checkpoints are not crash recovery: refreshing, closing, or leaving can discard them. See [the full product evaluation](docs/PRODUCT_EVALUATION_20261014.md).
+
 The local desk and private pilot share a versioned JSON workspace-backup format. A deliberately downloaded backup includes source notes, audience, purpose, article type, draft fields, and review questions. It excludes application authentication fields and approvals. Files are unencrypted and must be kept private. Do not put them in this public repository.
 
 A restore reads only the selected file, validates the entire content and a 128 KiB limit before replacement, asks before overwriting existing writing, and clears approval and pilot consent. It does not call AI. Article Markdown exports continue to omit notes and review questions.

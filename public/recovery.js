@@ -2,7 +2,7 @@ import { MAX_BACKUP_BYTES, createWorkspaceBackup, parseWorkspaceBackup } from '.
 import { downloadText } from './download.js';
 
 /** Bind local backup controls to an editor, independently of its AI connection. */
-export function installRecovery({ capture, restore, hasWork, isBusy, report }) {
+export function installRecovery({ capture, restore, hasWork, isBusy, busyChanged = () => {}, report }) {
   const controls = document.getElementById('backup-controls');
   const acknowledge = document.getElementById('backup-private-ok');
   const save = document.getElementById('save-backup');
@@ -26,7 +26,7 @@ export function installRecovery({ capture, restore, hasWork, isBusy, report }) {
   fileInput.addEventListener('change', async () => {
     const file = fileInput.files?.[0];
     if (!file || reading || isBusy()) { fileInput.value = ''; return; }
-    reading = true; update();
+    reading = true; update(); busyChanged();
     try {
       if (file.size > MAX_BACKUP_BYTES) throw new Error('Choose a workspace backup no larger than 128 KiB. Current work is unchanged.');
       // Validate before confirming or changing any visible field. Never merge arbitrary keys.
@@ -39,8 +39,9 @@ export function installRecovery({ capture, restore, hasWork, isBusy, report }) {
       acknowledge.checked = false;
       report('Workspace restored locally. Review approval and any AI consent are cleared. Nothing was uploaded, generated, or published.');
     } catch (error) { report(error.message || 'Could not read this backup. Current writing is unchanged.'); }
-    finally { reading = false; fileInput.value = ''; update(); }
+    finally { reading = false; fileInput.value = ''; update(); busyChanged(); }
   });
   update();
   return { update, reading: () => reading };
 }
+

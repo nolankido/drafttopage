@@ -24,6 +24,7 @@ public/robots.txt
 public/release.json
 # Never commit downloaded private writing, even by accident.
 drafttopage-private-workspace-*.json
+drafttopage-private-checkpoint-*.json
 
 public/about/
 

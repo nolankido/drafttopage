@@ -7,6 +7,9 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     candidate = null;
     $('import-preview').hidden = true; $('apply-import').disabled = true;
     $('import-unmapped-ok').checked = false;
+    $('import-body-preview').value = ''; $('import-summary').textContent = '';
+    $('import-page-details').replaceChildren(); $('import-warnings').replaceChildren();
+    $('import-unmapped').textContent = ''; $('import-unmapped-section').hidden = true;
   };
   function preview(text, name) {
     clear();
@@ -56,9 +59,11 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     if (hasArticle() && !confirm('Replace the article, page details, and review questions with this import? Save a private backup to keep them first. Source notes are kept.')) {
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
-    apply(candidate.draft);
-    clear(); $('import-text').value = '';
-    report('Article imported locally. Source notes were kept and export approval was cleared. Review before exporting. Nothing was uploaded or sent to AI.');
+    try {
+      apply(candidate.draft);
+      clear(); $('import-text').value = '';
+      report('Article imported locally. Source notes were kept and export approval was cleared. Review before exporting. Nothing was uploaded or sent to AI.');
+    } catch (error) { report(error.message); }
   });
   $('cancel-import').addEventListener('click', () => {
     if (reading) return;

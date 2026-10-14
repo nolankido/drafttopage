@@ -8,6 +8,7 @@
 <noscript><p>This workspace needs JavaScript. <a href="/templates/">Copy a note outline</a> or <a href="/examples/">read the examples</a> without it.</p></noscript>
 <p id="desk-status" class="message" role="status" aria-live="polite" aria-atomic="true"></p>
 <!--WORKSPACE_RECOVERY-->
+<!--WORKSPACE_REVISIONS-->
 <!--ARTICLE_IMPORT-->
 <div class="desk-columns">
 <section id="draft" class="paper article-editor" aria-labelledby="article-heading">
@@ -15,7 +16,7 @@
 <label for="title">Article title</label><input id="title" maxlength="160" autocomplete="off" aria-describedby="title-error"><p id="title-error" class="field-error small" hidden></p>
 <label for="body">Article body, in Markdown</label>
 <div class="format-tools" role="group" aria-label="Article formatting"><button type="button" class="secondary" data-format="bold">Bold</button><button type="button" class="secondary" data-format="italic">Italic</button><button type="button" class="secondary" data-format="heading">Heading</button><button type="button" class="secondary" data-format="list">Bullet list</button><button type="button" class="secondary" data-format="numbered">Numbered list</button><button type="button" class="secondary" data-format="code">Inline code</button></div>
-<p class="small">Select text or place the cursor, then choose formatting. You can also edit Markdown directly.</p><textarea id="body" rows="16" maxlength="12000" aria-describedby="body-count body-error"></textarea><p id="body-count" class="small">0 approximate words; 0 / 12,000 characters</p><p id="body-error" class="field-error small" hidden></p>
+<p class="small">Select text or place the cursor, then choose formatting. Previous writing is kept under Revisions in this tab. You can also edit Markdown directly.</p><textarea id="body" rows="16" maxlength="12000" aria-describedby="body-count body-error"></textarea><p id="body-count" class="small">0 approximate words; 0 / 12,000 characters</p><p id="body-error" class="field-error small" hidden></p>
 <details id="draft-check-panel"><summary>Outline &amp; draft checks</summary>
 <p class="small">Find unfinished placeholders, repeated passages, empty sections, heading jumps, and paragraphs over 120 approximate words. These suggestions do not verify facts, sources, permissions, grammar, or whether a web address works. <a href="/help/draft-checks/" target="_blank" rel="noopener">How checks work (new tab)</a></p>
 <h3>Your section outline</h3><p id="outline-status" class="small"></p><ol id="article-outline" class="article-outline" aria-label="Article section outline"></ol>
