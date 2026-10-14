@@ -33,13 +33,15 @@ with sync_playwright() as p:
     binary = shutil.which('chromium') or shutil.which('chromium-browser')
     if binary: options['executable_path'] = binary
     browser = p.chromium.launch(**options)
-    def open_page(path, js=True):
-        state = {'calls':0,'expired':False,'failure':False,'accept':True,'api':[]}
+    def open_page(path, js=True, blocked_modules=()):
+        state = {'calls':0,'expired':False,'failure':False,'accept':True,'api':[], 'blocked':[]}
         context = browser.new_context(viewport={'width':1440,'height':1000},java_script_enabled=js,accept_downloads=True)
         def route(r):
             u = urlparse(r.request.url)
             if u.netloc != 'drafttopage.test':
                 report['unexpected_requests'].append(r.request.url); r.abort(); return
+            if u.path in blocked_modules:
+                state['blocked'].append(u.path); r.abort('blockedbyclient'); return
             if u.path == '/favicon.ico': r.fulfill(status=204,body=''); return
             if u.path.startswith('/api/'):
                 state['api'].append(u.path)
@@ -447,6 +449,20 @@ with sync_playwright() as p:
     assert page.locator('#replace-preview').is_hidden() and page.locator('#replace-examples li').count()==0
     assert state['api']==[]
     report['checks'].append('Article search: exact literal selection and keyboard navigation, approval-preserving preview, single/bulk checkpoint recovery, stale/cancelled/oversized protection, private source/review retention, inert examples, actual edited-body download, deletion, clear purge, expanded narrow layouts, and no API calls')
+    context.close()
+    page,context,state=open_page('/write/',blocked_modules=('/search-controls.js',))
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    expect(page.locator('#find-status')).to_contain_text('could not load')
+    assert page.locator('#start-find').is_disabled()
+    page.fill('#body','Fictional fallback article.'); page.check('#reviewed')
+    assert page.locator('#download-body').is_enabled()
+    with page.expect_download() as info: page.click('#download-body')
+    assert Path(info.value.path()).read_text()=='Fictional fallback article.\n'
+    page.click('[data-format=bold]'); assert '**' in page.locator('#body').input_value()
+    assert not page.locator('#reviewed').is_checked() and page.locator('#checkpoint-select option').count()==1
+    assert state['blocked']==['/search-controls.js'] and state['api']==[]
+    layout(page,'optional-search-unavailable')
+    report['checks'].append('Optional search module rejection leaves the core desk ready, formatting and checkpoint recovery available, and actual body export functional')
     context.close()
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):

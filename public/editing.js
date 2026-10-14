@@ -29,3 +29,8 @@ export function formatMarkdown(body, start, end, action) {
   if (result.length > 12000) throw new Error('Formatting would exceed 12,000 characters. Current writing is unchanged.');
   return { body: result, selectionStart: selectedStart, selectionEnd: selectedEnd };
 }
+// Failure of an optional editor module must leave the existing desk usable.
+export async function loadEditingTool(load, install, unavailable) {
+  try { install(await load()); return true; }
+  catch { unavailable(); return false; }
+}
