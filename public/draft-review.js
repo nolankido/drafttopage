@@ -3,6 +3,7 @@ import { inlineTokens } from './markdown-inline.js';
 export const REVIEW_LIMIT = 40;
 export const PARAGRAPH_WORDS = 120;
 const wordsIn = text => (text.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu) || []).length;
+const visibleText = tokens => tokens.filter(p => p.type !== 'image' && p.type !== 'code').map(p => p.text).join('');
 // Character positions use the unchanged editor string, including CRLF and Unicode.
 export function articleStructure(body) {
   if (typeof body !== 'string' || body.length > 12000) throw new Error('Draft checks support at most 12,000 article characters.');
@@ -33,6 +34,9 @@ export function articleStructure(body) {
   flush(); if (fence) { fence.unclosed = true; blocks.push(fence); }
   return blocks;
 }
+export function articleWordCount(body) {
+  return articleStructure(body).reduce((count, block) => count + (block.kind === 'code' ? 0 : wordsIn(visibleText(inlineTokens(block.text)))), 0);
+}
 export function analyzeDraft(draft) {
   const body = draft?.body, title = draft?.title || '';
   if (typeof title !== 'string' || title.length > 160) throw new Error('Check the article title before reviewing.');
@@ -49,7 +53,7 @@ export function analyzeDraft(draft) {
       continue;
     }
     const tokens = inlineTokens(block.text);
-    const visible = tokens.filter(p => p.type !== 'image' && p.type !== 'code').map(p => p.text).join('');
+    const visible = visibleText(tokens);
     words += wordsIn(visible);
     if (block.kind === 'heading') {
       const previous = headings.at(-1); headings.push({ ...block });

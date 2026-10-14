@@ -30,6 +30,7 @@ export function installDraftReview({ getDraft, report }) {
       checked = null; $('draft-findings').replaceChildren(); $('draft-links').replaceChildren(); $('copy-checks').disabled = true;
       $('draft-check-status').textContent = 'The article changed. Run checks again for current findings and text positions.';
       $('draft-check-stats').textContent = '';
+      $('draft-link-status').textContent = 'The article changed. Run checks again to inspect its current links.';
     }
     if ($('draft-check-panel').open) outline();
   }

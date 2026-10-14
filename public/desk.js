@@ -9,10 +9,12 @@ import { TEMPLATES } from './content-data.js';
 import { installArticleImport } from './import-controls.js';
 import { formatMarkdown } from './editing.js';
 import { installDraftReview } from './review-controls.js';
+import { installPublishingExports } from './export-controls.js';
+import { articleWordCount } from './draft-review.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
@@ -24,8 +26,7 @@ const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id 
 const filename = () => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test($('slug').value) && $('slug').value.length <= 80 ? $('slug').value : suggestFilename($('title').value);
 function update() {
   const value = capture();
-  const body = $('body').value.trim();
-  const words = body ? body.split(/\s+/u).length : 0;
+  const words = articleWordCount($('body').value);
   $('body-count').textContent = words.toLocaleString() + ' approximate words; ' + $('body').value.length.toLocaleString() + ' / 12,000 characters';
   $('description-count').textContent = $('description').value.length + ' / 160 characters';
   $('note-count').textContent = $('notes').value.length.toLocaleString() + ' / 8,000 characters';
@@ -41,7 +42,8 @@ function update() {
   for (const id of ['copy-body', 'download-body']) $(id).disabled = !reviewed || Object.keys(articleIssues(value.draft, 'body')).length > 0;
   $('download-html').disabled = !reviewed || Object.keys(articleIssues(value.draft, 'html')).length > 0;
   const missing = Object.keys(issues).map(id => ({ title: 'title', body: 'article', excerpt: 'excerpt', description: 'description', slug: 'filename' })[id]);
-  $('export-readiness').textContent = missing.length ? 'For page Markdown, complete: ' + missing.join(', ') + '. Body export needs only the article; a reading page also needs a title.' : 'Page details complete. Review the article, then choose an export.';
+  $('markdown-readiness').textContent = missing.length ? 'For page Markdown, complete: ' + missing.join(', ') + '.' : 'All page fields are complete. Choose how the title heading will be handled.';
+  $('export-readiness').textContent = issues.body ? 'Add an article, review it, then choose how to take it with you.' : issues.title ? 'Body copying and downloading are available after review. Add a title for a reading page or publishing kit.' : 'After review, copy into an editor, take a reading page, or download a publishing kit. Open Markdown with page details for website Markdown.';
   $('load-outline').disabled = !$('template-select').value;
   try { $('drafting-brief').value = makeDraftingBrief(value.source); }
   catch (error) { $('drafting-brief').value = error.message; }
@@ -52,6 +54,7 @@ function update() {
     }
   }
   draftReview?.refresh();
+  publishingExports?.update();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -68,6 +71,7 @@ function fill(value) {
   importer?.clear(); $('import-text').value = '';
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
+  publishingExports?.reset();
   changed(); $('body').focus();
 }
 const recovery = installRecovery({ capture, restore: fill, hasWork, isBusy: () => Boolean(importer?.reading()), report });
@@ -206,6 +210,7 @@ $('import-text').addEventListener('input', () => {
 });
 renderQuestions();
 draftReview = installDraftReview({ getDraft: () => capture().draft, report });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report });
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });

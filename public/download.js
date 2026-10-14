@@ -1,4 +1,4 @@
-// Starts a user-initiated browser download. It cannot confirm the device saved it.
+// Starts a user-initiated download of text or prepared bytes. Device saving is separate.
 export function downloadText(content, filename, type) {
   const url = URL.createObjectURL(new Blob([content], { type }));
   const link = document.createElement('a');
@@ -6,3 +6,4 @@ export function downloadText(content, filename, type) {
   try { document.body.append(link); link.click(); }
   finally { link.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); }
 }
+
