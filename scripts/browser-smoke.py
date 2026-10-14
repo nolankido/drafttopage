@@ -205,8 +205,8 @@ with sync_playwright() as p:
     body='## A fictional update\n\nTODO: add context.\n\n## Next step\n\nRead [A resource](https://example.test/a_(b)) and [relative](/local).\n\n![Image](https://example.test/image.png)'
     page.fill('#title','A fictional update'); page.fill('#body',body)
     page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE CHECK SENTINEL')
-    page.locator('#draft-check-panel > summary').click()
-    assert page.locator('#article-outline li').count()==2
+    page.click('#start-checks')
+    expect(page.locator('#article-outline li')).to_have_count(2)
     page.check('#reviewed'); page.click('#run-checks')
     assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
     expect(page.locator('#draft-check-status')).to_contain_text('item(s) to consider')
