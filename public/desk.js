@@ -11,10 +11,11 @@ import { formatMarkdown } from './editing.js';
 import { installDraftReview } from './review-controls.js';
 import { installPublishingExports } from './export-controls.js';
 import { articleWordCount } from './draft-review.js';
+import { installRevisions } from './revision-controls.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
@@ -22,7 +23,11 @@ const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
-const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending());
+const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting());
+function updateExitWarning() {
+  window.removeEventListener('beforeunload', warn);
+  if (hasWork()) window.addEventListener('beforeunload', warn);
+}
 const filename = () => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test($('slug').value) && $('slug').value.length <= 80 ? $('slug').value : suggestFilename($('title').value);
 function update() {
   const value = capture();
@@ -55,12 +60,12 @@ function update() {
   }
   draftReview?.refresh();
   publishingExports?.update();
+  revisions?.update();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
   $('reviewed').checked = false;
-  window.removeEventListener('beforeunload', warn);
-  if (hasWork()) window.addEventListener('beforeunload', warn);
+  updateExitWarning();
   update();
 }
 function fill(value) {
@@ -69,12 +74,13 @@ function fill(value) {
   questions = value.draft?.questions ? [...value.draft.questions] : [];
   touched.clear(); renderQuestions(); setFocus(false);
   importer?.clear(); $('import-text').value = '';
+  $('article-preview').replaceChildren(); previewSnapshot = null;
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
   publishingExports?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: fill, hasWork, isBusy: () => Boolean(importer?.reading()), report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => revisions?.update(), report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -94,6 +100,7 @@ function loadOutline(id) {
   const template = TEMPLATES.find(item => item.id === id);
   if (!template || recovery.reading() || importer?.reading()) return;
   if ($('notes').value && !confirm('Replace the source notes with this outline? Save any notes you want to keep first. The current article is kept.')) return;
+  try { revisions?.captureBefore('Before outline replacement'); } catch (error) { report(error.message); return; }
   $('notes').value = template.outline; $('profile').value = template.profile;
   $('template-select').value = template.id; setFocus(false); $('notes-panel').open = true;
   changed(); $('notes').focus();
@@ -108,7 +115,9 @@ function followFragment() {
 }
 window.addEventListener('hashchange', followFragment);
 $('suggest-slug').addEventListener('click', () => {
+  if (recovery.reading() || importer?.reading()) return;
   if ($('slug').value && !confirm('Replace the current filename with a suggestion from the title?')) return;
+  try { revisions?.captureBefore('Before filename suggestion'); } catch (error) { report(error.message); return; }
   $('slug').value = suggestFilename($('title').value); changed();
   report('Filename suggested locally. Review it before exporting.');
 });
@@ -150,11 +159,12 @@ $('copy-brief').addEventListener('click', () => {
 });
 $('clear').addEventListener('click', () => {
   if (recovery.reading() || importer?.reading()) return;
-  if (hasWork() && !confirm('Clear the notes, article, and questions in this tab? Download a private backup first to keep unfinished work.')) return;
+  if (hasWork() && !confirm('Clear the notes, article, questions, and ALL checkpoints in this tab? Download a private backup first to keep unfinished work. This cannot be undone in the workspace.')) return;
+  revisions?.clear();
   fill({ source: { profile: 'personal', audience: '', purpose: '', notes: '' }, draft: null });
   $('template-select').value = '';
   $('backup-private-ok').checked = false; recovery.update(); update();
-  report('Writing desk cleared. Files already downloaded to your device are unchanged.');
+  report('Writing desk and all in-tab checkpoints cleared. Files already downloaded to your device are unchanged.');
 });
 function setFocus(active) {
   $('main').classList.toggle('desk-focus', active);
@@ -164,10 +174,12 @@ function setFocus(active) {
 }
 $('toggle-focus').addEventListener('click', () => setFocus($('toggle-focus').getAttribute('aria-pressed') !== 'true'));
 for (const button of document.querySelectorAll('[data-format]')) button.addEventListener('click', () => {
+  if (recovery.reading() || importer?.reading()) return;
   try {
     const result = formatMarkdown($('body').value, $('body').selectionStart, $('body').selectionEnd, button.dataset.format);
+    revisions?.captureBefore('Before ' + button.textContent.toLowerCase() + ' formatting');
     $('body').value = result.body; $('body').focus(); $('body').setSelectionRange(result.selectionStart, result.selectionEnd);
-    touched.add('body'); changed(); report('Formatting applied locally. Review approval was cleared.');
+    touched.add('body'); changed(); report('Formatting applied locally. Previous writing is available in Revisions in this tab. Review approval was cleared.');
   } catch (error) { report(error.message); }
 });
 function renderQuestions() {
@@ -178,6 +190,8 @@ function renderQuestions() {
     input.addEventListener('input', () => { questions[index] = input.value; changed(); });
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Remove note ' + (index + 1);
     remove.addEventListener('click', () => {
+      if (recovery.reading() || importer?.reading()) return;
+      try { revisions?.captureBefore('Before removing a review note'); } catch (error) { report(error.message); return; }
       questions.splice(index, 1); renderQuestions(); changed();
       $('add-question').focus(); report('Review note removed from this workspace. Downloaded backups are unchanged.');
     });
@@ -196,8 +210,9 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0,
-  isBusy: () => recovery.reading(), busyChanged: () => recovery.update(), report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); }, report,
   apply: draft => {
+    revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
     questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
     $('export-format').value = 'page'; changed(); $('body').focus();
@@ -205,12 +220,12 @@ importer = installArticleImport({
 });
 $('start-import').addEventListener('click', () => { $('import-panel').open = true; $('import-file').focus(); });
 $('import-text').addEventListener('input', () => {
-  window.removeEventListener('beforeunload', warn);
-  if (hasWork()) window.addEventListener('beforeunload', warn);
+  updateExitWarning();
 });
 renderQuestions();
 draftReview = installDraftReview({ getDraft: () => capture().draft, report });
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report });
+revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });

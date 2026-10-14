@@ -330,6 +330,70 @@ with sync_playwright() as p:
     layout(page,'publishing-handoff')
     assert state['api']==[]; context.close()
     report['checks'].append('Publishing handoff: native ClipboardItem HTML/plain representations with title choices and blocked/unsupported fallback, actual partial/complete ZIP bytes and independent CRC validation, source/review exclusion, latest edits, consistent counts, unchanged backups, restored preferences, and no upload/API calls')
+    # Revision recovery uses actual controls, comparisons and download bytes.
+    page,context,state=open_page('/write/')
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    page.locator('#checkpoint-panel > summary').click()
+    page.click('#save-checkpoint'); expect(page.locator('#desk-status')).to_contain_text('Add writing')
+    page.fill('#title','Fictional first version'); page.fill('#body','Original article text.')
+    page.click('#start-notes'); page.fill('#notes','Fictional private revision source.')
+    page.click('#add-question'); page.fill('#review-question-0','Fictional private review question?')
+    page.fill('#checkpoint-label','Before revision'); page.check('#reviewed'); page.click('#save-checkpoint')
+    assert page.locator('#reviewed').is_checked()
+    original=page.locator('#checkpoint-select').input_value()
+    page.fill('#body','Replacement article text.'); page.fill('#title','Fictional second version')
+    expect(page.locator('#checkpoint-differences')).to_contain_text('Title, Article body')
+    assert page.locator('#checkpoint-saved').input_value()=='Original article text.'
+    assert page.locator('#checkpoint-current').input_value()=='Replacement article text.'
+    page.select_option('#checkpoint-field','notes')
+    assert page.locator('#checkpoint-saved').input_value()=='Fictional private revision source.'
+    assert page.locator('#download-checkpoint').is_disabled()
+    page.check('#checkpoint-private-ok')
+    with page.expect_download() as info: page.click('#download-checkpoint')
+    checkpoint_json=json.loads(Path(info.value.path()).read_text())
+    assert checkpoint_json['draft']['body']=='Original article text.'
+    assert checkpoint_json['source']['notes']=='Fictional private revision source.'
+    assert checkpoint_json['draft']['questions']==['Fictional private review question?']
+    assert set(checkpoint_json)=={'format','version','source','draft'}
+    state['accept']=False; page.click('#restore-checkpoint')
+    expect(page.locator('#desk-status')).to_contain_text('cancelled')
+    assert page.locator('#body').input_value()=='Replacement article text.'
+    state['accept']=True; page.check('#reviewed'); page.check('#copy-title'); page.check('#reviewed')
+    page.click('#restore-checkpoint')
+    expect(page.locator('#body')).to_have_value('Original article text.')
+    assert not page.locator('#reviewed').is_checked() and not page.locator('#copy-title').is_checked()
+    assert not page.locator('#checkpoint-private-ok').is_checked()
+    page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
+    page.click('[data-format=bold]')
+    formatted=page.locator('#body').input_value(); assert '**' in formatted
+    page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
+    page.click('#start-import'); page.fill('#import-text','## Fictional import\n\nImported article text.')
+    page.click('#preview-import'); page.click('#apply-import')
+    assert 'Imported article text.' in page.locator('#body').input_value()
+    page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
+    page.locator('.recovery-box summary').click(); restore(page,backup)
+    expect(page.locator('#desk-status')).to_contain_text('restored locally')
+    page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
+    page.click('#start-notes'); page.select_option('#template-select','progress'); page.click('#load-outline')
+    assert page.locator('#notes').input_value()!='Fictional private revision source.'
+    page.click('#restore-checkpoint'); expect(page.locator('#notes')).to_have_value('Fictional private revision source.')
+    if not page.locator('#review-panel').evaluate('el=>el.open'): page.locator('#review-panel > summary').click()
+    page.get_by_role('button',name='Remove note 1',exact=True).click()
+    assert page.locator('#questions li').count()==0
+    page.click('#restore-checkpoint'); assert page.locator('#questions li').count()==1
+    for i in range(7):
+        page.fill('#body','Fictional bounded version '+str(i)); page.click('#save-checkpoint')
+    assert page.locator('#checkpoint-select option').count()==5
+    page.select_option('#checkpoint-field','body'); layout(page,'revisions-expanded')
+    state['accept']=False; page.click('#clear'); assert page.locator('#checkpoint-select option').count()==5
+    state['accept']=True; page.click('#clear')
+    expect(page.locator('#checkpoint-count')).to_contain_text('0 / 5')
+    assert page.locator('#checkpoint-comparison').is_hidden() and page.locator('#body').input_value()==''
+    assert page.locator('#checkpoint-saved').input_value()=='' and page.locator('#checkpoint-current').input_value()==''
+    assert page.locator('#import-body-preview').input_value()=='' and page.locator('#article-preview').inner_text()==''
+    assert state['api']==[]
+    report['checks'].append('Revisions: empty/save/compare/private download, cancellation, restore/redo, approval/preferences reset, automatic snapshots around formatting/import/file restore/outline/review-note removal, count bounds, clear purge, expanded narrow layouts, and no API calls')
+    context.close()
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()
