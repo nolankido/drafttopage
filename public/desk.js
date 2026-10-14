@@ -15,7 +15,7 @@ import { installRevisions } from './revision-controls.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
@@ -235,8 +235,13 @@ draftReview = installDraftReview({
   }
 });
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report });
-revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
 // An optional editing tool must not block the core writing/recovery workspace.
+loadEditingTool(() => import('./revision-diff-controls.js'), ({ installRevisionDiff }) => {
+  revisionDiff = installRevisionDiff({ getComparison: () => revisions.articleComparison() });
+}, () => {
+  $('article-diff-status').textContent = 'Article changes could not load in this browser. Use the complete saved/current field comparison below. Your writing is kept.';
+});
 loadEditingTool(() => import('./search-controls.js'), ({ installArticleSearch }) => {
   articleSearch = installArticleSearch({
     isBusy: () => recovery.reading() || Boolean(importer?.reading()), report,

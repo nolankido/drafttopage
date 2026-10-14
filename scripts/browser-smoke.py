@@ -373,8 +373,15 @@ with sync_playwright() as p:
     expect(page.locator('#checkpoint-differences')).to_contain_text('Title, Article body')
     assert page.locator('#checkpoint-saved').input_value()=='Original article text.'
     assert page.locator('#checkpoint-current').input_value()=='Replacement article text.'
+    page.locator('#article-diff-panel > summary').click()
+    expect(page.locator('#article-diff-status')).to_contain_text('1 added line(s); 1 removed line(s)')
+    assert page.locator('#article-diff-groups pre').all_text_contents()==['Original article text.','Replacement article text.']
+    page.check('#reviewed'); page.locator('#article-diff-panel > summary').click(); page.locator('#article-diff-panel > summary').click()
+    assert page.locator('#reviewed').is_checked()
     page.select_option('#checkpoint-field','notes')
     assert page.locator('#checkpoint-saved').input_value()=='Fictional private revision source.'
+    assert 'Fictional private revision source.' not in page.locator('#article-diff-groups').inner_text()
+    assert 'Fictional private review question?' not in page.locator('#article-diff-groups').inner_text()
     assert page.locator('#download-checkpoint').is_disabled()
     page.check('#checkpoint-private-ok')
     with page.expect_download() as info: page.click('#download-checkpoint')
@@ -418,10 +425,22 @@ with sync_playwright() as p:
     expect(page.locator('#checkpoint-count')).to_contain_text('0 / 5')
     assert page.locator('#checkpoint-comparison').is_hidden() and page.locator('#body').input_value()==''
     assert page.locator('#checkpoint-saved').input_value()=='' and page.locator('#checkpoint-current').input_value()==''
+    assert page.locator('#article-diff-groups li').count()==0
     assert page.locator('#import-body-preview').input_value()==''
     assert page.locator('#article-preview').inner_text().strip()=='Untitled article'
     assert state['api']==[]
     report['checks'].append('Revisions: empty/save/compare/private download, cancellation, restore/redo, approval/preferences reset, automatic snapshots around formatting/import/file restore/outline/review-note removal, count bounds, clear purge, expanded narrow layouts, and no API calls')
+    context.close()
+    # Failure of the optional comparison module must not block writing/recovery.
+    page,context,state=open_page('/write/',blocked_modules=('/revision-diff-controls.js',))
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    page.fill('#body','Fictional original.'); page.locator('#checkpoint-panel > summary').click(); page.click('#save-checkpoint')
+    page.fill('#body','Fictional current.'); page.locator('#article-diff-panel > summary').click()
+    expect(page.locator('#article-diff-status')).to_contain_text('could not load')
+    assert page.locator('#checkpoint-saved').input_value()=='Fictional original.'
+    assert page.locator('#checkpoint-current').input_value()=='Fictional current.'
+    page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Fictional original.')
+    assert state['blocked']==['/revision-diff-controls.js'] and state['api']==[]
     context.close()
     page,context,state=open_page('/write/')
     expect(page.locator('#desk-status')).to_contain_text('ready')
