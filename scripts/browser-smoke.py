@@ -225,7 +225,8 @@ with sync_playwright() as p:
     assert page.locator('#draft-findings li').count()==0 and page.locator('#copy-checks').is_disabled()
     page.click('#run-checks'); page.locator('#preview-panel > summary').click()
     links=page.locator('#article-preview a')
-    assert links.count()==1 and links.get_attribute('href')=='https://example.test/a_(b)'
+    expect(links).to_have_count(1)
+    expect(links).to_have_attribute('href','https://example.test/a_(b)')
     assert links.get_attribute('rel')=='noopener noreferrer' and links.get_attribute('target')=='_blank'
     assert page.locator('#article-preview img, #article-preview script').count()==0
     # Leaving the editor must not replace a link before its click is dispatched.
