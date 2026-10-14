@@ -96,6 +96,7 @@ with sync_playwright() as p:
     reader=context.new_page()
     reader.set_content(reading_text)
     assert reader.locator('h1').count()==1 and reader.locator('script, img, a').count()==0
+    layout(reader,'reading-page')
     reader.close()
     page.locator('#page-details summary').click()
     page.locator('#notes-panel > summary').click()
