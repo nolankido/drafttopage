@@ -139,6 +139,67 @@ with sync_playwright() as p:
     report['checks'].append('Public workflow: body copy/download without metadata, standalone HTML download and inert browser rendering')
     report['checks'].append('Local desk: actual Markdown and private-JSON download bytes, restore, invalid/oversized/cancelled files, approval reset, inert preview, and no API calls')
     context.close()
+    # Exercise imports in a separate context so existing fixture tests keep their baseline.
+    page,context,state=open_page('/write/')
+    assert page.locator('#title').get_attribute('aria-invalid') is None
+    assert not page.locator('#title-error').is_visible()
+    page.click('#start-notes'); page.fill('#notes',source['notes'])
+    page.click('#start-import')
+    sample=(root/'public/samples/studio.md').read_bytes()
+    page.locator('#import-file').set_input_files({'name':'a-custom-article-name.md','mimeType':'text/markdown','buffer':sample})
+    expect(page.locator('#import-preview')).to_be_visible()
+    assert page.locator('#body').input_value()==''
+    page.click('#apply-import')
+    expect(page.locator('#desk-status')).to_contain_text('imported locally')
+    assert page.locator('#notes').input_value()==source['notes']
+    assert page.locator('#slug').input_value()=='a-custom-article-name'
+    assert not page.locator('#reviewed').is_checked()
+    old=page.locator('#body').input_value()
+    page.check('#reviewed')
+    page.fill('#import-text','{broken'); page.click('#preview-import')
+    expect(page.locator('#desk-status')).to_contain_text('not valid')
+    assert page.locator('#body').input_value()==old and page.locator('#reviewed').is_checked()
+    page.fill('#import-text',json.dumps(draft)); page.click('#preview-import')
+    expect(page.locator('#import-preview')).to_be_visible()
+    state['accept']=False; page.click('#apply-import')
+    expect(page.locator('#desk-status')).to_contain_text('cancelled')
+    assert page.locator('#body').input_value()==old
+    state['accept']=True; page.click('#apply-import')
+    expect(page.locator('#desk-status')).to_contain_text('imported locally')
+    assert page.locator('#questions li').count()==1 and page.locator('#notes').input_value()==source['notes']
+    page.check('#reviewed'); page.fill('#review-question-0','Resolved: keep the uncertain outcome explicit.')
+    assert not page.locator('#reviewed').is_checked()
+    page.click('#add-question'); page.fill('#review-question-1','Check the destination title once more.')
+    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    with page.expect_download() as info: page.click('#save-backup')
+    review_backup=Path(info.value.path()).read_bytes()
+    assert json.loads(review_backup)['draft']['questions']==['Resolved: keep the uncertain outcome explicit.','Check the destination title once more.']
+    page.click('#clear'); restore(page,review_backup)
+    expect(page.locator('#review-question-1')).to_have_value('Check the destination title once more.')
+    assert not page.locator('#reviewed').is_checked()
+    page.click('#toggle-focus'); assert page.locator('.source-editor').is_hidden()
+    page.fill('#body','One two three')
+    page.locator('#body').evaluate('(el)=>el.setSelectionRange(4,7)')
+    page.click('[data-format=bold]'); expect(page.locator('#body')).to_have_value('One **two** three')
+    page.click('[data-format=bold]'); expect(page.locator('#body')).to_have_value('One two three')
+    page.click('#toggle-focus'); assert page.locator('.source-editor').is_visible()
+    page.click('#start-import')
+    page.fill('#import-text','---\ntitle: A fictional article\nlayout: article\n---\n\nBody.')
+    page.click('#preview-import'); assert page.locator('#apply-import').is_disabled()
+    page.check('#import-unmapped-ok'); page.click('#apply-import')
+    expect(page.locator('#desk-status')).to_contain_text('imported locally')
+    page.locator('#import-file').set_input_files({'name':'too-large.md','mimeType':'text/markdown','buffer':b'x'*(48*1024+1)})
+    expect(page.locator('#desk-status')).to_contain_text('48 KiB')
+    expect(page.locator('#body')).to_have_value('Body.')
+    page.fill('#import-text',json.dumps({**draft,'body':'<script>window.importPwned=true</script>','questions':['<img src=x onerror=bad()>']}))
+    page.click('#preview-import'); page.click('#apply-import')
+    expect(page.locator('#desk-status')).to_contain_text('imported locally')
+    page.locator('#preview-panel > summary').click()
+    assert page.locator('#article-preview script, #questions img').count()==0
+    assert page.evaluate('window.importPwned===undefined')
+    layout(page,'import-review'); assert state['api']==[]
+    context.close()
+    report['checks'].append('Imports: real Markdown file, custom filename, JSON preview/apply/cancel, invalid and oversized preservation, source retention, editable review-note backup/restore, formatting, focus mode, unmapped-field decision, inert imported markup, and no API calls')
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()
