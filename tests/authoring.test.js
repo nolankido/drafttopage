@@ -52,7 +52,7 @@ test('Drafting briefs require filled source material, preserve uncertainty instr
 });
 test('Reading aid recognizes adjacent blocks and leaves link targets as data', () => {
   assert.deepEqual(previewBlocks('## Heading\nParagraph.\n\n> Quoted\n> Continued\n\n\x60\x60\x60\n<script>x</script>\n\x60\x60\x60'), [
-    { type: 'h4', text: 'Heading' }, { type: 'p', text: 'Paragraph.' },
+    { type: 'h4', level: 2, text: 'Heading' }, { type: 'p', text: 'Paragraph.' },
     { type: 'blockquote', text: 'Quoted\nContinued' }, { type: 'pre', text: '<script>x</script>' }
   ]);
   assert.deepEqual(inlineParts('**Claim** and \x60code\x60'), [{ type: 'strong', text: 'Claim' }, { type: 'text', text: ' and ' }, { type: 'code', text: 'code' }]);

@@ -200,6 +200,65 @@ with sync_playwright() as p:
     layout(page,'import-review'); assert state['api']==[]
     context.close()
     report['checks'].append('Imports: real Markdown file, custom filename, JSON preview/apply/cancel, invalid and oversized preservation, source retention, editable review-note backup/restore, formatting, focus mode, unmapped-field decision, inert imported markup, and no API calls')
+    # Checks remain advisory and select exact current editor text. Links never preload.
+    page,context,state=open_page('/write/')
+    body='## A fictional update\n\nTODO: add context.\n\n## Next step\n\nRead [A resource](https://example.test/a_(b)) and [relative](/local).\n\n![Image](https://example.test/image.png)'
+    page.fill('#title','A fictional update'); page.fill('#body',body)
+    page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE CHECK SENTINEL')
+    page.click('#start-checks')
+    expect(page.locator('#article-outline li')).to_have_count(2)
+    page.check('#reviewed'); page.click('#run-checks')
+    assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
+    expect(page.locator('#draft-check-status')).to_contain_text('item(s) to consider')
+    assert page.locator('#draft-findings li').count()==4
+    page.locator('#draft-findings').get_by_role('button',name='Edit line 3',exact=True).click()
+    selection=page.locator('#body').evaluate('(el)=>({text:el.value.slice(el.selectionStart,el.selectionEnd),focused:document.activeElement===el})')
+    assert selection=={'text':'TODO','focused':True}
+    page.locator('#article-outline').get_by_role('button',name='Line 5: ## Next step',exact=True).click()
+    assert page.locator('#body').evaluate('(el)=>el.value.slice(el.selectionStart,el.selectionEnd)')=='## Next step'
+    page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.checkCopy=text}}})")
+    page.click('#copy-checks')
+    assert 'Possible unfinished text' in page.evaluate('window.checkCopy')
+    assert 'PRIVATE SOURCE CHECK SENTINEL' not in page.evaluate('window.checkCopy')
+    page.fill('#body',body.replace('TODO: add context.','A fictional change is still being tested.'))
+    expect(page.locator('#draft-check-status')).to_contain_text('article changed')
+    assert page.locator('#draft-findings li').count()==0 and page.locator('#copy-checks').is_disabled()
+    page.click('#run-checks'); page.locator('#preview-panel > summary').click()
+    links=page.locator('#article-preview a')
+    expect(links).to_have_count(1)
+    expect(links).to_have_attribute('href','https://example.test/a_(b)')
+    assert links.get_attribute('rel')=='noopener noreferrer' and links.get_attribute('target')=='_blank'
+    assert page.locator('#article-preview img, #article-preview script').count()==0
+    # Leaving the editor must not replace a link before its click is dispatched.
+    page.locator('#body').focus()
+    page.evaluate("document.querySelector('#article-preview a').addEventListener('click',event=>{event.preventDefault();window.previewLinkClicked=true})")
+    links.click()
+    assert page.evaluate('window.previewLinkClicked') is True
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-html')
+    html=Path(info.value.path()).read_text()
+    assert 'PRIVATE SOURCE CHECK SENTINEL' not in html and '<a href="https://example.test/a_(b)"' in html
+    reader=context.new_page(); reader.set_content(html)
+    assert reader.locator('a').count()==1 and reader.locator('script,img').count()==0
+    assert reader.locator('h1').count()==1 and reader.locator('h2').count()==2
+    layout(reader,'reading-links'); reader.close()
+    page.locator('.recovery-box > summary').click(); page.check('#backup-private-ok')
+    with page.expect_download() as info: page.click('#save-backup')
+    kept=json.loads(Path(info.value.path()).read_bytes())
+    assert kept['version']==1 and set(kept)=={'format','version','source','draft'}
+    assert 'findings' not in kept['draft']
+    page.fill('#body','A clear fictional paragraph.'); page.click('#run-checks')
+    expect(page.locator('#draft-check-status')).to_contain_text('No patterns were flagged')
+    page.fill('#body','TODO\n\n'*45); page.click('#run-checks')
+    assert page.locator('#draft-findings li').count()==40
+    expect(page.locator('#draft-check-status')).to_contain_text('Showing the first 40')
+    page.fill('#body','<script>bad()</script>\n\n## <img src=x onerror=bad()>\nTODO')
+    page.click('#run-checks')
+    assert page.locator('#draft-check-panel script, #draft-check-panel img').count()==0
+    layout(page,'draft-checks')
+    assert state['api']==[]
+    context.close()
+    report['checks'].append('Local draft review: exact finding/outline selection, advisory approval, stale-result clearing, private-safe copy, capped findings, inert imported text, real HTML links/downloads, unchanged backup contract, and no URL lookups or API calls')
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()

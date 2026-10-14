@@ -1,4 +1,5 @@
-// A bounded reading aid. Source markup is always data; links and images remain text.
+import { inlineTokens } from './markdown-inline.js';
+// A bounded reading aid. Only explicit web links become navigation; no resources load.
 export function previewBlocks(body) {
   if (typeof body !== 'string' || body.length > 12000) throw new Error('Preview supports at most 12,000 body characters.');
   const lines = body.replaceAll('\r', '').split('\n');
@@ -8,15 +9,15 @@ export function previewBlocks(body) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) { flush(); continue; }
-    const fence = /^(\x60{3,}|~{3,})([^ ]*)\s*$/.exec(line);
+    const fence = /^ {0,3}(\x60{3,}|~{3,})(.*)$/.exec(line);
     if (fence) {
       flush(); const text = [];
-      const closing = new RegExp('^' + (fence[1][0] === '~' ? '~' : '\\x60') + '{' + fence[1].length + ',}\\s*$');
+      const closing = new RegExp('^ {0,3}' + (fence[1][0] === '~' ? '~' : '\\x60') + '{' + fence[1].length + ',}\\s*$');
       while (++i < lines.length && !closing.test(lines[i])) text.push(lines[i]);
       result.push({ type: 'pre', text: text.join('\n') }); continue;
     }
-    const heading = /^(#{1,6}) +(.+)$/.exec(line);
-    if (heading) { flush(); result.push({ type: 'h' + Math.min(6, heading[1].length + 2), text: heading[2] }); continue; }
+    const heading = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|$)/.exec(line);
+    if (heading) { flush(); result.push({ type: 'h' + Math.min(6, heading[1].length + 2), level: heading[1].length, text: (heading[2] || '').replace(/[ \t]+#+[ \t]*$/, '').trim() }); continue; }
     const unordered = /^[-*] +(.+)$/.exec(line);
     const ordered = /^\d+\. +(.+)$/.exec(line);
     if (unordered || ordered) {
@@ -36,21 +37,20 @@ export function previewBlocks(body) {
   flush(); return result;
 }
 export function inlineParts(text) {
-  // No recursion, raw markup execution, URL parsing, or remote resources.
-  const pattern = /(\x60([^\x60\n]+)\x60|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*|_([^_\n]+)_)/g;
-  const parts = []; let offset = 0;
-  for (const match of text.matchAll(pattern)) {
-    if (match.index > offset) parts.push({ type: 'text', text: text.slice(offset, match.index) });
-    parts.push({ type: match[2] ? 'code' : match[3] ? 'strong' : 'em', text: match[2] || match[3] || match[4] || match[5] });
-    offset = match.index + match[0].length;
-  }
-  if (offset < text.length) parts.push({ type: 'text', text: text.slice(offset) });
-  return parts;
+  return inlineTokens(text).map(part => {
+    if (part.type === 'image' || (part.type === 'link' && !part.href)) return { type: 'text', text: text.slice(part.start, part.end) };
+    if (part.type === 'link') return { type: 'a', text: part.text, href: part.href };
+    return { type: part.type, text: part.text };
+  });
 }
 function appendInline(node, text) {
   for (const part of inlineParts(text)) {
     if (part.type === 'text') node.append(document.createTextNode(part.text));
-    else { const child = document.createElement(part.type); child.textContent = part.text; node.append(child); }
+    else {
+      const child = document.createElement(part.type); child.textContent = part.text;
+      if (part.type === 'a') { child.href = part.href; child.target = '_blank'; child.rel = 'noopener noreferrer'; child.setAttribute('aria-label', part.text + ' (opens in a new tab)'); }
+      node.append(child);
+    }
   }
 }
 export function renderPreview(target, title, body) {

@@ -8,10 +8,11 @@ import { createReadingPage } from './html-export.js';
 import { TEMPLATES } from './content-data.js';
 import { installArticleImport } from './import-controls.js';
 import { formatMarkdown } from './editing.js';
+import { installDraftReview } from './review-controls.js';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null;
+let questions = [], importer = null, draftReview = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
@@ -44,7 +45,13 @@ function update() {
   $('load-outline').disabled = !$('template-select').value;
   try { $('drafting-brief').value = makeDraftingBrief(value.source); }
   catch (error) { $('drafting-brief').value = error.message; }
-  if ($('preview-panel').open) renderPreview($('article-preview'), $('title').value, $('body').value);
+  if ($('preview-panel').open) {
+    const snapshot = JSON.stringify([$('title').value, $('body').value]);
+    if (snapshot !== previewSnapshot) {
+      renderPreview($('article-preview'), $('title').value, $('body').value); previewSnapshot = snapshot;
+    }
+  }
+  draftReview?.refresh();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -198,6 +205,7 @@ $('import-text').addEventListener('input', () => {
   if (hasWork()) window.addEventListener('beforeunload', warn);
 });
 renderQuestions();
+draftReview = installDraftReview({ getDraft: () => capture().draft, report });
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });

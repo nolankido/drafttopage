@@ -64,7 +64,7 @@ test('No approvals or authentication fields are serialized', () => {
 });
 test('Basic preview represents only inert paragraph/heading/list blocks', () => {
   assert.deepEqual(previewBlocks('## Heading\n\nA paragraph.\n\n- One\n- Two\n\n1. Step'), [
-    { type: 'h4', text: 'Heading' }, { type: 'p', text: 'A paragraph.' },
+    { type: 'h4', level: 2, text: 'Heading' }, { type: 'p', text: 'A paragraph.' },
     { type: 'ul', items: ['One', 'Two'] }, { type: 'ol', items: ['Step'] }
   ]);
   for (const value of ['<script>bad()</script>', '![img](https://example.com/a.png)', '[click](javascript:bad())']) assert.deepEqual(previewBlocks(value), [{ type: 'p', text: value }]);
@@ -77,7 +77,7 @@ test('Filename helper produces safe bounded names, including empty and non-ASCII
   assert.equal(suggestFilename('Café project'), 'cafe-project');
 });
 test('Local feature modules cannot upload or execute imported HTML', async () => {
-  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js', 'html-export.js', 'authoring.js', 'article-import.js', 'import-controls.js', 'editing.js']) {
+  for (const file of ['desk.js', 'workspace.js', 'recovery.js', 'preview.js', 'download.js', 'html-export.js', 'authoring.js', 'article-import.js', 'import-controls.js', 'editing.js', 'markdown-inline.js', 'draft-review.js', 'review-controls.js']) {
     const js = await readFile(`public/${file}`, 'utf8');
     assert.doesNotMatch(js, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|innerHTML|outerHTML|insertAdjacentHTML|eval\(|localStorage|sessionStorage|indexedDB/);
   }
@@ -102,7 +102,7 @@ test('Shared public build keeps stable URLs, template handoffs, and release outp
     assert.match(first[1], /aria-current="page"/);
     assert.match(first[1], /id="template-progress"/);
     assert.match(first[2], /href="\/write\/#template-progress"/);
-    assert.equal((first[5].match(/<url>/g) || []).length, 15);
+    assert.equal((first[5].match(/<url>/g) || []).length, 16);
     assert.equal(JSON.parse(first[6]).release, RELEASE);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
