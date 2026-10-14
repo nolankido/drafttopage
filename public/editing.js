@@ -34,4 +34,3 @@ export async function loadEditingTool(load, install, unavailable) {
   try { install(await load()); return true; }
   catch { unavailable(); return false; }
 }
-
