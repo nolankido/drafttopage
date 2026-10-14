@@ -46,7 +46,7 @@ async function connect() {
 $('#reconnect').addEventListener('click', connect);
 $('#profile').addEventListener('change', () => { updateProfile(); edited(); });
 $('#notes').addEventListener('input', () => { $('#note-count').textContent = `${$('#notes').value.length.toLocaleString()} / 8,000`; edited(); });
-for (const id of ['audience', 'purpose']) $(`#${id}`).addEventListener('input', () => { dirty = true; });
+for (const id of ['audience', 'purpose']) $(`#${id}`).addEventListener('input', edited);
 for (const id of fields) $(`#${id}`).addEventListener('input', edited);
 $('#reviewed').addEventListener('change', updateExports);
 function replaceNotes(text, profile, message) {

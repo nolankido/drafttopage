@@ -178,6 +178,11 @@ with sync_playwright() as p:
         page.click('#sample'); page.check('#consent'); page.click('#generate'); expect(page.locator('#editor')).to_be_visible()
         expect(page.locator('#title')).to_be_focused()
         assert page.locator('.workspace').get_attribute('aria-busy')=='false'
+        page.check('#reviewed')
+        page.fill('#audience','A more specific readership')
+        assert not page.locator('#reviewed').is_checked()
+        page.check('#reviewed'); page.fill('#purpose','Describe the limits clearly.')
+        assert not page.locator('#reviewed').is_checked()
         page.fill('#title','A pilot edit'); page.check('#reviewed')
         with page.expect_download() as info: page.click('#download')
         assert 'A pilot edit' in Path(info.value.path()).read_text()
