@@ -4,7 +4,7 @@ import { createMarkdown } from './markdown.js';
 import { suggestFilename } from './preview.js';
 import { createZip } from './zip.js';
 
-export function publishingKitFiles(draft, { includeTitleHeading = false } = {}) {
+export function publicationFields(draft) {
   const issues = articleIssues(draft, 'html');
   if (Object.keys(issues).length) throw new Error(Object.values(issues)[0]);
   // Only these page fields can reach public files. Never serialize a workspace object.
@@ -14,6 +14,10 @@ export function publishingKitFiles(draft, { includeTitleHeading = false } = {}) 
     if (typeof value !== 'string' || value.length > max || value.includes('\u0000')) throw new Error('Check the ' + key + ' field before preparing a publishing kit.');
     clean[key] = value;
   }
+  return clean;
+}
+export function publishingKitFiles(draft, { includeTitleHeading = false } = {}) {
+  const clean = publicationFields(draft);
   const filename = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(clean.slug) ? clean.slug : suggestFilename(clean.title);
   const missing = Object.keys(articleIssues(clean));
   const files = [
