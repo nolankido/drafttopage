@@ -12,7 +12,7 @@ A deployed page or configured secret is not proof that real generation works. Ke
 
 The Cloudflare dashboard should show a successful deployment of the reviewed release. Keep the existing Worker, production branch `main`, blank dashboard build command, and deploy command `npx wrangler deploy`. Wrangler now runs the repository's deterministic `node scripts/build-site.mjs` custom build before bundling assets. It requires no packages or network access. It does not alter runtime secrets.
 
-Visit `/release.json`, `/write/`, `/demo/`, `/templates/`, and `/help/markdown-export/`. The release identifier is `draft-checks-links-20261014`. Confirm the private route fails closed rather than displaying the editor anonymously.
+Visit `/release.json`, `/write/`, `/demo/`, `/templates/`, and `/help/markdown-export/`. The release identifier is `publishing-handoff-20261014`. Confirm the private route fails closed rather than displaying the editor anonymously.
 
 ## 2. Configure runtime access privately
 

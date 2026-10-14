@@ -11,7 +11,7 @@ Repository: `nolankido/drafttopage`. Domain: `drafttopage.com`. Hosting: the exi
 - `/demo/`: practice with prewritten fictional examples. These are illustrative, not actual model responses or customer evidence.
 - `/pilot`: private AI assistance requires owner activation and genuine hosted acceptance testing. Generation remains separate from the public workspace.
 
-The public site has sixteen indexable pages plus a useful 404, including note templates, three complete examples, source/review/export guides, about and support, and data-use guidance. There is no public registration, billing, tracking, automatic publishing, or server-side draft history.
+The public site has seventeen indexable pages plus a useful 404, including note templates, three complete examples, source/review/export guides, about and support, and data-use guidance. There is no public registration, billing, tracking, automatic publishing, or server-side draft history.
 
 The public desk also supports previewed local Markdown and structured-article JSON imports, including selected UTF-8 files up to 48 KiB. Applying an import keeps source notes, replaces article fields and review questions after confirmation, and clears approval. Unmapped scalar front matter requires a deliberate destination decision. Complex YAML, unknown JSON fields, oversized input, and malformed data are rejected before replacement. Import previews are temporary and are not in backups until applied.
 
@@ -20,6 +20,16 @@ Review questions are editable, with twelve notes of up to 500 characters, and us
 The public reading preview and standalone HTML export support headings, lists, simple emphasis, code, and quotations through bounded text parsing. Simple inline links to absolute HTTP(S) addresses without credentials become protected new-tab links. Images, source HTML, and unsupported link formats remain text; no external resources are loaded until a reader follows a link. The exported HTML document includes local styling and a restrictive document CSP. It is not a full Markdown renderer or a verified integration with any particular website. Page Markdown remains untrusted input for the destination.
 
 The article outline and optional local draft checks help locate unfinished placeholders, repeated passages, empty sections, skipped headings, long prose paragraphs, unclosed code fences, and unsupported inline link/image syntax. Findings select their editor passage and clear after article changes. These are bounded editorial patterns, not factual, grammatical, link-availability, or source-quality verification. Results do not gate export and are excluded from workspace backups. See `/help/draft-checks/`.
+
+## Publishing handoff
+
+Copy formatted article writes safe article HTML and a plain-text representation in one explicit clipboard action. The default excludes the title; the author can include it deliberately. Supported formatting uses the same renderer as the reading page. A blocked or unsupported clipboard keeps writing intact and points to the existing body/HTML alternatives. Browser and destination-editor support varies; no CMS integration is claimed.
+
+A publishing kit ZIP contains article-body.md, reading-page.html, page-details.json, README.txt, and page.md only when all page fields are complete. Preview its file list and omission notices before downloading. A safe filename is suggested for an incomplete/invalid filename field without overwriting that field. The archive excludes source notes, audience, purpose, article type, private review questions, check results, and authentication fields. The article itself may still contain private information. The kit is separate from the unencrypted version-1 private backup. See `/help/publishing-handoff/`.
+
+The archive writer emits deterministic stored UTF-8 text with fixed safe filenames, CRC32 checksums, a 512 KiB bound, and fixed 1980 archive timestamps. It has no compression, executable entries, archive import, or new production dependencies. `public/publishing-kit.js` whitelists exportable fields; `public/zip.js` writes the archive; `public/export-controls.js` handles deliberate copying and downloading.
+
+Editor and review word counts now share the same limited Markdown-aware estimate. Stale link-inventory status clears alongside other findings. The default export panel presents editor copying and individual files, with complete Markdown and kit choices in purpose-specific details panels.
 
 ## Explicit files, not autosave
 
@@ -37,7 +47,7 @@ Preserve the existing Worker, GitHub integration, custom domains, production bra
 
 ## Build
 
-Requires Node.js 22 or newer. Production code has no third-party npm dependencies.
+Requires Node.js 22 or newer. The test suite also uses Python 3 standard-library ZIP reading for independent archive validation. Production code has no third-party npm dependencies.
 
 ```sh
 npm run build

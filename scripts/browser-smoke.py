@@ -6,6 +6,7 @@ Run npm run build first. --desk-only restricts testing to the new local writing 
 """
 import argparse
 import json
+import zipfile
 import mimetypes
 import shutil
 import subprocess
@@ -103,6 +104,7 @@ with sync_playwright() as p:
     for key in ['title','excerpt','description','slug','body']: page.fill('#'+key,draft[key])
     page.fill('#notes',source['notes'])
     page.check('#reviewed')
+    page.locator('#markdown-export-panel > summary').click()
     with page.expect_download() as info: page.click('#download')
     article=info.value; text=Path(article.path()).read_text()
     assert article.suggested_filename=='edited-local-article.md'
@@ -222,6 +224,7 @@ with sync_playwright() as p:
     assert 'PRIVATE SOURCE CHECK SENTINEL' not in page.evaluate('window.checkCopy')
     page.fill('#body',body.replace('TODO: add context.','A fictional change is still being tested.'))
     expect(page.locator('#draft-check-status')).to_contain_text('article changed')
+    expect(page.locator('#draft-link-status')).to_contain_text('article changed')
     assert page.locator('#draft-findings li').count()==0 and page.locator('#copy-checks').is_disabled()
     page.click('#run-checks'); page.locator('#preview-panel > summary').click()
     links=page.locator('#article-preview a')
@@ -259,6 +262,74 @@ with sync_playwright() as p:
     assert state['api']==[]
     context.close()
     report['checks'].append('Local draft review: exact finding/outline selection, advisory approval, stale-result clearing, private-safe copy, capped findings, inert imported text, real HTML links/downloads, unchanged backup contract, and no URL lookups or API calls')
+    # Formatted clipboard representations and actual kit bytes are public-only handoffs.
+    page,context,state=open_page('/write/')
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    assert page.locator('#copy-formatted').is_disabled() and page.locator('#download-kit').is_disabled()
+    body='## A change\n\n**A fictional change** remains uncertain.\n\n- One\n- Two\n\n[Planning resource](https://example.test/)\n\n<script>bad()</script>'
+    page.fill('#body',body); page.check('#reviewed')
+    assert page.locator('#copy-formatted').is_enabled() and page.locator('#download-kit').is_disabled()
+    page.evaluate("""Object.defineProperty(navigator,'clipboard',{configurable:true,value:{write:async items=>{const result={};for(const type of items[0].types)result[type]=await(await items[0].getType(type)).text();window.formattedFixture=result},writeText:async text=>{window.bodyCopyFixture=text}}})""")
+    page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('without its title')
+    copied=page.evaluate('window.formattedFixture')
+    assert set(copied)=={'text/html','text/plain'} and '<h1>' not in copied['text/html']
+    assert '<strong>A fictional change</strong>' in copied['text/html'] and '<script>' not in copied['text/html']
+    assert 'Planning resource (https://example.test/)' in copied['text/plain']
+    reader=context.new_page(); reader.set_content(copied['text/html'])
+    assert reader.locator('script,img').count()==0 and reader.locator('a').count()==1
+    reader.close()
+    page.fill('#title','Fictional handoff'); page.check('#copy-title')
+    assert not page.locator('#reviewed').is_checked() and page.locator('#copy-formatted').is_disabled()
+    page.check('#reviewed'); page.click('#copy-formatted')
+    expect(page.locator('#desk-status')).to_contain_text('with its title')
+    assert '<h1>Fictional handoff</h1>' in page.evaluate("window.formattedFixture['text/html']")
+    page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{write:async()=>{throw new DOMException('Blocked','NotAllowedError')},writeText:async text=>{window.bodyCopyFixture=text}}})")
+    page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('Formatted copy unavailable')
+    expect(page.locator('#body')).to_have_value(body)
+    page.click('#copy-body'); assert page.evaluate('window.bodyCopyFixture')==body
+    page.evaluate('window.savedClipboardItem=window.ClipboardItem; window.ClipboardItem=undefined')
+    page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('Formatted copy unavailable')
+    page.evaluate('window.ClipboardItem=window.savedClipboardItem')
+    page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE KIT SENTINEL')
+    page.locator('#review-panel > summary').click(); page.click('#add-question')
+    page.fill('#review-question-0','PRIVATE QUESTION KIT SENTINEL')
+    page.locator('#publishing-kit-panel > summary').click()
+    expect(page.locator('#kit-files li')).to_have_count(4)
+    expect(page.locator('#kit-readiness')).to_contain_text('page.md is omitted')
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-kit')
+    assert info.value.suggested_filename=='fictional-handoff-publishing-kit.zip'
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None and 'page.md' not in z.namelist()
+        assert set(z.namelist())=={'article-body.md','reading-page.html','page-details.json','README.txt'}
+        contents='\n'.join(z.read(name).decode('utf-8') for name in z.namelist())
+        assert 'PRIVATE SOURCE KIT SENTINEL' not in contents and 'PRIVATE QUESTION KIT SENTINEL' not in contents
+        assert json.loads(z.read('page-details.json'))['slug']=='fictional-handoff'
+    page.locator('#page-details > summary').click()
+    for key in ['excerpt','description','slug']: page.fill('#'+key,draft[key])
+    page.locator('#markdown-export-panel > summary').click(); page.select_option('#export-format','document')
+    expect(page.locator('#kit-files li')).to_have_count(5)
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-kit')
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None and '# Fictional handoff' in z.read('page.md').decode('utf-8')
+    page.fill('#body','An updated fictional handoff.')
+    assert not page.locator('#reviewed').is_checked() and page.locator('#download-kit').is_disabled()
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-kit')
+    with zipfile.ZipFile(info.value.path()) as z: assert z.read('article-body.md').decode('utf-8')=='An updated fictional handoff.\n'
+    page.click('#start-checks')
+    expect(page.locator('#draft-check-stats')).to_contain_text('4 approximate words')
+    expect(page.locator('#body-count')).to_contain_text('4 approximate words')
+    page.locator('.recovery-box > summary').click(); page.check('#backup-private-ok')
+    with page.expect_download() as info: page.click('#save-backup')
+    saved=json.loads(Path(info.value.path()).read_bytes())
+    assert saved['version']==1 and set(saved['draft'])=={'title','excerpt','description','slug','body','questions'}
+    restore(page,saved); expect(page.locator('#copy-title')).not_to_be_checked()
+    page.locator('#publishing-kit-panel').evaluate('(el)=>el.open=true')
+    layout(page,'publishing-handoff')
+    assert state['api']==[]; context.close()
+    report['checks'].append('Publishing handoff: native ClipboardItem HTML/plain representations with title choices and blocked/unsupported fallback, actual partial/complete ZIP bytes and independent CRC validation, source/review exclusion, latest edits, consistent counts, unchanged backups, restored preferences, and no upload/API calls')
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()

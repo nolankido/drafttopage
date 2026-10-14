@@ -34,10 +34,21 @@
 <h3 id="export-heading">Review &amp; export</h3>
 <p id="export-readiness" class="small" aria-live="polite"></p>
 <label class="check"><input id="reviewed" type="checkbox"><span>I have reviewed the article and understand that exporting does not publish it.</span></label>
-<div class="actions"><button id="copy-body" type="button" class="secondary" disabled>Copy article body</button><button id="download-body" type="button" class="secondary" disabled>Download article body</button><button id="download-html" type="button" class="secondary" disabled>Download reading page</button></div>
-<p class="small">Body: Markdown without title or metadata. Reading page: a standalone HTML file with a title and basic formatting, ready to open in your browser.</p>
+<h4>Continue in an editor</h4>
+<label class="check"><input id="copy-title" type="checkbox"><span>Include the title when copying formatted text</span></label>
+<div class="actions"><button id="copy-formatted" type="button" class="button" disabled>Copy formatted article</button><button id="copy-body" type="button" class="secondary" disabled>Copy article body</button></div>
+<p class="small">Formatted copying provides basic headings, lists, emphasis, code, and web links. Your title is included only when selected above. Body copying keeps Markdown without title or metadata. Paste and inspect the result in your own editor.</p>
+<h4>Take a single file</h4>
+<div class="actions"><button id="download-body" type="button" class="secondary" disabled>Download article body</button><button id="download-html" type="button" class="secondary" disabled>Download reading page</button></div>
+<p class="small">Body: Markdown without title or metadata. Reading page: a standalone HTML file with a title, ready to open in your browser.</p>
+<details id="markdown-export-panel"><summary>Markdown with page details</summary>
+<p id="markdown-readiness" class="small"></p>
 <label for="export-format">Page Markdown format</label><select id="export-format"><option value="page">Website supplies the title heading</option><option value="document">Include a title heading in the file</option></select>
 <div class="actions"><button id="download" type="button" class="button" disabled>Download Markdown</button><button id="copy" type="button" class="secondary" disabled>Copy Markdown</button></div>
+</details>
+<details id="publishing-kit-panel"><summary>Take a complete publishing kit</summary>
+<p class="small">A ZIP for a manual handoff, with article files, page fields, and next steps. Source and private review notes are excluded. This is separate from a private workspace backup.</p><p id="kit-readiness" class="small" aria-live="polite"></p><ul id="kit-files" class="kit-files" aria-label="Publishing kit contents"></ul><button id="download-kit" type="button" class="secondary" disabled>Download publishing kit</button><p class="small"><a href="/help/publishing-handoff/" target="_blank" rel="noopener">Choose your next step (new tab)</a>. Extract and inspect the files before sharing. Downloading does not publish.</p>
+</details>
 <p class="small">Article files exclude source notes and review questions. Check the saved file and preview your destination before publishing. <a href="/help/markdown-export/" target="_blank" rel="noopener">Choose the right export (new tab)</a></p>
 </section>
 </section>
