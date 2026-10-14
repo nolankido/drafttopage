@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { RECOVERY_HTML } from '../src/recovery-markup.js';
 import { TEMPLATES } from '../public/content-data.js';
 import { escapeHTML } from './site-shell.mjs';
+import { WORDPRESS_TOOL_GUIDE } from './wordpress-tool-guide.mjs';
 const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), 'utf8')
   .replace('<!--WORKSPACE_RECOVERY-->', RECOVERY_HTML)
   .replace('<!--WORKSPACE_REVISIONS-->', readFileSync(new URL('./revision-panel.html.inc', import.meta.url), 'utf8'))
@@ -9,8 +10,13 @@ const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), '
   .replace('<!--ARTICLE_IMPORT-->', readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--TEMPLATE_OPTIONS-->', TEMPLATES.map(t => '<option value="' + t.id + '">' + escapeHTML(t.title) + '</option>').join(''))
   .replace('<!--TEMPLATE_ANCHORS-->', TEMPLATES.map(t => '<span id="template-' + t.id + '" class="template-anchor" aria-hidden="true"></span>').join(''));
+const introEnd = deskBody.indexOf('</header>');
+if (introEnd < 0) throw new Error('The writing workspace needs its shared introduction.');
+const wordpressBody = readFileSync(new URL('./wordpress-tool-intro.html.inc', import.meta.url), 'utf8') +
+  deskBody.slice(introEnd + '</header>'.length).replace('<details id="preview-panel">', '<details id="preview-panel" open>') + WORDPRESS_TOOL_GUIDE;
 export const writingPages = [
   { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody, script: '/desk.js', wide: true, desk: true },
+  { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown to editable WordPress blocks. Preview, inspect handoff findings, and download a publishing kit. Free, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true },
   { route: '/help/local-workspace/', title: 'Save and restore your writing', description: 'Use the public writing workspace, load note outlines, and keep unfinished work in explicit private backup files.',
     body: '<header class="page-intro"><p class="eyebrow">Workspace help</p><h1>Keep your writing moving.</h1><p class="lead">Start from notes or bring an article. The public workspace is manual and works before the private AI pilot is activated.</p></header>' +
     '<h2>Start from notes</h2><ol><li><a href="/write/#notes">Open the notes workspace</a> and choose an outline, or use a template directly from <a href="/templates/">the template library</a>.</li><li>Replace the prompts with your own facts. Separate observations, interpretation, and missing details.</li><li>Write the article yourself, or open Prepare a brief for your chosen writing tool. The brief is assembled locally; copying it does not call AI. Review the other tool before sending material there.</li><li>Bring the resulting article into the editor and compare it with your source.</li></ol>' +

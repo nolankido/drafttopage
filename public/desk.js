@@ -13,6 +13,7 @@ import { installPublishingExports } from './export-controls.js';
 import { articleWordCount } from './draft-review.js';
 import { installRevisions } from './revision-controls.js';
 import { QUICK_SAMPLE } from './quick-sample.js';
+const wordpressTool = document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
@@ -97,7 +98,7 @@ $('start-notes').addEventListener('click', () => {
 });
 $('start-draft').addEventListener('click', () => {
   setFocus(true); $('notes-panel').open = false; $('body').focus();
-  report('Paste or write your article. Page details can wait until you need a full Markdown export.');
+  report(wordpressTool ? 'Paste simple Markdown into the article body. Keep the post title separate. The reading preview updates as you edit.' : 'Paste or write your article. Page details can wait until you need a full Markdown export.');
 });
 $('start-review').addEventListener('click', () => {
   $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
@@ -280,5 +281,5 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });
 setFocus(true); update();
-report('Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
+report(wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();

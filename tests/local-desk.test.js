@@ -92,7 +92,7 @@ test('Shared public build keeps stable URLs, template handoffs, and release outp
   const root = await mkdtemp(join(tmpdir(), 'dtp-build-'));
   try {
     const run = () => execFileSync(process.execPath, ['scripts/build-site.mjs', root]);
-    const paths = ['index.html', 'write/index.html', 'templates/index.html', 'help/local-workspace/index.html', 'about/index.html', 'sitemap.xml', 'release.json'];
+    const paths = ['index.html', 'write/index.html', 'templates/index.html', 'help/local-workspace/index.html', 'about/index.html', 'sitemap.xml', 'release.json', 'markdown-to-wordpress/index.html'];
     run();
     const first = await Promise.all(paths.map(path => readFile(join(root, path), 'utf8')));
     run();
@@ -102,7 +102,7 @@ test('Shared public build keeps stable URLs, template handoffs, and release outp
     assert.match(first[1], /aria-current="page"/);
     assert.match(first[1], /id="template-progress"/);
     assert.match(first[2], /href="\/write\/#template-progress"/);
-    assert.equal((first[5].match(/<url>/g) || []).length, 17);
+    assert.equal((first[5].match(/<url>/g) || []).length, 18);
     assert.equal(JSON.parse(first[6]).release, RELEASE);
   } finally { await rm(root, { recursive: true, force: true }); }
 });

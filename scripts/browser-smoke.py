@@ -83,6 +83,29 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # Acquisition visitors use the complete editor without navigating away.
+    page,context,state=open_page('/markdown-to-wordpress/#sample')
+    expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
+    expect(page.locator('h1')).to_have_text('Markdown to WordPress converter')
+    assert page.locator('#preview-panel').get_attribute('open') is not None
+    assert page.locator('.tool-guide .conversion-example code').count()==2
+    body='A fictional conversion test.\n\n## Inspect this\n\nTODO: inspect this detail.'
+    page.fill('#body',body)
+    expect(page.locator('#article-preview')).to_contain_text('Inspect this')
+    assert page.locator('#wordpress-findings li').count()==1
+    assert page.locator('#copy-wordpress').is_disabled()
+    page.click('#wordpress-kit-panel > summary')
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-wordpress-kit')
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None and len(z.namelist())==6
+        assert z.read('article-body.md').decode()==body
+        assert b'TODO' in z.read('REVIEW.txt')
+    page.fill('#body','A changed fictional article.')
+    assert not page.locator('#reviewed').is_checked()
+    assert page.locator('#wordpress-findings li').count()==0
+    layout(page,'wordpress-tool'); assert state['api']==[]; context.close()
+    report['checks'].append('Acquisition tool: working sample, live preview, current findings, approval-gated exact-body ZIP, edit resets, and narrow layouts')
     # The homepage sample uses the real workspace and approval-gated destination.
     page,context,state=open_page('/write/#sample')
     expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
