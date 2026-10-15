@@ -83,7 +83,7 @@ export function installRevisions({ capture, restore, isBusy, workChanged, report
     try {
       const target = history.read(selected()); // Retain target before bounded history can evict it.
       if (!compareWorkspaces(target, capture()).some(field => field.changed)) return;
-      if (!confirm('Restore this checkpoint, replacing the current notes, article, page details, review questions, and any unsaved passage review, image preparation, or link preparation? Your current saved writing will be kept as a checkpoint when it contains work. Unsaved preparation is excluded from checkpoints and files; save the review note or apply the image or link change first to keep it. Review approval will be cleared.')) {
+      if (!confirm('Restore this checkpoint, replacing the current notes, article, page details, review questions, and any unsaved passage review, image preparation, link preparation, or table preparation? Your current saved writing will be kept as a checkpoint when it contains work. Unsaved preparation is excluded from checkpoints and files; save the review note or apply the image, link, or table change first to keep it. Review approval will be cleared.')) {
         report('Checkpoint restore cancelled. Current writing is unchanged.'); return;
       }
       const result = save('Before checkpoint restore');
