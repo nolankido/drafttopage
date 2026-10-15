@@ -57,5 +57,5 @@ export function planImageEdit(target, fields, currentBody) {
 }
 export function wordImagePlaceholders(body) {
   validBody(body);
-  return [...body.matchAll(/\\?\[Image or object omitted from Word document\\?\]/g)].map(match => ({ start: match.index, end: match.index + match[0].length, line: body.slice(0, match.index).split('\n').length }));
+  return [...body.matchAll(/\\?\[(?:Image or object omitted from Word document|Word image [1-9]\d{0,4})\\?\]/g)].map(match => ({ start: match.index, end: match.index + match[0].length, line: body.slice(0, match.index).split('\n').length }));
 }

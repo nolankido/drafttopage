@@ -4,12 +4,19 @@ import { renderPreview } from './preview.js';
 import { MAX_DOCX_BYTES } from './docx-archive.js';
 import { installImportInsertion } from './import-insertion-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from './copied-writing.js';
+import { downloadText } from './download.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
-export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, workChanged = () => {}, pasteFirst = false }) {
+export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
   const $ = id => document.getElementById(id);
-  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false;
+  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null;
+  const clearWordImages = () => {
+    wordImageKit = null; $('word-image-private-ok').checked = false;
+    $('word-image-kit-review').hidden = true; $('download-word-images').disabled = true;
+    $('word-image-kit-status').textContent = '';
+    $('word-image-kit-files').replaceChildren(); $('word-image-kit-skipped').replaceChildren();
+  };
   const insertion = installImportInsertion({ getBody: () => $('body').value, getSelection: () => ({ start: $('body').selectionStart, end: $('body').selectionEnd }), isBusy: () => reading || isBusy(), report, changed: updateApply });
   const paste = installPasteGuard({ element: $('import-text'), limit: MAX_IMPORT_BYTES, maxBytes: MAX_IMPORT_BYTES, label: 'The import box', skipPaste: () => $('import-format').value === 'html', report: message => {
     $('import-paste-status').textContent = message;
@@ -18,6 +25,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   } });
   const clearPreview = () => {
     paste.clear();
+    clearWordImages(); $('word-image-handoff').hidden = true;
     candidate = null;
     insertion.clear();
     $('import-preview').hidden = true; $('apply-import').disabled = true;
@@ -70,6 +78,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     }));
     $('import-unmapped').textContent = candidate.unmapped.map(item => item.key + ': ' + item.value).join('\n');
     $('import-unmapped-section').hidden = candidate.unmapped.length === 0;
+    $('word-image-handoff').hidden = !(wordFile && candidate.wordImages?.length);
+    if (!$('word-image-handoff').hidden) $('word-image-kit-status').textContent = candidate.wordImages.length + ' numbered image or object position(s). Prepare files to inspect what can be recovered. Download the package before applying this import.';
     $('import-preview').hidden = false;
     $('import-changes-section').hidden = !candidate.requiresAck;
     updateApply();
@@ -84,7 +94,47 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     if ($('start-word-file')) $('start-word-file').disabled = reading || isBusy();
     if ($('start-insert-import')) $('start-insert-import').disabled = reading || isBusy();
     if ($('start-copied-paste')) $('start-copied-paste').disabled = reading || isBusy();
+    $('prepare-word-images').disabled = reading || isBusy() || !wordFile || !candidate?.wordImages?.length;
+    $('download-word-images').disabled = reading || isBusy() || !wordImageKit?.bytes || !$('word-image-private-ok').checked;
+    $('discard-word-images').disabled = reading || isBusy();
+    $('word-image-private-ok').disabled = reading || isBusy();
   }
+  $('prepare-word-images').addEventListener('click', async () => {
+    if (reading || isBusy() || !wordFile || !candidate?.wordImages?.length) return;
+    const source = wordFile, preview = candidate;
+    clearWordImages(); reading = true; $('import-fields').disabled = true; $('cancel-import').disabled = true; updateApply(); busyChanged();
+    $('word-image-kit-status').textContent = 'Reading supported embedded image files locally. Current writing is unchanged.';
+    try {
+      const prepared = await prepareImages(source.bytes, preview);
+      if (source !== wordFile || preview !== candidate) return;
+      wordImageKit = prepared;
+      $('word-image-kit-files').replaceChildren(...prepared.images.map(image => {
+        const item = document.createElement('li'); item.textContent = image.name + ' · ' + image.width + ' × ' + image.height + ' pixels · ' + image.bytes.toLocaleString() + ' bytes · ' + image.placeholders.join(', '); return item;
+      }));
+      $('word-image-kit-skipped').replaceChildren(...prepared.skipped.map(image => {
+        const item = document.createElement('li'); item.textContent = image.placeholder + ': ' + image.note; return item;
+      }));
+      $('word-image-private-label').hidden = !prepared.bytes;
+      $('word-image-kit-review').hidden = false;
+      $('word-image-kit-status').textContent = prepared.images.length + ' original image file(s) prepared; ' + prepared.skipped.length + ' position(s) need separate work. ' + (prepared.bytes ? 'The ZIP also includes article-body.md, image-map.json with Word alt text, and README.txt. Review and download before applying this import.' : 'No supported image files could be recovered. The article can still be imported.');
+      report($('word-image-kit-status').textContent);
+    } catch (error) {
+      $('word-image-kit-status').textContent = (error.message || 'Image recovery is unavailable.') + ' The article preview and current writing are kept.';
+      report($('word-image-kit-status').textContent);
+    } finally {
+      reading = false; $('import-fields').disabled = false; $('cancel-import').disabled = false; updateApply(); busyChanged();
+    }
+  });
+  $('word-image-private-ok').addEventListener('change', updateApply);
+  $('download-word-images').addEventListener('click', () => {
+    if (reading || isBusy() || !wordImageKit?.bytes || !$('word-image-private-ok').checked) return;
+    try { download(wordImageKit.bytes, wordImageKit.filename, 'application/zip'); report('Word image package download requested. Inspect the saved files, then upload images and replace placeholders in WordPress yourself. Nothing was published.'); }
+    catch (error) { report('The image download could not start. Prepared files and your article preview are kept. ' + error.message); }
+  });
+  $('discard-word-images').addEventListener('click', () => {
+    if (reading || isBusy()) return;
+    clearWordImages(); updateApply(); report('Prepared image package discarded. The selected Word file and article preview are kept for another preparation.');
+  });
   function updateFormat() { $('import-html-options').hidden = $('import-format').value !== 'html'; clear(); }
   $('import-text').addEventListener('input', () => { sourceName = ''; clear(); });
   $('import-format').addEventListener('change', updateFormat);

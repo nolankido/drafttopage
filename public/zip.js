@@ -1,4 +1,4 @@
-// A small deterministic ZIP writer: stored UTF-8 text, fixed safe names, no dependencies.
+// Small deterministic ZIP writers with separate fixed contracts for each handoff.
 // No archive input, filesystem paths, executable entries, encryption, or ZIP64.
 import { MAX_ZIP_BYTES } from './writing-limits.js';
 export { MAX_ZIP_BYTES };
@@ -23,17 +23,28 @@ export function createWordZip(entries) {
   if (!Array.isArray(entries) || entries.length !== WORD_PART_NAMES.length) throw new Error('A Word document needs exactly its six supported parts.');
   return storedZip(entries, name => WORD_PART_NAMES.includes(name));
 }
-function storedZip(entries, allowedName) {
+export const MAX_WORD_IMAGE_KIT_BYTES = 16 * 1024 * 1024;
+export function createWordImageZip(entries) {
+  if (!Array.isArray(entries) || entries.length < 4 || entries.length > 43) throw new Error('A Word image handoff needs images and its three text files.');
+  const textNames = ['article-body.md', 'image-map.json', 'README.txt'];
+  if (!textNames.every(name => entries.filter(e => e?.name === name).length === 1)) throw new Error('The Word image handoff is missing its placement files.');
+  for (const entry of entries) {
+    const image = /^word-image-\d{3}\.(?:png|jpg)$/.test(entry?.name || '');
+    if (image ? !(entry.content instanceof Uint8Array) : !textNames.includes(entry?.name) || typeof entry.content !== 'string') throw new Error('The Word image handoff contains an unsupported file.');
+  }
+  return storedZip(entries, name => textNames.includes(name) || /^word-image-\d{3}\.(?:png|jpg)$/.test(name), { maxBytes: MAX_WORD_IMAGE_KIT_BYTES, binary: true });
+}
+function storedZip(entries, allowedName, { maxBytes = MAX_ZIP_BYTES, binary = false } = {}) {
   const seen = new Set(); let total = 22;
   const files = entries.map(entry => {
     if (!entry || typeof entry.name !== 'string' || !allowedName(entry.name) || seen.has(entry.name.toLowerCase())) throw new Error('The publishing ZIP has an unsafe or duplicate filename.');
-    if (typeof entry.content !== 'string') throw new Error('The publishing ZIP accepts text files only.');
+    if (typeof entry.content !== 'string' && !(binary && entry.content instanceof Uint8Array)) throw new Error('The publishing ZIP accepts text files only.');
     // Bound input before allocating encoded bytes.
-    if (entry.content.length > MAX_ZIP_BYTES) throw new Error('The publishing ZIP exceeds its 4 MiB limit.');
+    if (entry.content.length > maxBytes) throw new Error(binary ? 'The Word image ZIP exceeds its 16 MiB limit.' : 'The publishing ZIP exceeds its 4 MiB limit.');
     seen.add(entry.name.toLowerCase());
-    const name = encoder.encode(entry.name), content = encoder.encode(entry.content);
+    const name = encoder.encode(entry.name), content = typeof entry.content === 'string' ? encoder.encode(entry.content) : entry.content;
     total += 30 + 46 + name.length * 2 + content.length;
-    if (total > MAX_ZIP_BYTES) throw new Error('The publishing ZIP exceeds its 4 MiB limit.');
+    if (total > maxBytes) throw new Error(binary ? 'The Word image ZIP exceeds its 16 MiB limit.' : 'The publishing ZIP exceeds its 4 MiB limit.');
     return { name, content, crc: crc32(content) };
   });
   const output = new Uint8Array(total), view = new DataView(output.buffer);
