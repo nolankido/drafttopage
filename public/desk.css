@@ -55,3 +55,5 @@
 #import-destination{width:100%;max-width:100%;min-width:0}#import-insertion-controls{border-block:1px solid var(--line);padding-block:1rem;margin-block:1rem;overflow-wrap:anywhere}#import-insertion-controls textarea{width:100%;min-width:0;max-width:100%;font:.85rem/1.5 ui-monospace,monospace}#preview-insertion{max-width:100%;white-space:normal}
 
 #copied-import-alternatives{border-block:1px solid var(--line);padding-block:.8rem;margin-block:1rem}#copied-import-alternatives>summary{cursor:pointer;font-weight:650}#copied-import-alternatives[open]>summary{margin-bottom:1rem}#import-preview-heading:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
+
+.import-panel #import-paste-status[data-result=ready]{color:var(--muted)}

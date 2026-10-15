@@ -13,6 +13,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   const insertion = installImportInsertion({ getBody: () => $('body').value, getSelection: () => ({ start: $('body').selectionStart, end: $('body').selectionEnd }), isBusy: () => reading || isBusy(), report, changed: updateApply });
   const paste = installPasteGuard({ element: $('import-text'), limit: MAX_IMPORT_BYTES, maxBytes: MAX_IMPORT_BYTES, label: 'The import box', skipPaste: () => $('import-format').value === 'html', report: message => {
     $('import-paste-status').textContent = message;
+    $('import-paste-status').setAttribute('data-result', '');
     if (message) report(message);
   } });
   const clearPreview = () => {
@@ -43,6 +44,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     catch (error) { clearPreview(); throw error; }
     $('import-file-status').textContent = (source.format === 'html' ? 'Copied formatting' : 'Copied plain text') + ' kept in this tab for re-preview. Clear or apply the import to discard its original clipboard source.';
     $('import-paste-status').textContent = source.format === 'html' ? 'Copied writing converted below. The paste box is empty for your next selection; no raw HTML is displayed.' : 'Only plain text was available. Inspect the formatting warning below, or copy again with formatting. The paste box is ready for another selection.';
+    $('import-paste-status').setAttribute('data-result', source.format === 'html' ? 'ready' : 'warning');
     workChanged();
   }
   function preview(text, name) {
@@ -92,6 +94,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   $('import-text').addEventListener('paste', event => {
     if (event.defaultPrevented || $('import-format').value !== 'html') return;
     event.preventDefault();
+    $('import-paste-status').setAttribute('data-result', '');
     if (reading || isBusy()) { report('Finish the current file operation before pasting copied writing. Current writing is kept.'); return; }
     const input = $('import-text');
     if (input.value && (input.selectionStart !== 0 || input.selectionEnd !== input.value.length)) {
