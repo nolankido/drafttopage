@@ -1,6 +1,6 @@
 <details id="checkpoint-panel" class="checkpoint-panel">
 <summary>Revisions in this tab</summary>
-<p id="checkpoint-help" class="small">Keep a version before changing direction. Checkpoints contain your notes, article, page details, and review questions in this tab's memory only. Imports, workspace restores, formatting, section moves, find-and-replace edits, filename suggestions, outline replacements, and removing a review note also keep the previous writing. Checkpoints can be lost when you refresh or leave. Download a private backup before closing.</p>
+<p id="checkpoint-help" class="small">Keep a version before changing direction. Checkpoints contain your notes, article, page details, and review questions in this tab's memory only. Imports, workspace restores, formatting, section moves, find-and-replace edits, image changes, filename suggestions, outline replacements, and removing a review note also keep the previous writing. Checkpoints can be lost when you refresh or leave. Download a private backup before closing.</p>
 <label for="checkpoint-label">Checkpoint label, optional</label><input id="checkpoint-label" maxlength="80" autocomplete="off" aria-describedby="checkpoint-help">
 <button id="save-checkpoint" type="button" class="secondary">Save checkpoint</button>
 <p id="checkpoint-count" class="small"></p>
