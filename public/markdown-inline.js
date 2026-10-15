@@ -1,4 +1,8 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
+// Import literal writing without treating punctuation as Markdown structure.
+export function escapeMarkdownText(text) {
+  return text.replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, '\\$&');
+}
 // Decode punctuation for display only. Tokens retain original source offsets for review.
 export function decodeMarkdownEscapes(text) {
   return text.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1');

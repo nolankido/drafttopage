@@ -111,8 +111,13 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
   }
   function pause() {
     if (pending) return;
-    if (enabled) flush();
+    if (enabled && !flush()) {
+      stop();
+      notify(message + ' Paused without confirming the latest changes were saved. Keep this tab open and download a private backup.');
+      return false;
+    }
     stop(); notify('Browser saving paused. The saved copy remains on this browser until you remove it.');
+    return true;
   }
   function removeOwned() {
     if (!enabled) return;

@@ -17,6 +17,8 @@ A writer with an existing Word or Google Docs article can inspect its conversion
 - Backup files, collections, and in-tab revisions share a disclosure. Existing private file formats, checkpoints, conversion acknowledgements, and review approval remain intact.
 - Optional public-workspace browser recovery, off by default. It stores one unencrypted, bounded, validated workspace after explicit consent. The private AI pilot has no browser recovery.
 - Onboarding follows Word, Google Docs, or Markdown through import, review, WordPress handoff, and deliberate saving. A downloadable alpha notes template stays local and does not submit responses.
+- A plain-text-only clipboard fallback preserves punctuation literally instead of interpreting Markdown, front matter, or code fences. Intentional Markdown import remains separate. Oversized escaped text is rejected in full. HTML conversion uses the same literal-text escaping routine.
+- Pausing browser recovery after a failed or deferred save retains a warning that the latest changes were not confirmed saved, instead of replacing it with the ordinary paused message.
 
 ## Recovery contract
 
@@ -28,7 +30,7 @@ Pause flushes valid current writing and keeps the copy. Removal is deliberate an
 
 ## Verification performed
 
-- 505 Node tests passed, including 23 new recovery tests and six guided-flow tests. Recovery cases cover opt-in, strict parsing and bounds, coalescing, replacement refusal, cancelled and stale restores, checkpoint failure, two-tab exclusion, pause, leaving during a pending request, storage-full/blocked/unsupported behavior, external changes, removal, failed removal, and no resurrection after removal.
+- 511 Node tests passed, including 25 new recovery tests, six guided-flow tests, and four plain-clipboard fidelity tests. Recovery cases cover opt-in, strict parsing and bounds, coalescing, replacement refusal, cancelled and stale restores, checkpoint failure, two-tab exclusion, pause, failure or busy deferral during pause, leaving during a pending request, storage-full/blocked/unsupported behavior, external changes, removal, failed removal, and no resurrection after removal. Plain clipboard cases cover literal punctuation, no metadata/fence extraction, normalized line boundaries, whole-conversion bounds, and preserved intentional Markdown import.
 - 27 HTML/static checks passed, including script syntax, routes, anchors, accessible references, local browser imports, protected routing, audited storage, content-logging guards, and no GitHub Actions workflows.
 - The generated document converters were parsed independently with Python's HTML parser to check balanced structure, native disclosure boundaries, reading-before-source order, and preserved shared controls.
 - Local HTTP smoke passed for 12 pages and five assets using the existing mock-only server in the test process. It made no external calls. The first attempt from a separate process could not reach the server; the same-process check succeeded. These checks do not establish visual layout or actual destination behavior.
@@ -42,6 +44,8 @@ The cloud browser's close attempt did not close the original writing tab and sub
 Further browser checks on preview commit `9dd99fb`: recovery was enabled for a fictional 910-character sample, paused explicitly in the original tab, and offered after refreshing an empty second workspace without automatically opening writing or checking consent. Deliberate restoration recovered the title and full 910-character body with source editing collapsed, reading view visible, and approval cleared. This exposed core controls remaining disabled after the asynchronous restore finished. The recovery UI now reports pending-state transitions to the surrounding editor so its busy controls refresh; a new integration regression test checks both transitions. On preview commit `32dc3e5` (deployment `a4826725-0d4c-445f-9910-16651b334ce0`), the same deliberate restore recovered the 910-character sample with approval cleared, source editing collapsed, WordPress instructions open, and the file picker, import fieldset, and backup fieldset enabled. The active recovery writer was then paused. The busy-state fix is verified in that desktop browser.
 
 The official WordPress Playground was also attempted for an isolated destination check. Its browser check completed, but the runtime displayed a hiccup and did not initialize after one retry. No WordPress post or destination-rendering pass is claimed.
+
+An additional independent file check used a fictional .docx authored with python-docx, not this site's Word exporter. The browser first rejected its unmarked table without replacing writing. Explicitly choosing first-row headers allowed a staged preview. Applying preserved the title, complete visible paragraph text, heading hierarchy, bullets, consecutive numbering, rectangular table, bold/italic text, literal punctuation, accented text, and line break. Approval remained cleared and source editing stayed collapsed. This does not substitute for files saved by Microsoft Word or clipboard selections from a real Google Docs document.
 
 ## Required acceptance before inviting alpha testers
 

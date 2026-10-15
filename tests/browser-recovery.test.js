@@ -79,6 +79,26 @@ test('Page disposal flushes pending writing but does not automatically resume on
   assert.equal(parseBrowserCopy(x.env.records.get(RECOVERY_KEY)).workspace.draft.body, 'Before leaving');
   x.control.refresh(); assert.equal(x.control.state().enabled, false); assert.equal(x.control.state().available, true);
 });
+test('Pausing after a storage failure retains the warning instead of implying the latest edit was saved', async () => {
+  const x = setup(); await x.control.start(); const original = x.env.records.get(RECOVERY_KEY);
+  x.edit('Unsaved newest article'); x.env.full(true);
+  assert.equal(x.control.pause(), false);
+  assert.equal(x.control.state().enabled, false);
+  assert.equal(x.env.records.get(RECOVERY_KEY), original);
+  assert.equal(x.capture().draft.body, 'Unsaved newest article');
+  assert.match(x.control.state().message, /Storage full/);
+  assert.match(x.control.state().message, /without confirming the latest changes were saved/);
+  assert.doesNotMatch(x.control.state().message, /^Browser saving paused/);
+});
+test('Pausing during a busy operation does not imply its deferred edit was saved or leave a timer running', async () => {
+  const x = setup(); await x.control.start(); const original = x.env.records.get(RECOVERY_KEY);
+  x.edit('Busy newest article'); x.busy(true);
+  assert.equal(x.control.pause(), false); x.busy(false); x.tick();
+  assert.equal(x.env.records.get(RECOVERY_KEY), original);
+  assert.equal(x.env.writes(), 1);
+  assert.equal(x.control.state().enabled, false);
+  assert.match(x.control.state().message, /download a private backup/);
+});
 test('Leaving during a pending lock request cancels that save instead of starting a hidden writer', async () => {
   const x = setup(); const pending = x.control.start(); x.control.dispose();
   assert.equal(await pending, false); assert.equal(x.env.writes(), 0); assert.equal(x.control.state().enabled, false); assert.equal(x.control.busy(), false);
