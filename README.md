@@ -107,3 +107,8 @@ The three converter pages now place the editor beside the reading preview and se
 ## Reusable publishing profiles
 
 The workspace and three converters can save export choices and a personal publishing checklist in an explicit portable profile file, separate from article writing and workspace backups. Load a bounded JSON profile, inspect its choices and reminders, then apply it without replacing the article or source notes. Application clears approval and starts checklist reminders unchecked. All writing and export-choice changes reset ticks. Profiles add no browser persistence, account, upload, dependency, or AI request. See [the profile release](docs/PUBLISHING_PROFILES_RELEASE.md).
+
+
+## Private draft collections
+
+The writer and three converters can explicitly save up to eight complete workspace snapshots in one private JSON collection, within 2 MiB. Add/Update saves current writing; editor typing never updates a saved entry automatically. Preview a selected collection file before loading it, then open an article separately with checkpoint protection. One collection undo recovers saved-entry mutations. Download requires private-content acknowledgement, excludes history/preferences/approval, and includes source and review notes. No browser persistence or account is added. See [the collection release](docs/DRAFT_COLLECTIONS_RELEASE.md).

@@ -90,6 +90,66 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # Private collections are explicit snapshots, separate from the current editor.
+    page,context,state=open_page('/write/')
+    restore(page,backup)
+    expect(page.locator('#desk-status')).to_contain_text('Workspace restored')
+    page.locator('#draft-collection-panel > summary').click()
+    expect(page.locator('#draft-collection-controls')).to_be_enabled()
+    page.fill('#draft-collection-name','First article')
+    page.check('#reviewed');page.click('#add-to-draft-collection')
+    assert page.locator('#reviewed').is_checked()
+    page.fill('#body','Second fictional article')
+    page.fill('#draft-collection-name','Second article');page.click('#add-to-draft-collection')
+    expect(page.locator('#draft-collection-count')).to_contain_text('2 / 8')
+    page.select_option('#draft-collection-select','0')
+    page.locator('#draft-collection-inspection > summary').click()
+    assert json.loads(page.locator('#draft-collection-saved-preview').input_value())['draft']['body']==draft['body']
+    page.locator('#draft-collection-inspection > summary').click()
+    assert page.locator('#draft-collection-saved-preview').input_value()==''
+    page.locator('#publishing-profile-panel > summary').click()
+    page.fill('#publishing-profile-name','Temporary publishing setup')
+    page.fill('#publishing-profile-checks','Fictional reminder')
+    page.click('#open-draft-collection-entry')
+    assert page.locator('#body').input_value()==draft['body'] and page.locator('#notes').input_value()==source['notes']
+    assert not page.locator('#reviewed').is_checked() and page.locator('#publishing-profile-name').input_value()==''
+    assert 'Before opening a saved article' in page.locator('#checkpoint-select').inner_text()
+    page.fill('#body','An update to the first article');page.click('#update-draft-collection-entry')
+    page.click('#undo-draft-collection')
+    assert page.locator('#body').input_value()=='An update to the first article'
+    page.click('#remove-draft-collection-entry');page.click('#undo-draft-collection')
+    page.check('#draft-collection-private-ok')
+    with page.expect_download() as info:page.click('#download-draft-collection')
+    collection_bytes=Path(info.value.path()).read_bytes();collection=json.loads(collection_bytes)
+    assert set(collection)=={'format','version','entries'} and len(collection['entries'])==2
+    assert collection['entries'][0]['workspace']['draft']['body']==draft['body']
+    assert collection['entries'][1]['workspace']['draft']['body']=='Second fictional article'
+    assert collection['entries'][0]['workspace']['source']==source
+    for width in [1440,850,390,320]:
+        page.set_viewport_size({'width':width,'height':900})
+        assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'),f'Collection overflows at {width}'
+    assert state['calls']==0;context.close()
+    page,context,state=open_page('/markdown-to-wordpress/')
+    page.fill('#body','Current editor must survive collection loading.')
+    page.check('#reviewed');page.locator('#draft-collection-panel > summary').click()
+    page.locator('#load-draft-collection').set_input_files({'name':'collection.json','mimeType':'application/json','buffer':collection_bytes})
+    expect(page.locator('#draft-collection-file-preview')).to_be_visible()
+    page.click('#apply-draft-collection')
+    assert page.locator('#body').input_value()=='Current editor must survive collection loading.' and page.locator('#reviewed').is_checked()
+    page.click('#open-draft-collection-entry')
+    assert page.locator('#body').input_value()==draft['body'] and not page.locator('#reviewed').is_checked()
+    restore(page,backup);expect(page.locator('#desk-status')).to_contain_text('Workspace restored')
+    expect(page.locator('#draft-collection-count')).to_contain_text('2 / 8')
+    page.click('#clear')
+    expect(page.locator('#draft-collection-count')).to_contain_text('0 / 8')
+    assert page.locator('#undo-draft-collection').is_disabled() and page.locator('#draft-collection-saved-preview').input_value()==''
+    context.close()
+    page,context,state=open_page('/markdown-to-word/',blocked_modules=('/draft-collection-controls.js',))
+    page.fill('#body','Core writing remains usable.');page.check('#reviewed')
+    expect(page.locator('#download-word')).to_be_enabled()
+    expect(page.locator('#draft-collection-status')).to_contain_text('could not load')
+    context.close()
+    report['checks'].append('Collections: explicit multi-article snapshots, source/question preservation, open checkpoint/profile reset, saved-only download, one-step undo, local file load preserving editor, restore/clear, narrow overflow, and optional-module failure')
     # Portable profiles reuse choices without replacing writing or completing review.
     for profile_route in ['write','markdown-to-wordpress','markdown-to-html','markdown-to-word']:
         page,context,state=open_page('/'+profile_route+'/')
