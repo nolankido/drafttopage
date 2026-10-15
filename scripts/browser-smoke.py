@@ -83,6 +83,32 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # Full-length articles and native paste rejection preserve writing and approval.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    long_tail='\n\n## Last section\nKEEP THE ENTIRE ENDING'
+    long_body='## First section\n'+'界'*(60000-17-len(long_tail))+long_tail
+    page.fill('#title','Fictional long guide'); page.fill('#body',long_body)
+    expect(page.locator('#body-count')).to_contain_text('60,000 / 60,000')
+    expect(page.locator('#article-preview')).to_contain_text('KEEP THE ENTIRE ENDING')
+    page.check('#reviewed')
+    context.grant_permissions(['clipboard-read','clipboard-write'])
+    page.evaluate('(text)=>navigator.clipboard.writeText(text)',long_body+'X')
+    page.locator('#body').press('Control+A'); page.locator('#body').press('Control+V')
+    expect(page.locator('#body-paste-status')).to_contain_text('Current text is unchanged')
+    assert page.locator('#body').input_value()==long_body and page.locator('#reviewed').is_checked()
+    page.evaluate('(text)=>navigator.clipboard.writeText(text)',long_body)
+    page.locator('#body').press('Control+A'); page.locator('#body').press('Control+V')
+    assert page.locator('#body').input_value()==long_body and not page.locator('#reviewed').is_checked()
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-html')
+    assert 'KEEP THE ENTIRE ENDING' in Path(info.value.path()).read_text()
+    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    with page.expect_download() as info: page.click('#save-backup')
+    long_backup=Path(info.value.path()).read_bytes()
+    assert json.loads(long_backup)['draft']['body']==long_body
+    page.fill('#body','Short replacement.'); restore(page,long_backup)
+    assert page.locator('#body').input_value()==long_body and not page.locator('#reviewed').is_checked()
+    layout(page,'long-draft'); context.close()
     # Acquisition visitors use the complete editor without navigating away.
     page,context,state=open_page('/markdown-to-wordpress/#sample')
     expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
@@ -246,7 +272,7 @@ with sync_playwright() as p:
     previous=page.locator('#body').input_value()
     restore(page,b'{broken'); expect(page.locator('#desk-status')).to_contain_text('not valid workspace JSON')
     assert page.locator('#body').input_value()==previous
-    restore(page,b'x'*(128*1024+1)); expect(page.locator('#desk-status')).to_contain_text('128 KiB')
+    restore(page,b'x'*(512*1024+1)); expect(page.locator('#desk-status')).to_contain_text('512 KiB')
     assert page.locator('#body').input_value()==previous
     state['accept']=False; restore(page,backup); expect(page.locator('#desk-status')).to_contain_text('cancelled')
     assert page.locator('#body').input_value()==previous
@@ -311,8 +337,8 @@ with sync_playwright() as p:
     page.click('#preview-import'); assert page.locator('#apply-import').is_disabled()
     page.check('#import-unmapped-ok'); page.click('#apply-import')
     expect(page.locator('#desk-status')).to_contain_text('imported locally')
-    page.locator('#import-file').set_input_files({'name':'too-large.md','mimeType':'text/markdown','buffer':b'x'*(48*1024+1)})
-    expect(page.locator('#desk-status')).to_contain_text('48 KiB')
+    page.locator('#import-file').set_input_files({'name':'too-large.md','mimeType':'text/markdown','buffer':b'x'*(512*1024+1)})
+    expect(page.locator('#desk-status')).to_contain_text('512 KiB')
     expect(page.locator('#body')).to_have_value('Body.')
     page.fill('#import-text',json.dumps({**draft,'body':'<script>window.importPwned=true</script>','questions':['<img src=x onerror=bad()>']}))
     page.click('#preview-import'); page.click('#apply-import')
@@ -615,9 +641,9 @@ with sync_playwright() as p:
     page.fill('#body','x '*5997+'needle'); page.fill('#find-text','needle'); page.press('#find-text','Enter')
     wrapped=page.locator('#body').evaluate('el=>({selected:el.value.slice(el.selectionStart,el.selectionEnd),scroll:el.scrollTop,maximum:el.scrollHeight-el.clientHeight})')
     assert wrapped['selected']=='needle' and wrapped['scroll']>=wrapped['maximum']-48 and wrapped['scroll']>0
-    page.fill('#body','x'*12000); page.fill('#find-text','x'); page.fill('#replace-text','xx'); page.check('#reviewed')
-    page.click('#preview-replace-all'); expect(page.locator('#desk-status')).to_contain_text('exceed 12,000')
-    assert page.locator('#body').input_value()=='x'*12000 and page.locator('#reviewed').is_checked()
+    page.fill('#body','x'*60000); page.fill('#find-text','x'); page.fill('#replace-text','xx'); page.check('#reviewed')
+    page.click('#preview-replace-all'); expect(page.locator('#desk-status')).to_contain_text('exceed 60,000')
+    assert page.locator('#body').input_value()=='x'*60000 and page.locator('#reviewed').is_checked()
     page.fill('#replace-text',''); page.click('#preview-replace-all'); page.click('#apply-replace-all')
     expect(page.locator('#body')).to_have_value('')
     assert not page.locator('#reviewed').is_checked() and page.locator('#notes').input_value()==source['notes']

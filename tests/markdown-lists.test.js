@@ -73,7 +73,7 @@ test('Depth and item limits accept the boundary and keep every item on rejection
   assert.deepEqual(previewBlocks(excess), [{ type: 'p', text: excess }]);
   assert.match(createWordPressArticle({ body: excess }).html, /LAST ITEM/);
   assert.match(reviewWordPress({ body: excess }).findings.find(f => f.kind === 'list').message, /200-item/);
-  assert.throws(() => markdownListRanges('x'.repeat(12001)));
+  assert.throws(() => markdownListRanges('x'.repeat(60001)));
 });
 
 test('Code fences, quoted lists, and orphan indentation stay outside nested-list conversion', () => {

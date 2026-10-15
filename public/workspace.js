@@ -1,8 +1,9 @@
 // Explicit, local files only. Backups contain writing, never credentials or approvals.
-export const MAX_BACKUP_BYTES = 128 * 1024;
+import { ARTICLE_LIMITS, MAX_BACKUP_BYTES } from './writing-limits.js';
+export { MAX_BACKUP_BYTES };
 export const DRAFT_FIELDS = ['title', 'excerpt', 'description', 'slug', 'body'];
 const SOURCE_LIMITS = { notes: 8000, audience: 160, purpose: 240 };
-const DRAFT_LIMITS = { title: 160, excerpt: 300, description: 160, slug: 80, body: 12000 };
+const DRAFT_LIMITS = ARTICLE_LIMITS;
 const PROFILES = ['personal', 'update', 'guide'];
 
 function object(value, keys) {
@@ -45,10 +46,11 @@ export function createWorkspaceBackup(source, draft = null) {
 }
 export function parseWorkspaceBackup(content) {
   if (typeof content !== 'string' || new TextEncoder().encode(content).byteLength > MAX_BACKUP_BYTES) {
-    throw new Error('Choose a workspace backup smaller than 128 KiB.');
+    throw new Error('Choose a workspace backup no larger than 512 KiB.');
   }
   let value;
   try { value = JSON.parse(content); }
   catch { throw new Error('The file is not valid workspace JSON. Your current writing is unchanged.'); }
   return validateWorkspace(value);
 }
+

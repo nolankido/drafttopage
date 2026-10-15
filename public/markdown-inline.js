@@ -1,3 +1,4 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 // A small, bounded inline parser shared by review, preview, and HTML export.
 // Web links are opt-in navigation. Parsing never loads a URL or an image.
 export function safeWebLink(target) {
@@ -24,7 +25,7 @@ function readLink(text, start) {
   return { type: image ? 'image' : 'link', text: label, target, href: image || !label.trim() ? null : safeWebLink(target), start, end: end + 1 };
 }
 export function inlineTokens(text) {
-  if (typeof text !== 'string' || text.length > 12000) throw new Error('Inline text supports at most 12,000 characters.');
+  if (typeof text !== 'string' || text.length > ARTICLE_BODY_LIMIT) throw new Error('Inline text supports at most 60,000 characters.');
   const parts = []; let offset = 0, plainStart = 0;
   const flush = end => { if (end > plainStart) parts.push({ type: 'text', text: text.slice(plainStart, end), start: plainStart, end }); };
   while (offset < text.length) {

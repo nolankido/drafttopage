@@ -1,9 +1,15 @@
 import { MAX_IMPORT_BYTES, parseArticleImport } from './article-import.js';
+import { installPasteGuard } from './paste-guard.js';
 
 export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, report }) {
   const $ = id => document.getElementById(id);
   let candidate = null, reading = false;
+  const paste = installPasteGuard({ element: $('import-text'), limit: MAX_IMPORT_BYTES, maxBytes: MAX_IMPORT_BYTES, label: 'The import box', report: message => {
+    $('import-paste-status').textContent = message;
+    if (message) report(message);
+  } });
   const clear = () => {
+    paste.clear();
     candidate = null;
     $('import-preview').hidden = true; $('apply-import').disabled = true;
     $('import-unmapped-ok').checked = false;
@@ -48,7 +54,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     if (!file || reading || isBusy()) { $('import-file').value = ''; return; }
     reading = true; clear(); $('import-fields').disabled = true; busyChanged();
     try {
-      if (file.size > MAX_IMPORT_BYTES) throw new Error('Choose an article file no larger than 48 KiB. Current writing is unchanged.');
+      if (file.size > MAX_IMPORT_BYTES) throw new Error('Choose an article file no larger than 512 KiB. Current writing is unchanged.');
       const content = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
       preview(content, file.name);
     } catch (error) { clear(); report(error instanceof TypeError ? 'Use a UTF-8 text file. Current writing is unchanged.' : error.message); }

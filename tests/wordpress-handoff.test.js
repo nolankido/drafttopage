@@ -43,7 +43,7 @@ test('Review is bounded, discloses omissions, and does not certify an article wi
   assert.equal(result.totalFindings, 100); assert.equal(result.findings.length, WORDPRESS_REVIEW_LIMIT); assert.equal(result.truncated, true);
   assert.match(wordPressReviewText({ body: 'A finished-looking paragraph.' }), /does not certify/);
   assert.match(wordPressReviewText({ body: Array(100).fill('<div>literal</div>').join('\n\n') }), /first 40 items/);
-  for (const body of ['', ' ', 'x'.repeat(12001), null, 'a\u0000b']) assert.throws(() => reviewWordPress({ body }));
+  for (const body of ['', ' ', 'x'.repeat(60001), null, 'a\u0000b']) assert.throws(() => reviewWordPress({ body }));
 });
 test('A WordPress kit is destination-specific, deterministic, and safe with optional fields absent', () => {
   const draft = { title: '日本語', body: 'A paragraph.', slug: '../unsafe', excerpt: '', description: '' }, before = JSON.stringify(draft);
@@ -62,7 +62,7 @@ test('WordPress article files exclude private workspace data and preserve hostil
   const files = Object.fromEntries(wordPressKitFiles(draft).files.map(file => [file.name,file.content]));
   for (const name of ['wordpress-blocks.html','reading-page.html']) assert.doesNotMatch(files[name], /<script>|href="javascript:/);
   assert.match(files['REVIEW.txt'], /TODO/); assert.match(files['REVIEW.txt'], /Source HTML/);
-  for (const change of [{ title: '' },{ body: '' },{ body: 'x'.repeat(12001) },{ excerpt: 'x'.repeat(301) },{ description: null },{ slug: 'x'.repeat(81) }]) assert.throws(() => createWordPressKit({ ...draft,...change }));
+  for (const change of [{ title: '' },{ body: '' },{ body: 'x'.repeat(60001) },{ excerpt: 'x'.repeat(301) },{ description: null },{ slug: 'x'.repeat(81) }]) assert.throws(() => createWordPressKit({ ...draft,...change }));
 });
 test('The kit preserves exact source whitespace and CRLF so review line numbers remain usable', () => {
   const draft = { title: 'A fictional source', body: '\r\n\r\n  - Nested source\r\n\r\n' };
@@ -77,7 +77,7 @@ test('An independent ZIP reader checks all six file bytes, CRCs, UTF-8 metadata,
     const file = join(root,'kit.zip'), kit = createWordPressKit(QUICK_SAMPLE); writeFileSync(file,kit.bytes);
     const files = JSON.parse(execFileSync('python3',['-c','import json,sys,zipfile\nwith zipfile.ZipFile(sys.argv[1]) as z:\n assert z.testzip() is None\n assert all(i.compress_type == zipfile.ZIP_STORED and i.flag_bits & 0x800 and "/" not in i.filename for i in z.infolist())\n print(json.dumps({n:z.read(n).decode("utf-8") for n in z.namelist()}))',file],{encoding:'utf8'}));
     assert.deepEqual(files,Object.fromEntries(wordPressKitFiles(QUICK_SAMPLE).files.map(item => [item.name,item.content])));
-    assert.ok(kit.bytes.length <= 512 * 1024);
+    assert.ok(kit.bytes.length <= 4 * 1024 * 1024);
   } finally { rmSync(root,{recursive:true,force:true}); }
 });
 

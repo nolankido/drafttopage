@@ -55,7 +55,7 @@ test('Table bounds accept the limit and reject excess without partial conversion
     const body = '|' + Array(columns).fill('H').join('|') + '|\n|' + Array(columns).fill('---').join('|') + '|\n|' + Array(columns).fill('V').join('|') + '|';
     assert.equal(previewBlocks(body)[0].type, columns === 12 ? 'table' : 'p');
   }
-  assert.throws(() => markdownTableRanges('x'.repeat(12001)));
+  assert.throws(() => markdownTableRanges('x'.repeat(60001)));
 });
 
 test('Code fences, quoted and indented tables, block markers, and escaped prose are not converted', () => {

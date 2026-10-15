@@ -1,6 +1,7 @@
 // A small deterministic ZIP writer: stored UTF-8 text, fixed safe names, no dependencies.
 // No archive input, filesystem paths, executable entries, encryption, or ZIP64.
-export const MAX_ZIP_BYTES = 512 * 1024;
+import { MAX_ZIP_BYTES } from './writing-limits.js';
+export { MAX_ZIP_BYTES };
 const encoder = new TextEncoder();
 const table = Array.from({ length: 256 }, (_, i) => {
   let crc = i;
@@ -19,11 +20,11 @@ export function createZip(entries) {
     if (!entry || typeof entry.name !== 'string' || !/^[a-z0-9][a-z0-9._-]{0,100}\.(?:md|html|json|txt)$/i.test(entry.name) || entry.name.includes('..') || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\./i.test(entry.name) || seen.has(entry.name.toLowerCase())) throw new Error('The publishing ZIP has an unsafe or duplicate filename.');
     if (typeof entry.content !== 'string') throw new Error('The publishing ZIP accepts text files only.');
     // Bound input before allocating encoded bytes.
-    if (entry.content.length > MAX_ZIP_BYTES) throw new Error('The publishing ZIP exceeds its 512 KiB limit.');
+    if (entry.content.length > MAX_ZIP_BYTES) throw new Error('The publishing ZIP exceeds its 4 MiB limit.');
     seen.add(entry.name.toLowerCase());
     const name = encoder.encode(entry.name), content = encoder.encode(entry.content);
     total += 30 + 46 + name.length * 2 + content.length;
-    if (total > MAX_ZIP_BYTES) throw new Error('The publishing ZIP exceeds its 512 KiB limit.');
+    if (total > MAX_ZIP_BYTES) throw new Error('The publishing ZIP exceeds its 4 MiB limit.');
     return { name, content, crc: crc32(content) };
   });
   const output = new Uint8Array(total), view = new DataView(output.buffer);

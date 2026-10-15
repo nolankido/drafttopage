@@ -2,9 +2,9 @@
 <summary>Import an article or drafting result</summary>
 <p class="small">Choose a Markdown/text file or paste the structured article returned by a Draft to Page brief. Preview first. Nothing is uploaded, and your current writing stays intact until you import.</p>
 <fieldset id="import-fields"><legend class="sr-only">Local article import</legend>
-<label for="import-file">Choose an article file</label><input id="import-file" type="file" accept=".md,.markdown,.txt,.json,text/markdown,text/plain,application/json" aria-describedby="import-file-help"><p id="import-file-help" class="small">UTF-8 text up to 48 KiB. Workspace JSON backups belong in Save or restore, above.</p>
+<label for="import-file">Choose an article file</label><input id="import-file" type="file" accept=".md,.markdown,.txt,.json,text/markdown,text/plain,application/json" aria-describedby="import-file-help"><p id="import-file-help" class="small">UTF-8 text up to 512 KiB. Workspace JSON backups belong in Save or restore, above.</p>
 <label for="import-format">Import format</label><select id="import-format"><option value="auto">Detect Markdown or article JSON</option><option value="markdown">Markdown</option><option value="json">Structured article JSON</option></select>
-<label for="import-text">Or paste an article file or drafting result</label><textarea id="import-text" rows="5" maxlength="49152"></textarea>
+<label for="import-text">Or paste an article file or drafting result</label><textarea id="import-text" rows="5" maxlength="524288" aria-describedby="import-file-help import-paste-status"></textarea><p id="import-paste-status" class="field-error small" role="status" aria-live="polite"></p>
 <button id="preview-import" type="button" class="secondary">Preview pasted article</button>
 </fieldset>
 <section id="import-preview" hidden aria-labelledby="import-preview-heading">

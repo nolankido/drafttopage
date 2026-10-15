@@ -3,11 +3,14 @@ import { validateDraft } from './workspace.js';
 import { createMarkdown } from './markdown.js';
 import { articleBody } from './authoring.js';
 import { TEMPLATES, EXAMPLES } from './content-data.js';
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
+import { installPasteGuard } from './paste-guard.js';
 const $ = selector => document.querySelector(selector);
 let ready = false, busy = false, checking = false, dirty = false, profiles = {};
 const fields = ['title', 'excerpt', 'description', 'slug', 'body'];
 const exportButtons = ['download', 'copy', 'copy-body'];
 const status = message => { $('#status').textContent = message; };
+const bodyPaste = installPasteGuard({ element: $('#body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => { if (message) status(message); } });
 const updateExports = () => { for (const id of exportButtons) $(`#${id}`).disabled = !$('#reviewed').checked || busy; };
 const edited = () => { dirty = true; $('#reviewed').checked = false; updateExports(); };
 function updateProfile() {
@@ -114,6 +117,7 @@ $('#download').addEventListener('click', () => {
 $('#copy').addEventListener('click', () => { try { copyText(getExport(), 'Markdown copied. Nothing was published. Follow the export guide before importing it.'); } catch (error) { status(error.message); } });
 $('#copy-body').addEventListener('click', () => { try { if (!$('#reviewed').checked) throw new Error('Review the draft first.'); copyText(articleBody({ body: $('#body').value }), 'Article body copied as Markdown, without the title or metadata. Add those separately in your publishing editor. Nothing was published.'); } catch (error) { status(error.message); } });
 function clearWorkspace() {
+  bodyPaste.clear();
   $('#draft-form').reset(); fields.forEach(id => { $(`#${id}`).value = ''; }); $('#questions').replaceChildren();
   $('#editor').hidden = true; $('#empty-state').hidden = false; $('#reviewed').checked = false;
   $('#note-count').textContent = '0 / 8,000'; dirty = false; updateProfile(); updateExports();
@@ -135,6 +139,7 @@ const recovery = installRecovery({
     }
   }),
   restore: value => {
+    bodyPaste.clear();
     for (const id of ['profile', 'notes', 'audience', 'purpose']) $(`#${id}`).value = value.source[id];
     for (const id of fields) $(`#${id}`).value = value.draft?.[id] ?? '';
     $('#questions').replaceChildren(...(value.draft?.questions || []).map(text => {

@@ -1,6 +1,7 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 export const SEARCH_LIMIT = 200;
 export const REPLACEMENT_LIMIT = 500;
-export const ARTICLE_LIMIT = 12000;
+export const ARTICLE_LIMIT = ARTICLE_BODY_LIMIT;
 export const REPLACEMENT_PREVIEW_LIMIT = 5;
 
 function text(value, limit, label) {
@@ -26,7 +27,7 @@ export function navigateArticleMatch(matches, start, end, direction = 1) {
 function replace(body, matches, replacement) {
   text(replacement, REPLACEMENT_LIMIT, 'Replacement text');
   const length = body.length + matches.reduce((sum, match) => sum + replacement.length - (match.end - match.start), 0);
-  if (length > ARTICLE_LIMIT) throw new Error('Replacement would exceed 12,000 article characters. Current writing is unchanged.');
+  if (length > ARTICLE_LIMIT) throw new Error('Replacement would exceed 60,000 article characters. Current writing is unchanged.');
   const chunks = []; let offset = 0;
   for (const match of matches) { chunks.push(body.slice(offset, match.start), replacement); offset = match.end; }
   chunks.push(body.slice(offset));

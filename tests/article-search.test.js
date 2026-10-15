@@ -51,11 +51,11 @@ test('Bulk preview counts actual changes and caps inert examples without limitin
   assert.equal(many.body.split('\n').length, 100); assert.ok(many.examples[0].after.includes('<script>'));
 });
 test('Bounds and malformed input reject mutations before returning a replacement article', () => {
-  for (const [body, query, replacement] of [['x'.repeat(12001), 'x', 'y'], ['body', 'x'.repeat(201), 'y'], ['body', 'body', 'y'.repeat(501)], ['bad\u0000body', 'body', 'y'], ['body', '\u0000', 'y'], ['body', 'body', '\u0000']]) assert.throws(() => previewArticleReplacements(body, query, replacement));
+  for (const [body, query, replacement] of [['x'.repeat(60001), 'x', 'y'], ['body', 'x'.repeat(201), 'y'], ['body', 'body', 'y'.repeat(501)], ['bad\u0000body', 'body', 'y'], ['body', '\u0000', 'y'], ['body', 'body', '\u0000']]) assert.throws(() => previewArticleReplacements(body, query, replacement));
   assert.throws(() => findArticleMatches('body', 'body', { matchCase: 'yes' }));
-  assert.throws(() => previewArticleReplacements('x'.repeat(12000), 'x', 'xx'), /exceed 12,000/);
-  assert.equal(previewArticleReplacements('x'.repeat(12000), 'x', '').changedCount, 12000);
-  assert.equal(previewArticleReplacements('x'.repeat(12000), 'x', '').body, '');
+  assert.throws(() => previewArticleReplacements('x'.repeat(60000), 'x', 'xx'), /exceed 60,000/);
+  assert.equal(previewArticleReplacements('x'.repeat(60000), 'x', '').changedCount, 60000);
+  assert.equal(previewArticleReplacements('x'.repeat(60000), 'x', '').body, '');
   assert.equal(previewArticleReplacements('x'.repeat(11999), 'x', 'x').body.length, 11999);
 });
 test('Exact-case bulk output matches an independent split/join reference across bounded literal scenarios', () => {
@@ -159,8 +159,8 @@ test('Changed selections, busy imports, oversized replacements and checkpoint fa
   $('find-text').value = 'foo'; $('replace-text').value = 'bar'; ui.refresh(); $('find-next').fire();
   $('body').setSelectionRange(1, 2); $('body').fire('select'); $('replace-match').fire(); assert.equal(history.list().length, 0);
   setBusy(true); ui.refresh(); assert.equal($('preview-replace-all').disabled, true); $('preview-replace-all').fire(); assert.equal(history.list().length, 0);
-  setBusy(false); $('body').value = 'x'.repeat(12000); $('find-text').value = 'x'; $('replace-text').value = 'xx'; ui.refresh(); $('preview-replace-all').fire();
-  assert.match(message(), /exceed 12,000/); assert.equal($('body').value.length, 12000); assert.equal(approved(), true);
+  setBusy(false); $('body').value = 'x'.repeat(60000); $('find-text').value = 'x'; $('replace-text').value = 'xx'; ui.refresh(); $('preview-replace-all').fire();
+  assert.match(message(), /exceed 60,000/); assert.equal($('body').value.length, 60000); assert.equal(approved(), true);
   $('body').value = 'foo'; $('find-text').value = 'foo'; $('replace-text').value = 'bar'; ui.refresh(); $('preview-replace-all').fire();
   setFailure(true); setAccepted(true); $('apply-replace-all').fire(); assert.match(message(), /Checkpoint unavailable/); assert.equal($('body').value, 'foo'); assert.equal(approved(), true);
 }));

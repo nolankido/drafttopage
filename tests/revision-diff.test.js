@@ -40,7 +40,7 @@ test('Large changed regions use a bounded, explicitly coarse plan and still reta
   // Thousands of unchanged lines are trimmed before the bounded alignment.
   const mostlySame = 'same\n'.repeat(2300);
   assert.equal(compareArticleLines(mostlySame + 'Before', mostlySame + 'After').coarse, false);
-  assert.equal(compareArticleLines('a'.repeat(12000), 'b'.repeat(12000)).groups.length, 2);
+  assert.equal(compareArticleLines('a'.repeat(60000), 'b'.repeat(60000)).groups.length, 2);
 });
 test('Many independent edit scenarios reconstruct both versions and count line tokens exactly', () => {
   for (let seed = 0; seed < 100; seed++) {
@@ -53,7 +53,7 @@ test('Many independent edit scenarios reconstruct both versions and count line t
   }
 });
 test('Invalid text rejects before allocating comparison state', () => {
-  for (const value of [null, {}, 'x'.repeat(12001), 'Bad\u0000text']) {
+  for (const value of [null, {}, 'x'.repeat(60001), 'Bad\u0000text']) {
     assert.throws(() => compareArticleLines(value, 'Valid'));
     assert.throws(() => compareArticleLines('Valid', value));
   }
@@ -63,7 +63,7 @@ test('Long previews cap line and character counts without splitting Unicode pair
   assert.deepEqual(previewArticleChange(many), { text: 'Line.\n'.repeat(8), truncated: true });
   assert.deepEqual(previewArticleChange(dense), { text: 'x'.repeat(799), truncated: true });
   assert.deepEqual(previewArticleChange('Short.\n'), { text: 'Short.\n', truncated: false });
-  assert.equal(previewArticleChange('x'.repeat(12000)).text.length, 800);
+  assert.equal(previewArticleChange('x'.repeat(60000)).text.length, 800);
   assert.equal(many.length, 600); assert.throws(() => previewArticleChange(null));
 });
 test('Small repeated-line alignments agree with an independent exhaustive subsequence oracle', () => {

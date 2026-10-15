@@ -1,5 +1,6 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 export function formatMarkdown(body, start, end, action) {
-  if (typeof body !== 'string' || body.length > 12000 || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > body.length) throw new Error('Choose a valid selection in the article.');
+  if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > body.length) throw new Error('Choose a valid selection in the article.');
   const inline = { bold: '**', italic: '*', code: '\x60' };
   let replacement, from = start, to = end, selectedStart, selectedEnd;
   if (Object.hasOwn(inline, action)) {
@@ -26,7 +27,7 @@ export function formatMarkdown(body, start, end, action) {
     selectedStart = from; selectedEnd = from + replacement.length;
   } else throw new Error('Choose an available formatting tool.');
   const result = body.slice(0, from) + replacement + body.slice(to);
-  if (result.length > 12000) throw new Error('Formatting would exceed 12,000 characters. Current writing is unchanged.');
+  if (result.length > ARTICLE_BODY_LIMIT) throw new Error('Formatting would exceed 60,000 characters. Current writing is unchanged.');
   return { body: result, selectionStart: selectedStart, selectionEnd: selectedEnd };
 }
 // Failure of an optional editor module must leave the existing desk usable.

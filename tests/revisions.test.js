@@ -19,7 +19,7 @@ test('Empty work is ignored, consecutive identical checkpoints deduplicate, and 
   assert.equal(history.save({ source: { profile: 'personal', notes: '', audience: '', purpose: '' }, draft: null }).empty, true);
   const value = fixture('First'), result = history.save(value);
   assert.equal(history.save(value, 'Same work').id, result.id); assert.equal(history.save(value).duplicate, true);
-  for (const bad of [fixture('x'.repeat(12001)), { ...value, source: { ...value.source, notes: '\u0000' } }]) assert.throws(() => history.save(bad));
+  for (const bad of [fixture('x'.repeat(60001)), { ...value, source: { ...value.source, notes: '\u0000' } }]) assert.throws(() => history.save(bad));
   assert.throws(() => history.save(fixture('Second'), 'x'.repeat(81)));
   assert.equal(history.list().length, 1); assert.equal(history.read(result.id).draft.body, 'First');
 });
@@ -30,7 +30,7 @@ test('Count and UTF-8 bounds evict oldest versions while retaining the newest', 
   assert.equal(history.read(history.list().at(-1).id).draft.body, 'Version 7');
   const dense = createCheckpointHistory();
   for (let i = 0; i < 6; i++) {
-    const value = fixture('漢'.repeat(12000)); value.source.notes = '\u0001'.repeat(8000); value.draft.questions = Array(12).fill('漢'.repeat(499) + i);
+    const value = fixture('\u0001'.repeat(60000)); value.source.notes = '\u0001'.repeat(8000); value.draft.questions = Array(12).fill('漢'.repeat(499) + i);
     dense.save(value);
   }
   assert.ok(dense.list().reduce((sum, item) => sum + item.bytes, 0) <= MAX_CHECKPOINT_BYTES);
@@ -98,7 +98,7 @@ test('Controller captures before replacement and blocks loss when current writin
     const ui = installRevisions({ capture: () => current, restore: () => {}, isBusy: () => false, workChanged: () => {}, report: () => {} });
     ui.captureBefore('Before import'); current = fixture('Replacement'); ui.update();
     assert.equal(fake.document.getElementById('checkpoint-saved').value, 'Original');
-    current.draft.body = 'x'.repeat(12001); assert.throws(() => ui.captureBefore('Before another import'));
+    current.draft.body = 'x'.repeat(60001); assert.throws(() => ui.captureBefore('Before another import'));
     assert.equal(fake.document.getElementById('checkpoint-saved').value, 'Original');
     ui.update(); assert.equal(ui.articleComparison(), null);
   } finally { globalThis.document = previous; }

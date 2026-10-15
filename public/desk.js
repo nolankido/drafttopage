@@ -13,6 +13,8 @@ import { installPublishingExports } from './export-controls.js';
 import { articleWordCount } from './draft-review.js';
 import { installRevisions } from './revision-controls.js';
 import { QUICK_SAMPLE } from './quick-sample.js';
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
+import { installPasteGuard } from './paste-guard.js';
 const wordpressTool = document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
 
 const $ = id => document.getElementById(id);
@@ -20,6 +22,10 @@ const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
 let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
+const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
+  $('body-paste-status').textContent = message;
+  if (message) report(message);
+} });
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
 const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
@@ -34,7 +40,7 @@ const filename = () => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test($('slug').value) && $('
 function update() {
   const value = capture();
   const words = articleWordCount($('body').value);
-  $('body-count').textContent = words.toLocaleString() + ' approximate words; ' + $('body').value.length.toLocaleString() + ' / 12,000 characters';
+  $('body-count').textContent = words.toLocaleString() + ' approximate words; ' + $('body').value.length.toLocaleString() + ' / ' + ARTICLE_BODY_LIMIT.toLocaleString('en-US') + ' characters';
   $('description-count').textContent = $('description').value.length + ' / 160 characters';
   $('note-count').textContent = $('notes').value.length.toLocaleString() + ' / 8,000 characters';
   const issues = articleIssues(value.draft);
@@ -72,6 +78,7 @@ function changed(event) {
   update();
 }
 function fill(value) {
+  bodyPaste.clear();
   for (const id of sourceFields) $(id).value = value.source[id];
   for (const id of DRAFT_FIELDS) $(id).value = value.draft?.[id] ?? '';
   questions = value.draft?.questions ? [...value.draft.questions] : [];

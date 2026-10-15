@@ -1,9 +1,10 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 // A bounded pipe-table subset. Rejected tables keep every source line as text.
 export const TABLE_LIMITS = Object.freeze({ columns: 12, rows: 100 });
 const startsBlock = line => /^(?: {4}|\t)|^ {0,3}(?:>|#{1,6}(?:\s|$)|[-*+]\s+|\d+[.)]\s+|\x60{3,}|~{3,})/.test(line);
 
 export function tableCells(line) {
-  if (typeof line !== 'string' || line.length > 12000) throw new Error('Table rows support at most 12,000 characters.');
+  if (typeof line !== 'string' || line.length > ARTICLE_BODY_LIMIT) throw new Error('Table rows support at most 60,000 characters.');
   const cells = []; let cell = '', separators = 0, leading = false, trailing = false;
   const text = line.trim();
   for (let i = 0; i < text.length; i++) {
@@ -48,7 +49,7 @@ export function readMarkdownTable(lines, index) {
 }
 
 export function markdownTableRanges(body) {
-  if (typeof body !== 'string' || body.length > 12000) throw new Error('Tables support at most 12,000 article characters.');
+  if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Tables support at most 60,000 article characters.');
   const lines = body.split('\n'), ranges = []; let position = 0, fence = null;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index].replace(/\r$/, '');

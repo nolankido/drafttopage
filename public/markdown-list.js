@@ -1,3 +1,4 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 // Single-line items, bounded nesting, and no silent loss when a candidate fails.
 export const LIST_LIMITS = Object.freeze({ depth: 6, items: 200 });
 const marker = line => {
@@ -65,7 +66,7 @@ export function readMarkdownList(lines, index) {
 }
 
 export function markdownListRanges(body) {
-  if (typeof body !== 'string' || body.length > 12000) throw new Error('Lists support at most 12,000 article characters.');
+  if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Lists support at most 60,000 article characters.');
   const lines = body.split('\n'), ranges = []; let position = 0, fence = null;
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index].replace(/\r$/, '');

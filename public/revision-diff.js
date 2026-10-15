@@ -1,10 +1,11 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 export const MAX_DIFF_CELLS = 160000;
 export const DIFF_GROUP_LIMIT = 40;
 export const DIFF_PREVIEW_LINES = 8;
 export const DIFF_PREVIEW_CHARACTERS = 800;
 
 export function previewArticleChange(text) {
-  if (typeof text !== 'string' || text.length > 12000 || text.includes('\u0000')) throw new Error('Choose a bounded article passage.');
+  if (typeof text !== 'string' || text.length > ARTICLE_BODY_LIMIT || text.includes('\u0000')) throw new Error('Choose a bounded article passage.');
   let cut = Math.min(text.length, DIFF_PREVIEW_CHARACTERS), lineEnd = -1;
   for (let line = 0; line < DIFF_PREVIEW_LINES; line++) {
     lineEnd = text.indexOf('\n', lineEnd + 1);
@@ -19,7 +20,7 @@ export function previewArticleChange(text) {
 // Exact line tokens include their line endings and the absence of a final one.
 const lines = text => text.match(/[^\n]*\n|[^\n]+$/g) || [];
 export function compareArticleLines(saved, current) {
-  for (const text of [saved, current]) if (typeof text !== 'string' || text.length > 12000 || text.includes('\u0000')) throw new Error('Compare article text within the 12,000-character editor limit.');
+  for (const text of [saved, current]) if (typeof text !== 'string' || text.length > ARTICLE_BODY_LIMIT || text.includes('\u0000')) throw new Error('Compare article text within the 60,000-character editor limit.');
   const a = lines(saved), b = lines(current), groups = [];
   let prefix = 0, suffix = 0, savedLine = 1, currentLine = 1, coarse = false;
   const emit = (kind, token) => {

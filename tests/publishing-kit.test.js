@@ -49,7 +49,7 @@ test('A complete kit follows the explicit Markdown title choice', () => {
   for (const file of publishingKitFiles(draft).files) assert.doesNotMatch(file.content, /PRIVATE .* SENTINEL/);
 });
 test('Kit fields and filename bounds reject invalid values before archiving', () => {
-  for (const change of [{ title: '' },{ body: '' },{ body: 'a'.repeat(12001) },{ excerpt: 'a'.repeat(301) },{ description: null },{ slug: 'a'.repeat(81) },{ body: 'hidden\u0000text' }]) assert.throws(() => createPublishingKit({ ...draft, ...change }));
+  for (const change of [{ title: '' },{ body: '' },{ body: 'a'.repeat(60001) },{ excerpt: 'a'.repeat(301) },{ description: null },{ slug: 'a'.repeat(81) },{ body: 'hidden\u0000text' }]) assert.throws(() => createPublishingKit({ ...draft, ...change }));
 });
 test('ZIP CRC values match known vectors and unsafe entries never become paths', () => {
   assert.equal(crc32(new TextEncoder().encode('123456789')), 0xcbf43926);

@@ -8,8 +8,9 @@ export const RECOVERY_HTML = `
 <button id="save-backup" class="secondary" type="button" disabled>Download private backup</button>
 <label for="restore-backup">Restore a Draft to Page backup</label>
 <input id="restore-backup" type="file" accept=".json,application/json" aria-describedby="restore-help backup-help">
-<p id="restore-help" class="small">Choose a workspace JSON file up to 128 KiB. It is read locally, not uploaded. Invalid files leave current work unchanged. Restoring clears approvals and never calls AI.</p>
+<p id="restore-help" class="small">Choose a workspace JSON file up to 512 KiB. It is read locally, not uploaded. Invalid files leave current work unchanged. Restoring clears approvals and never calls AI.</p>
 </fieldset>
 <p class="small">There is still no autosave. Check that the file is saved on your device before closing this tab. Browser exit warnings can be missed, especially on mobile.</p>
 <a href="/help/local-workspace/" target="_blank" rel="noopener">How backups and article exports differ (new tab)</a>
 </details>`;
+

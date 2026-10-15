@@ -56,7 +56,7 @@ ${RECOVERY_HTML}
 <label for="excerpt">Short excerpt</label><textarea id="excerpt" rows="3" maxlength="300" aria-describedby="excerpt-help"></textarea><p id="excerpt-help" class="small">A short introduction for a listing, preview, or article summary.</p>
 <label for="description">Page description</label><textarea id="description" rows="3" maxlength="160" aria-describedby="description-help"></textarea><p id="description-help" class="small">A plain description of this page. Your website may need this in a separate field.</p>
 <label for="slug">Filename <span class="optional">(without .md)</span></label><input id="slug" maxlength="80" pattern="[a-z0-9]+(-[a-z0-9]+)*" spellcheck="false" aria-describedby="slug-help"><p id="slug-help" class="small">Lowercase letters, numbers, and separating hyphens. Example: project-progress-update.</p>
-<label for="body">Article body <span class="optional">(Markdown)</span></label><textarea id="body" rows="19" maxlength="12000" spellcheck="true"></textarea>
+<label for="body">Article body <span class="optional">(Markdown)</span></label><textarea id="body" rows="19" maxlength="60000" spellcheck="true"></textarea>
 <section class="review-box" aria-labelledby="review-title"><h3 id="review-title">Check before publishing</h3><p>These are AI-suggested questions, not a complete fact-check. No returned questions does not mean the draft is verified.</p><ul id="questions"></ul><button id="copy-questions" type="button" class="secondary">Copy review questions</button><p class="small">Verify names, dates, claims, links, permissions, and whether the writing sounds like you. Review Markdown in a safe editor before importing it into a website.</p></section>
 <label class="check"><input id="reviewed" type="checkbox"><span>I have reviewed this draft and its open questions. Exporting does not publish it.</span></label>
 <div class="actions"><button class="button" id="download" type="button" disabled>Download Markdown</button><button class="secondary" id="copy" type="button" disabled>Copy Markdown</button><button class="secondary" id="copy-body" type="button" disabled>Copy article body</button></div>
@@ -65,3 +65,4 @@ ${RECOVERY_HTML}
 </div></section></div>
 <div class="pilot-bottom"><p class="small">No draft history or autosave. Refreshing, navigating away, or signing out can discard your work. Application code does not store notes or drafts on the server.</p><button class="secondary" id="clear" type="button">Clear this workspace</button></div>
 <noscript><p>JavaScript is required for the workspace. Public examples and guides can be read without it.</p></noscript>`, 'pilot.js');
+
