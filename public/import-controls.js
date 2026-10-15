@@ -2,12 +2,14 @@ import { MAX_IMPORT_BYTES, parseArticleImport } from './article-import.js';
 import { installPasteGuard } from './paste-guard.js';
 import { renderPreview } from './preview.js';
 import { MAX_DOCX_BYTES } from './docx-archive.js';
+import { installImportInsertion } from './import-insertion-controls.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
-export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, report, focusPreview = false }) {
+export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, workChanged = () => {} }) {
   const $ = id => document.getElementById(id);
   let candidate = null, reading = false, sourceName = '', wordFile = null;
+  const insertion = installImportInsertion({ getBody: () => $('body').value, getSelection: () => ({ start: $('body').selectionStart, end: $('body').selectionEnd }), isBusy: () => reading || isBusy(), report, changed: updateApply });
   const paste = installPasteGuard({ element: $('import-text'), limit: MAX_IMPORT_BYTES, maxBytes: MAX_IMPORT_BYTES, label: 'The import box', report: message => {
     $('import-paste-status').textContent = message;
     if (message) report(message);
@@ -15,6 +17,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
   const clearPreview = () => {
     paste.clear();
     candidate = null;
+    insertion.clear();
     $('import-preview').hidden = true; $('apply-import').disabled = true;
     $('import-unmapped-ok').checked = false;
     $('import-changes-ok').checked = false; $('import-changes-section').hidden = true;
@@ -22,8 +25,9 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     $('import-body-preview').value = ''; $('import-summary').textContent = '';
     $('import-page-details').replaceChildren(); $('import-warnings').replaceChildren();
     $('import-unmapped').textContent = ''; $('import-unmapped-section').hidden = true;
+    workChanged();
   };
-  const clear = () => { clearPreview(); wordFile = null; $('import-file-status').textContent = ''; };
+  const clear = () => { clearPreview(); wordFile = null; $('import-file-status').textContent = ''; workChanged(); };
   function preview(text, name) {
     clear();
     stage(parseArticleImport(text, name, $('import-format').value, { firstRowHeaders: $('import-first-row-headers').checked }));
@@ -33,6 +37,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     const count = candidate.draft.body.trim() ? candidate.draft.body.trim().split(/\s+/u).length : 0;
     $('import-summary').textContent = candidate.kind + ': ' + (candidate.draft.title || 'Untitled article') + '. ' + count + ' approximate words; ' + candidate.draft.questions.length + ' review question(s).';
     $('import-body-preview').value = candidate.draft.body;
+    insertion.setCandidate(candidate.draft);
     renderPreview($('import-reading-preview'), candidate.draft.title, candidate.draft.body);
     const metadata = document.createDocumentFragment();
     for (const [key, label] of [['title', 'Title'], ['excerpt', 'Excerpt'], ['description', 'Description'], ['slug', 'Filename']]) {
@@ -49,13 +54,16 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     $('import-preview').hidden = false;
     $('import-changes-section').hidden = !candidate.requiresAck;
     updateApply();
-    report('Import preview ready. Current writing is unchanged. Inspect the preview, then choose Import into editor.');
+    workChanged();
+    report('Import preview ready. Current writing is unchanged. Inspect the conversion and choose its destination before applying.');
     if (focusPreview) $('import-preview-heading').focus();
   }
-  const allowed = () => candidate && !reading && !isBusy() && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
+  const allowed = () => candidate && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
   function updateApply() {
+    insertion.refresh();
     $('apply-import').disabled = !allowed();
     if ($('start-word-file')) $('start-word-file').disabled = reading || isBusy();
+    if ($('start-insert-import')) $('start-insert-import').disabled = reading || isBusy();
   }
   function updateFormat() { $('import-html-options').hidden = $('import-format').value !== 'html'; clear(); }
   $('import-text').addEventListener('input', () => { sourceName = ''; clear(); });
@@ -123,6 +131,15 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
   });
   $('apply-import').addEventListener('click', () => {
     if (!allowed()) return;
+    if (insertion.mode() !== 'replace') {
+      try {
+        const plan = insertion.getPlan();
+        if (plan.changed) applyInsertion(plan);
+        clear(); $('import-text').value = ''; sourceName = '';
+        report(plan.changed ? 'Article insertion applied locally. Previous writing is in Revisions in this tab. Existing title, page fields, source notes, and review notes were kept. Approval and the linked-image choice were cleared.' : 'This insertion already matches. Writing, approval, and history were kept.');
+      } catch (error) { report(error.message); updateApply(); }
+      return;
+    }
     if (hasArticle() && !confirm('Replace the article, page details, review questions, and any unsaved passage review, image preparation, link preparation, or table preparation with this import? Save a private backup to keep saved writing first. Unsaved preparation is excluded from files. Source notes are kept.')) {
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
@@ -137,7 +154,12 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     clear(); $('import-text').value = ''; sourceName = '';
     report('Import preview cleared. Current article and notes are unchanged.');
   });
-  return { reading: () => reading, clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || $('import-text').value.trim()), openWordFile: () => {
+  return { reading: () => reading, clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || $('import-text').value.trim()), openInsertion: () => {
+    if (reading || isBusy()) return;
+    $('import-panel').open = true; insertion.chooseMode('append');
+    if (candidate) $('import-destination').focus(); else $('import-file').focus();
+    report('Insert more writing: choose a file or preview pasted writing. Then preview adding it to the article end, or choose a complete-block selection. Current writing is kept.');
+  }, openWordFile: () => {
     if (reading || isBusy()) { report('Finish the current file operation before choosing another document. Current writing is unchanged.'); return; }
     $('import-panel').open = true;
     try { $('import-file').click(); }

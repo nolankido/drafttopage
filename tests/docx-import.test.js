@@ -198,6 +198,16 @@ test('Word file selection stages only, acknowledgement gates apply, cancellation
   fail(false); await $('apply-import').fire(); assert.equal(applied.length, 1); assert.equal(applied[0].body, 'Fictional writing');
   assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal($('import-reading-preview').childNodes.length, 0);
 }));
+test('Word insertion uses retained conversion and exact append preview while keeping its acknowledgement gate', async () => {
+  const inserted = [];
+  await withUI(async ({ $, file, applied, ui }) => {
+    $('body').value = 'Existing article.'; ui.openInsertion(); await file(zip());
+    await $('preview-insertion').fire(); assert.equal($('import-insertion-after').value, '\n\nFictional writing');
+    assert.equal($('apply-import').disabled, true); await $('apply-import').fire(); assert.equal(inserted.length, 0);
+    $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, false);
+    await $('apply-import').fire(); assert.equal(inserted.length, 1); assert.equal(inserted[0].body, 'Existing article.\n\nFictional writing'); assert.equal(applied.length, 0); assert.equal(ui.pending(), false);
+  }, { applyInsertion: plan => inserted.push(plan) });
+});
 test('An unmarked Word table can be previewed again from retained bytes; changes clear acknowledgement', () => withUI(async ({ $, ui, applied, file, confirm, message }) => {
   await file(zip(fixture(table(false)))); assert.match(message(), /no explicit header/); assert.equal(ui.pending(), true); assert.equal(applied.length, 0);
   $('import-first-row-headers').checked = true; await $('import-first-row-headers').fire('change'); await $('preview-import').fire();

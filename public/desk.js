@@ -89,6 +89,7 @@ function update() {
   imageEditor?.refresh();
   linkEditor?.refresh();
   tableEditor?.refresh();
+  importer?.updateBusy();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -270,8 +271,14 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   focusPreview: wordImportTool,
+  workChanged: updateExitWarning,
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
   isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report,
+  applyInsertion: plan => {
+    revisions.captureBefore('Before article insertion');
+    $('body').value = plan.body; touched.add('body'); changed();
+    $('body').focus(); $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
+  },
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
@@ -288,6 +295,7 @@ importer = installArticleImport({
   }
 });
 $('start-import').addEventListener('click', () => { $('import-panel').open = true; $('import-file').focus(); });
+$('start-insert-import').addEventListener('click', () => importer.openInsertion());
 $('start-formatted-import').addEventListener('click', () => importer.openFormatted());
 $('start-word-file')?.addEventListener('click', () => importer.openWordFile());
 $('import-text').addEventListener('input', () => {

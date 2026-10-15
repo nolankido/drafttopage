@@ -1,6 +1,6 @@
 <details id="import-panel" class="import-panel">
 <summary>Import an article or drafting result</summary>
-<p class="small">Open a Word .docx, bring Markdown or article JSON, or paste a formatted selection. Preview first. Nothing is uploaded, and your current writing stays intact until you import.</p>
+<p class="small">Open a Word .docx, bring Markdown or article JSON, or paste a formatted selection. Preview first. Replace the article or insert writing into it. Nothing is uploaded, and your current writing stays intact until you apply.</p>
 <fieldset id="import-fields"><legend class="sr-only">Local article import</legend>
 <label for="import-file">Choose a Word document or article file</label><input id="import-file" type="file" accept=".docx,.md,.markdown,.txt,.json,.html,.htm,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain,application/json,text/html" aria-describedby="import-file-help import-file-status"><p id="import-file-help" class="small">Word .docx up to 8 MiB, or UTF-8 text up to 512 KiB. Word files convert the main article locally. Images become placeholders; tracked changes, fields, footnotes, and complex structures must be resolved in Word. Keep the original file. For workspace JSON backups, use Save or restore this workspace.</p><p id="import-file-status" class="small" role="status" aria-live="polite"></p>
 <label for="import-format">Import format</label><select id="import-format"><option value="auto">Detect Markdown, article JSON, or an HTML file</option><option value="markdown">Markdown</option><option value="json">Structured article JSON</option><option value="html">Formatted selection or HTML</option></select>
@@ -11,6 +11,15 @@
 </fieldset>
 <section id="import-preview" hidden aria-labelledby="import-preview-heading">
 <h2 id="import-preview-heading">Check the import</h2><p id="import-summary"></p>
+<label for="import-destination">How should this import join your article?</label><select id="import-destination" aria-describedby="import-destination-help"><option value="replace">Replace the article and its page details</option><option value="selection">Insert at article cursor or replace selected blocks</option><option value="append">Add to the end of the article</option></select>
+<p id="import-destination-help" class="small">Insertion keeps your existing title, excerpt, description, filename, source notes, and review notes. Only the imported body is used; imported page details and questions are not added. You can include its title as a section heading below. Replacement keeps the existing import behavior.</p>
+<section id="import-insertion-controls" hidden aria-labelledby="import-insertion-heading"><h3 id="import-insertion-heading">Preview where this writing will go</h3>
+<p class="small">For a selection, place the article cursor between complete blocks, or select complete paragraphs, lists, tables, or code blocks. Then preview here. A partial paragraph or block is refused. Adding to the end needs no selection. Applying saves a checkpoint first. Nothing is changed by previewing.</p>
+<label class="check"><input id="import-include-title" type="checkbox"><span>Include the imported title as a level-two section heading</span></label>
+<button id="preview-insertion" type="button" class="secondary" disabled>Preview at article cursor or selection</button>
+<p id="import-insertion-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
+<div id="import-insertion-preview" hidden><p id="import-insertion-summary" class="small"></p><label for="import-insertion-before">Selected article source to replace</label><textarea id="import-insertion-before" rows="3" readonly></textarea><label for="import-insertion-after">Exact Markdown to insert, including paragraph separation</label><textarea id="import-insertion-after" rows="5" readonly></textarea></div>
+</section>
 <section aria-labelledby="import-reading-heading"><h3 id="import-reading-heading">Reading preview of the conversion</h3><div id="import-reading-preview" class="article-preview"></div></section>
 <label for="import-body-preview">Article body to import</label><textarea id="import-body-preview" rows="6" readonly></textarea>
 <details><summary>Page details to import</summary><dl id="import-page-details"></dl></details>
@@ -20,5 +29,5 @@
 <div class="actions"><button id="apply-import" type="button" class="button" disabled>Import into editor</button></div>
 </section>
 <div class="actions"><button id="cancel-import" type="button" class="secondary">Clear selected file or import preview</button></div>
-<p class="small">An import preview is temporary and is not included in workspace backups. Apply the import to keep its article and questions. <a href="/help/article-import/" target="_blank" rel="noopener">Supported formats and examples (new tab)</a></p>
+<p class="small">An import preview is temporary and is not included in workspace backups. Apply the import to keep its article and questions. <a href="/help/article-import/" target="_blank" rel="noopener">Supported formats, insertion steps, and examples (new tab)</a></p>
 </details>
