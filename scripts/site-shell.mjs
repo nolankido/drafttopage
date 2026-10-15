@@ -1,6 +1,6 @@
-export const RELEASE = 'long-drafts-20261014';
+export const RELEASE = 'html-source-tool-20261014';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const navigation = [['/write/', 'Write'], ['/markdown-to-wordpress/', 'WordPress tool'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
+const navigation = [['/write/', 'Write'], ['/markdown-to-wordpress/', 'WordPress tool'], ['/markdown-to-html/', 'HTML tool'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false }) {
   const current = navigation.map(([href, label]) => '<a href="' + href + '"' + (route === href ? ' aria-current="page"' : '') + '>' + label + '</a>').join('');
   const canonical = 'https://drafttopage.com' + route;

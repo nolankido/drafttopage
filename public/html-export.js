@@ -4,21 +4,31 @@ import { tableHTML } from './markdown-table.js';
 import { listHTML, listText } from './markdown-list.js';
 
 const escape = text => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const inline = text => inlineParts(text).map(p => p.type === 'text' ? escape(p.text) : p.type === 'a' ? '<a href="' + escape(p.href) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escape(p.text + ' (opens in a new tab)') + '">' + escape(p.text) + '</a>' : '<' + p.type + '>' + escape(p.text) + '</' + p.type + '>').join('');
-export function createFormattedArticle(draft, { includeTitle = false } = {}) {
+const inline = (text, portable = false) => {
+  const html = inlineParts(text).map(p => p.type === 'text' ? escape(p.text) : p.type === 'a' ? '<a href="' + escape(p.href) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escape(p.text + ' (opens in a new tab)') + '">' + escape(p.text) + '</a>' : '<' + p.type + '>' + escape(p.text) + '</' + p.type + '>').join('');
+  return portable ? html.replaceAll('\n', '<br>') : html;
+};
+export function createFormattedArticle(draft, { includeTitle = false, portable = false } = {}) {
   const issues = articleIssues(draft, includeTitle ? 'html' : 'body');
   if (Object.keys(issues).length) throw new Error(Object.values(issues)[0]);
   const blocks = previewBlocks(draft.body);
+  const renderInline = text => inline(text, portable);
   const body = blocks.map(block => {
-    if (block.type === 'table') return tableHTML(block, inline);
-    if (block.items) return listHTML(block, inline);
-    if (block.type === 'pre') return '<pre><code>' + escape(block.text) + '</code></pre>';
+    if (block.type === 'table') return tableHTML(block, renderInline, { portable });
+    if (block.items) return listHTML(block, renderInline);
+    if (block.type === 'pre') return '<pre' + (portable ? ' style="white-space:pre-wrap;overflow-wrap:anywhere"' : '') + '><code>' + escape(block.text) + '</code></pre>';
     const tag = block.level ? 'h' + Math.max(2, block.level) : block.type;
-    return '<' + tag + '>' + inline(block.text) + '</' + tag + '>';
+    return '<' + tag + '>' + renderInline(block.text) + '</' + tag + '>';
   }).join('\n');
   const plainInline = text => inlineParts(text).map(part => part.type === 'a' ? part.text + ' (' + part.href + ')' : part.text).join('');
   const text = blocks.map(block => block.type === 'table' ? [block.head, ...block.rows].map(row => row.map(plainInline).join('\t')).join('\n') : block.items ? listText(block, plainInline) : block.type === 'pre' ? block.text : plainInline(block.text)).join('\n\n');
   return { html: (includeTitle ? '<h1>' + escape(draft.title.trim()) + '</h1>\n' : '') + body, text: (includeTitle ? draft.title.trim() + '\n\n' : '') + text };
+}
+// A reviewed article fragment for an HTML-capable editor, without document metadata.
+// Only fixed layout hints are added. Source HTML and resource syntax stay literal.
+export function createHTMLSource(draft, { includeTitle = false } = {}) {
+  if (typeof includeTitle !== 'boolean') throw new Error('Choose whether to include the title in HTML source.');
+  return createFormattedArticle(draft, { includeTitle, portable: true }).html + '\n';
 }
 export function createReadingPage(draft) {
   const article = createFormattedArticle(draft, { includeTitle: true });

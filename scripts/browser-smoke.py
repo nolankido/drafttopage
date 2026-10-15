@@ -83,6 +83,33 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # A distinct HTML tool provides reviewed source and keeps its destination after restore.
+    page,context,state=open_page('/markdown-to-html/#sample')
+    expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
+    assert page.locator('#publishing-destination').input_value()=='html'
+    expect(page.locator('h1')).to_have_text('Markdown to HTML converter')
+    assert page.locator('#html-source-handoff').is_visible() and page.locator('#wordpress-handoff').is_hidden()
+    assert page.locator('#copy-html-source').is_disabled() and page.locator('#html-source-preview').input_value()==''
+    html_body='## Fictional heading\n\nFirst line.\nSecond line.\n\n<script>fictional()</script>\n\n| Left | Right |\n| --- | ---: |\n| One | Two |'
+    page.fill('#body',html_body); page.check('#reviewed')
+    html_source=page.locator('#html-source-preview').input_value()
+    assert '<br>' in html_source and 'style="text-align:right"' in html_source
+    assert '&lt;script&gt;' in html_source and '<script>' not in html_source and '<h1>' not in html_source
+    with page.expect_download() as info: page.click('#download-html-source')
+    assert Path(info.value.path()).read_text()==html_source
+    page.check('#html-include-title'); assert not page.locator('#reviewed').is_checked()
+    assert page.locator('#html-source-preview').input_value()==''
+    page.check('#reviewed'); assert page.locator('#html-source-preview').input_value().startswith('<h1>')
+    page.select_option('#publishing-destination','wordpress'); assert page.locator('#html-source-preview').input_value()==''
+    page.select_option('#publishing-destination','html'); page.check('#reviewed')
+    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    with page.expect_download() as info: page.click('#save-backup')
+    html_backup=Path(info.value.path()).read_bytes()
+    page.fill('#body','Short changed article.'); restore(page,html_backup)
+    assert page.locator('#body').input_value()==html_body and page.locator('#publishing-destination').input_value()=='html'
+    assert not page.locator('#reviewed').is_checked() and not page.locator('#html-include-title').is_checked()
+    assert page.locator('#html-source-preview').input_value()==''
+    layout(page,'html-tool'); context.close()
     # Full-length articles and native paste rejection preserve writing and approval.
     page,context,state=open_page('/markdown-to-wordpress/')
     long_tail='\n\n## Last section\nKEEP THE ENTIRE ENDING'
