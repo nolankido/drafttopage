@@ -144,3 +144,7 @@ All five workspaces offer a bounded table editor: choose an article table or app
 ## Combine article imports
 
 All five workspaces support previewed insertion of Word, formatted/HTML, Markdown, and article JSON imports at a complete-block selection or article end. Existing article fields and private notes stay in place. Changes require a checkpoint, exact source preview, explicit location refresh after article changes, and existing conversion acknowledgements. No private file schema or export format changes. See [the insertion release note](docs/ARTICLE_IMPORT_INSERTION_RELEASE.md).
+
+## Paste a Google Docs selection
+
+The free `/google-docs-to-wordpress/` entry page opens the shared importer around copied writing. A user-initiated formatted paste previews immediately, while plain-only clipboard data gets a clear acknowledgement warning. Bounded clipboard source remains in tab memory for explicit re-preview and is excluded from private files and exports. No Google account connection or background clipboard read is introduced. See [the release note](docs/GOOGLE_DOCS_PASTE_RELEASE.md).

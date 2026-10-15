@@ -3,14 +3,15 @@ import { installPasteGuard } from './paste-guard.js';
 import { renderPreview } from './preview.js';
 import { MAX_DOCX_BYTES } from './docx-archive.js';
 import { installImportInsertion } from './import-insertion-controls.js';
+import { copiedWritingSource, parseCopiedWriting } from './copied-writing.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
-export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, workChanged = () => {} }) {
+export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, workChanged = () => {}, pasteFirst = false }) {
   const $ = id => document.getElementById(id);
-  let candidate = null, reading = false, sourceName = '', wordFile = null;
+  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false;
   const insertion = installImportInsertion({ getBody: () => $('body').value, getSelection: () => ({ start: $('body').selectionStart, end: $('body').selectionEnd }), isBusy: () => reading || isBusy(), report, changed: updateApply });
-  const paste = installPasteGuard({ element: $('import-text'), limit: MAX_IMPORT_BYTES, maxBytes: MAX_IMPORT_BYTES, label: 'The import box', report: message => {
+  const paste = installPasteGuard({ element: $('import-text'), limit: MAX_IMPORT_BYTES, maxBytes: MAX_IMPORT_BYTES, label: 'The import box', skipPaste: () => $('import-format').value === 'html', report: message => {
     $('import-paste-status').textContent = message;
     if (message) report(message);
   } });
@@ -27,7 +28,23 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     $('import-unmapped').textContent = ''; $('import-unmapped-section').hidden = true;
     workChanged();
   };
-  const clear = () => { clearPreview(); wordFile = null; $('import-file-status').textContent = ''; workChanged(); };
+  const clear = () => { clearPreview(); wordFile = null; copiedSource = null; copiedFailed = false; $('import-file-status').textContent = ''; workChanged(); };
+  function previewCopied(source) {
+    let result;
+    try { result = parseCopiedWriting(source, { firstRowHeaders: $('import-first-row-headers').checked }); }
+    catch (error) {
+      copiedSource = source; copiedFailed = true; wordFile = null; sourceName = ''; $('import-text').value = '';
+      $('import-changes-ok').checked = false;
+      $('import-file-status').textContent = 'Copied source kept for re-preview. Any earlier preview remains visible but cannot be applied until a selection converts successfully.';
+      updateApply(); workChanged(); throw error;
+    }
+    clear(); copiedSource = source; sourceName = ''; $('import-text').value = '';
+    try { stage(result); }
+    catch (error) { clearPreview(); throw error; }
+    $('import-file-status').textContent = (source.format === 'html' ? 'Copied formatting' : 'Copied plain text') + ' kept in this tab for re-preview. Clear or apply the import to discard its original clipboard source.';
+    $('import-paste-status').textContent = source.format === 'html' ? 'Copied writing converted below. The paste box is empty for your next selection; no raw HTML is displayed.' : 'Only plain text was available. Inspect the formatting warning below, or copy again with formatting. The paste box is ready for another selection.';
+    workChanged();
+  }
   function preview(text, name) {
     clear();
     stage(parseArticleImport(text, name, $('import-format').value, { firstRowHeaders: $('import-first-row-headers').checked }));
@@ -58,12 +75,13 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     report('Import preview ready. Current writing is unchanged. Inspect the conversion and choose its destination before applying.');
     if (focusPreview) $('import-preview-heading').focus();
   }
-  const allowed = () => candidate && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
+  const allowed = () => candidate && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
   function updateApply() {
     insertion.refresh();
     $('apply-import').disabled = !allowed();
     if ($('start-word-file')) $('start-word-file').disabled = reading || isBusy();
     if ($('start-insert-import')) $('start-insert-import').disabled = reading || isBusy();
+    if ($('start-copied-paste')) $('start-copied-paste').disabled = reading || isBusy();
   }
   function updateFormat() { $('import-html-options').hidden = $('import-format').value !== 'html'; clear(); }
   $('import-text').addEventListener('input', () => { sourceName = ''; clear(); });
@@ -72,23 +90,20 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   $('import-unmapped-ok').addEventListener('change', updateApply);
   $('import-changes-ok').addEventListener('change', updateApply);
   $('import-text').addEventListener('paste', event => {
-    if (event.defaultPrevented || $('import-format').value !== 'html' || reading || isBusy()) return;
-    const html = event.clipboardData?.getData('text/html');
-    if (!html) return;
+    if (event.defaultPrevented || $('import-format').value !== 'html') return;
     event.preventDefault();
+    if (reading || isBusy()) { report('Finish the current file operation before pasting copied writing. Current writing is kept.'); return; }
     const input = $('import-text');
-    if (new TextEncoder().encode(html).byteLength > MAX_IMPORT_BYTES) {
-      $('import-paste-status').textContent = 'The formatted selection exceeds 512 KiB. Paste a smaller selection; the import box is unchanged.'; report($('import-paste-status').textContent); return;
-    }
     if (input.value && (input.selectionStart !== 0 || input.selectionEnd !== input.value.length)) {
       $('import-paste-status').textContent = 'Clear the import box or select all of its text before pasting formatted writing. The import box is unchanged.'; report($('import-paste-status').textContent); return;
     }
-    input.value = html; input.dispatchEvent(new Event('input', { bubbles: true }));
-    report('Formatted selection captured locally. Choose Preview selected Word file or pasted article to inspect the conversion. Current writing is unchanged.');
+    try { previewCopied(copiedWritingSource(event.clipboardData)); }
+    catch (error) { $('import-paste-status').textContent = error.message; report(error.message); }
   });
   $('import-html-example').addEventListener('click', () => {
     if (reading || isBusy()) return;
-    if ($('import-text').value.trim() && !confirm('Replace only the pending import text with the fictional formatted example? Your current article and notes are unchanged.')) return;
+    if (($('import-text').value.trim() || copiedSource || wordFile) && !confirm('Replace only the pending import source with the fictional formatted example? Your current article and notes are unchanged.')) return;
+    if (pasteFirst) { try { previewCopied({ format: 'html', text: FORMATTED_EXAMPLE }); } catch (error) { report(error.message); } return; }
     $('import-text').value = FORMATTED_EXAMPLE; $('import-text').dispatchEvent(new Event('input', { bubbles: true }));
     try { preview(FORMATTED_EXAMPLE, ''); } catch (error) { clear(); report(error.message); }
   });
@@ -103,6 +118,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   $('preview-import').addEventListener('click', async () => {
     if (reading || isBusy()) return;
     if (wordFile) { await previewWord(); return; }
+    if (copiedSource) { try { previewCopied(copiedSource); } catch (error) { report(error.message); } return; }
     try { preview($('import-text').value, sourceName); }
     catch (error) { clear(); report(error.message); }
   });
@@ -154,7 +170,13 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     clear(); $('import-text').value = ''; sourceName = '';
     report('Import preview cleared. Current article and notes are unchanged.');
   });
-  return { reading: () => reading, clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || $('import-text').value.trim()), openInsertion: () => {
+  return { reading: () => reading, clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || copiedSource || $('import-text').value.trim()), openCopied: () => {
+    if (reading || isBusy()) return;
+    $('import-panel').open = true; $('import-format').value = 'html'; $('import-html-options').hidden = false;
+    if ($('copied-import-alternatives')) $('copied-import-alternatives').open = false;
+    $('import-text').focus(); $('import-text').select();
+    report('Copy writing in Google Docs or another editor, then paste here with Ctrl+V or Command+V. A conversion preview opens before anything changes.');
+  }, openInsertion: () => {
     if (reading || isBusy()) return;
     $('import-panel').open = true; insertion.chooseMode('append');
     if (candidate) $('import-destination').focus(); else $('import-file').focus();

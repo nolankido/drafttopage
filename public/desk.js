@@ -16,7 +16,8 @@ import { QUICK_SAMPLE } from './quick-sample.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
 const wordImportTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
-const wordpressTool = wordImportTool || document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
+const copiedPasteTool = document.querySelector('.desk-intro')?.dataset.workspace === 'google-docs';
+const wordpressTool = wordImportTool || copiedPasteTool || document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
 const htmlTool = document.querySelector('.desk-intro')?.dataset.workspace === 'html';
 const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word';
 
@@ -270,7 +271,7 @@ $('add-question').addEventListener('click', () => {
 });
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
-  focusPreview: wordImportTool,
+  focusPreview: wordImportTool || copiedPasteTool, pasteFirst: copiedPasteTool,
   workChanged: updateExitWarning,
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
   isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report,
@@ -290,7 +291,7 @@ importer = installArticleImport({
     tableEditor?.clear();
     wordPressImages?.reset();
     if (!publishingProfiles?.hasSetup()) $('export-format').value = 'page';
-    if (wordImportTool) $('import-panel').open = false;
+    if (wordImportTool || copiedPasteTool) $('import-panel').open = false;
     changed(); $('body').focus();
   }
 });
@@ -298,6 +299,7 @@ $('start-import').addEventListener('click', () => { $('import-panel').open = tru
 $('start-insert-import').addEventListener('click', () => importer.openInsertion());
 $('start-formatted-import').addEventListener('click', () => importer.openFormatted());
 $('start-word-file')?.addEventListener('click', () => importer.openWordFile());
+$('start-copied-paste')?.addEventListener('click', () => importer.openCopied());
 $('import-text').addEventListener('input', () => {
   updateExitWarning();
 });
@@ -382,5 +384,5 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });
 setFocus(true); update();
-report(wordImportTool ? 'Word to WordPress tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
+report(copiedPasteTool ? 'Copied-writing tool ready. Paste a Google Docs selection into the import box to preview before applying. Save explicitly before leaving.' : wordImportTool ? 'Word to WordPress tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();
