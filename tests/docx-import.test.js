@@ -166,7 +166,7 @@ test('A generated Word file round-trips supported article structure without work
   assert.doesNotMatch(converted.markdown, /PRIVATE_/);
 });
 
-async function withUI(run) {
+async function withUI(run, options = {}) {
   const prior = { document: globalThis.document, DOMParser: globalThis.DOMParser, confirm: globalThis.confirm };
   const nodes = new Map(); let approved = false, busy = false, fail = false, message = ''; const applied = [];
   function control(name = 'div') {
@@ -174,7 +174,8 @@ async function withUI(run) {
     node.addEventListener = (type, fn) => { if (!node.events.has(type)) node.events.set(type, []); node.events.get(type).push(fn); };
     node.fire = async (type = 'click') => { for (const fn of node.events.get(type) || []) await fn({ type }); };
     node.replaceChildren = (...children) => { node.childNodes = []; node.append(...children); };
-    node.focus = () => {}; node.select = () => {};
+    node.focus = () => { node.focused = true; }; node.select = () => {};
+    node.click = () => { node.clicked = (node.clicked || 0) + 1; if (node.failClick) throw new Error('Picker blocked'); };
     return node;
   }
   const $ = id => { if (!nodes.has(id)) nodes.set(id, control()); return nodes.get(id); };
@@ -182,7 +183,7 @@ async function withUI(run) {
   globalThis.DOMParser = class { parseFromString(source) { return { documentElement: trees({ x: source }).get('x'), getElementsByTagName: () => [] }; } };
   globalThis.confirm = () => approved;
   $('import-format').value = 'auto';
-  const ui = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, apply: draft => { if (fail) throw new Error('Checkpoint refused'); applied.push(draft); } });
+  const ui = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, apply: draft => { if (fail) throw new Error('Checkpoint refused'); applied.push(draft); }, ...options });
   const file = async bytes => { $('import-file').files = [{ name: 'fictional.docx', size: bytes.length, arrayBuffer: async () => bytes.buffer }]; await $('import-file').fire('change'); };
   try { await run({ $, ui, applied, file, message: () => message, confirm: value => { approved = value; }, busy: value => { busy = value; }, fail: value => { fail = value; } }); }
   finally { Object.assign(globalThis, prior); }
@@ -221,8 +222,31 @@ test('Rejected Word bytes can be explicitly cleared without applying or replacin
   assert.equal($('cancel-import').disabled, false); await $('cancel-import').fire();
   assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal(applied.length, 0);
 }));
+test('Opening or cancelling the Word picker preserves an acknowledged preview and its chosen format', () => withUI(async ({ $, ui, file, applied, busy, message }) => {
+  await file(zip()); $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+  const original = $('import-body-preview').value;
+  ui.openWordFile(); assert.equal($('import-file').clicked, 1); assert.equal($('import-panel').open, true);
+  assert.equal($('import-format').value, 'auto'); assert.equal($('import-body-preview').value, original);
+  assert.equal($('import-changes-ok').checked, true); assert.equal($('apply-import').disabled, false); assert.equal(applied.length, 0);
+  $('import-file').files = []; await $('import-file').fire('change');
+  assert.equal($('import-preview').hidden, false); assert.equal($('import-body-preview').value, original); assert.equal($('import-changes-ok').checked, true);
+  busy(true); ui.updateBusy(); assert.equal($('start-word-file').disabled, true); ui.openWordFile(); assert.equal($('import-file').clicked, 1);
+  busy(false); ui.updateBusy(); assert.equal($('start-word-file').disabled, false);
+  $('import-file').failClick = true; ui.openWordFile(); assert.equal($('import-file').focused, true); assert.match(message(), /file control/); assert.equal($('import-body-preview').value, original);
+}));
+test('File-first preview focuses its review heading and formatted import opens the alternate-source disclosure', () => withUI(async ({ $, ui, file, applied }) => {
+  await file(zip()); assert.equal($('import-preview-heading').focused, true); assert.equal(applied.length, 0);
+  ui.openFormatted(); assert.equal($('word-import-alternatives').open, true); assert.equal($('import-format').value, 'html'); assert.equal($('import-text').focused, true);
+}, { focusPreview: true }));
+test('The Word launch action stays disabled while selected file bytes are being read', () => withUI(async ({ $, ui }) => {
+  const bytes = zip(); let complete;
+  $('import-file').files = [{ name: 'fictional.docx', size: bytes.length, arrayBuffer: () => new Promise(resolve => { complete = resolve; }) }];
+  const pending = $('import-file').fire('change');
+  assert.equal(ui.reading(), true); assert.equal($('start-word-file').disabled, true); ui.openWordFile(); assert.equal($('import-file').clicked, undefined);
+  complete(bytes.buffer); await pending; assert.equal(ui.reading(), false); assert.equal($('start-word-file').disabled, false);
+}));
 test('All shared desks offer local Word import with explicit acknowledgement and unchanged private formats', async () => {
-  for (const route of ['write', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word']) {
+  for (const route of ['write', 'markdown-to-wordpress', 'word-to-wordpress', 'markdown-to-html', 'markdown-to-word']) {
     const page = await readFile('public/' + route + '/index.html', 'utf8');
     assert.match(page, /accept="\.docx,/); assert.match(page, /id="import-file-status"/); assert.match(page, /8 MiB/); assert.match(page, /id="import-changes-ok"/); assert.doesNotMatch(page, /Direct .docx import is not supported/);
   }

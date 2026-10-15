@@ -5,13 +5,14 @@ import { escapeHTML } from './site-shell.mjs';
 import { WORDPRESS_TOOL_GUIDE } from './wordpress-tool-guide.mjs';
 import { HTML_TOOL_GUIDE } from './html-tool-guide.mjs';
 import { WORD_TOOL_GUIDE } from './word-tool-guide.mjs';
+const importPanel = readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8');
 const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), 'utf8')
   .replace('<!--WORKSPACE_RECOVERY-->', RECOVERY_HTML)
   .replace('<!--DRAFT_COLLECTION-->', readFileSync(new URL('./draft-collection.html.inc', import.meta.url), 'utf8'))
   .replace('<!--WORKSPACE_REVISIONS-->', readFileSync(new URL('./revision-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--ARTICLE_SEARCH-->', readFileSync(new URL('./search-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--SOURCE_REVIEW-->', readFileSync(new URL('./source-review.html.inc', import.meta.url), 'utf8'))
-  .replace('<!--ARTICLE_IMPORT-->', readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8'))
+  .replace('<!--ARTICLE_IMPORT-->', importPanel)
   .replace('<!--WORD_HANDOFF-->', readFileSync(new URL('./word-handoff.html.inc', import.meta.url), 'utf8'))
   .replace('<!--WORDPRESS_IMAGES-->', readFileSync(new URL('./wordpress-images.html.inc', import.meta.url), 'utf8'))
   .replace('<!--PUBLISHING_CHECKLIST-->', readFileSync(new URL('./publishing-profile.html.inc', import.meta.url), 'utf8'))
@@ -30,9 +31,25 @@ const htmlBody = readFileSync(new URL('./html-tool-intro.html.inc', import.meta.
   compactBody + HTML_TOOL_GUIDE;
 const wordBody = readFileSync(new URL('./word-tool-intro.html.inc', import.meta.url), 'utf8') +
   compactBody + WORD_TOOL_GUIDE;
+// Keep one shared importer. Only this entry page puts its file flow first and
+// folds the pasted-source choices into a native disclosure.
+const alternativeStart = importPanel.indexOf('<label for="import-format">');
+const headerStart = importPanel.indexOf('<label class="check"><input id="import-first-row-headers"');
+const headerEnd = importPanel.indexOf('</label>', headerStart) + '</label>'.length;
+const alternativeEnd = importPanel.indexOf('<button id="preview-import"');
+if (alternativeStart < 0 || headerStart < alternativeStart || headerEnd <= headerStart || alternativeEnd <= headerEnd) throw new Error('The Word-first import panel needs its shared import controls.');
+const wordFirstPanel = (importPanel.slice(0, alternativeStart) + importPanel.slice(headerStart, headerEnd) +
+  '<details id="word-import-alternatives"><summary>Paste a formatted selection, Markdown, or article JSON instead</summary>' +
+  importPanel.slice(alternativeStart, headerStart) + importPanel.slice(headerEnd, alternativeEnd) + '</details>' + importPanel.slice(alternativeEnd))
+  .replace('<details id="import-panel" class="import-panel">', '<details id="import-panel" class="import-panel" open>')
+  .replace('id="import-preview-heading"', 'id="import-preview-heading" tabindex="-1"')
+  .replace('<summary>Import an article or drafting result</summary>', '<summary>1. Open your Word document</summary>');
+const wordToWordPressBody = readFileSync(new URL('./word-to-wordpress-intro.html.inc', import.meta.url), 'utf8') +
+  wordFirstPanel + compactBody.replace(importPanel, '') + readFileSync(new URL('./word-to-wordpress-guide.html.inc', import.meta.url), 'utf8');
 export const writingPages = [
   { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody, script: '/desk.js', wide: true, desk: true },
   { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown, tables, lists, and selected linked images to editable WordPress blocks. Free local preparation, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true, converter: true },
+  { route: '/word-to-wordpress/', title: 'Free Word to WordPress Converter', description: 'Open a Word .docx locally, preview its article conversion, and take editable WordPress blocks. Free, with no upload or account needed.', body: wordToWordPressBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-html/', title: 'Free Markdown to HTML Converter', description: 'Convert simple Markdown to article HTML. Preview, copy reviewed HTML source, or download a fragment. Free, local, and no account needed.', body: htmlBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-word/', title: 'Free Markdown to Word Converter', description: 'Convert simple Markdown to an editable Word document. Preview your article and download .docx locally, free, with no account or API credits.', body: wordBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/help/local-workspace/', title: 'Save and restore your writing', description: 'Use the public writing workspace, load note outlines, and keep unfinished work in explicit private backup files.',

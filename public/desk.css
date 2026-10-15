@@ -43,3 +43,5 @@
 #draft-collection-file-preview { overflow-wrap: anywhere; margin-top: 1rem; }
 #draft-collection-saved-preview { font: .8rem/1.5 ui-monospace, monospace; }
 .wordpress-image-list{padding-left:1.2rem;overflow-wrap:anywhere}.wordpress-image-list li{border-bottom:1px solid var(--line);padding:.6rem 0}.wordpress-image-list p{margin:.4rem 0}.wordpress-image-list button{font-size:.8rem}#wordpress-image-panel>summary{font-weight:650;cursor:pointer}
+
+#word-import-alternatives{margin:1rem 0;padding-block:.75rem;border-block:1px solid var(--line)}#word-import-alternatives>summary{font-weight:650;cursor:pointer}#word-import-alternatives[open]>summary{margin-bottom:1rem}#import-preview-heading:focus-visible{outline:3px solid var(--accent);outline-offset:4px}

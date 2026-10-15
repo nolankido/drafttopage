@@ -6,7 +6,7 @@ import { installPublishingExports } from '../public/export-controls.js';
 import { QUICK_SAMPLE } from '../public/quick-sample.js';
 
 test('Shared page structure keeps editor, result, and notes as balanced sibling regions in reading order', async () => {
-  const pages = Object.fromEntries(await Promise.all(['write', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word'].map(async route => [route, await readFile('public/' + route + '/index.html', 'utf8')])));
+  const pages = Object.fromEntries(await Promise.all(['write', 'markdown-to-wordpress', 'word-to-wordpress', 'markdown-to-html', 'markdown-to-word'].map(async route => [route, await readFile('public/' + route + '/index.html', 'utf8')])));
   const report = JSON.parse(execFileSync('python3', ['-c', String.raw`
 import sys,json
 from html.parser import HTMLParser
@@ -43,7 +43,7 @@ for route,html in json.load(sys.stdin).items():
  out[route]={'balanced':True,'sourceOrder':['article','result','notes'],'compact':route!='write'}
 print(json.dumps(out))
 `], { input: JSON.stringify(pages), encoding: 'utf8' }));
-  assert.equal(Object.keys(report).length, 4);
+  assert.equal(Object.keys(report).length, 5);
   for (const entry of Object.values(report)) assert.equal(entry.balanced, true);
 });
 
