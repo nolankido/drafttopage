@@ -251,6 +251,7 @@ importer = installArticleImport({
   }
 });
 $('start-import').addEventListener('click', () => { $('import-panel').open = true; $('import-file').focus(); });
+$('start-formatted-import').addEventListener('click', () => importer.openFormatted());
 $('import-text').addEventListener('input', () => {
   updateExitWarning();
 });
