@@ -21,7 +21,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -33,7 +33,7 @@ const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
-const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting());
+const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork());
 function updateExitWarning() {
   window.removeEventListener('beforeunload', warn);
   if (hasWork()) window.addEventListener('beforeunload', warn);
@@ -48,7 +48,7 @@ function update() {
   const issues = articleIssues(value.draft);
   for (const id of DRAFT_FIELDS) {
     const error = $(id + '-error');
-    const optionalWordField = wordTool && id !== 'body' && !(id === 'title' && $('word-include-title').checked) && !$(id).value.length;
+    const optionalWordField = $('publishing-destination').value === 'word' && id !== 'body' && !(id === 'title' && $('word-include-title').checked) && !$(id).value.length;
     const showError = !optionalWordField && Boolean(issues[id]) && (touched.has(id) || $(id).value.length > 0);
     error.textContent = issues[id] || ''; error.hidden = !showError;
     if (showError) $(id).setAttribute('aria-invalid', 'true'); else $(id).removeAttribute('aria-invalid');
@@ -60,7 +60,12 @@ function update() {
   const missing = Object.keys(issues).map(id => ({ title: 'title', body: 'article', excerpt: 'excerpt', description: 'description', slug: 'filename' })[id]);
   $('markdown-readiness').textContent = missing.length ? 'For page Markdown, complete: ' + missing.join(', ') + '.' : 'All page fields are complete. Choose how the title heading will be handled.';
   $('export-readiness').textContent = issues.body ? 'Add an article, review it, then choose how to take it with you.' : issues.title ? 'Body copying and downloading are available after review. Add a title for a reading page or publishing kit.' : 'After review, copy into an editor, take a reading page, or download a publishing kit. Open Markdown with page details for website Markdown.';
-  if (wordTool && !issues.body) $('export-readiness').textContent = 'Read the preview, choose whether to include the title, then review and download Word. Page metadata can remain empty.';
+  if (!issues.body) {
+    const destination = $('publishing-destination').value;
+    if (destination === 'word') $('export-readiness').textContent = 'Read the preview, choose whether to include the title, then review and download Word. Page metadata can remain empty.';
+    else if (destination === 'html') $('export-readiness').textContent = 'Read the preview, choose title handling, then review and copy HTML source. Page metadata can remain empty.';
+    else if (destination === 'wordpress') $('export-readiness').textContent = 'Read the preview and inspect the handoff findings, then review and copy WordPress blocks. Your title stays separate; page metadata is optional.';
+  }
   $('load-outline').disabled = !$('template-select').value;
   const hasBody = Boolean(value.draft.body.trim());
   $('preview-empty').hidden = hasBody; $('article-preview').hidden = !hasBody;
@@ -74,6 +79,7 @@ function update() {
   }
   draftReview?.refresh();
   publishingExports?.update();
+  publishingProfiles?.update();
   revisions?.update();
   articleSearch?.refresh();
 }
@@ -95,9 +101,10 @@ function fill(value) {
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
   publishingExports?.reset();
+  publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -246,13 +253,14 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0,
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); }, report,
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
     articleSearch?.clear();
     questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
-    $('export-format').value = 'page'; changed(); $('body').focus();
+    if (!publishingProfiles?.hasSetup()) $('export-format').value = 'page';
+    changed(); $('body').focus();
   }
 });
 $('start-import').addEventListener('click', () => { $('import-panel').open = true; $('import-file').focus(); });
@@ -270,6 +278,11 @@ draftReview = installDraftReview({
   }
 });
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
+loadEditingTool(() => import('./publishing-profile-controls.js'), ({ installPublishingProfiles }) => {
+  publishingProfiles = installPublishingProfiles({ getWorkspace: capture, changed, workChanged: updateExitWarning, isBusy: () => recovery.reading() || Boolean(importer?.reading()), report });
+}, () => {
+  $('publishing-profile-status').textContent = 'Publishing profiles could not load in this browser. Continue using the destination and title choices directly. Your writing is kept.';
+});
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
 // An optional editing tool must not block the core writing/recovery workspace.
 loadEditingTool(() => import('./revision-diff-controls.js'), ({ installRevisionDiff }) => {

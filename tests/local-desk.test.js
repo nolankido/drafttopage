@@ -77,6 +77,10 @@ test('Filename helper produces safe bounded names, including empty and non-ASCII
   assert.equal(suggestFilename('Café project'), 'cafe-project');
 });
 test('Local feature modules cannot upload or execute imported HTML', async () => {
+  for (const file of ['publishing-profile.js', 'publishing-profile-controls.js']) {
+    const js = await readFile(`public/${file}`, 'utf8');
+    assert.doesNotMatch(js, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|innerHTML|outerHTML|insertAdjacentHTML|eval\(|localStorage|sessionStorage|indexedDB/);
+  }
   const parser = await readFile('public/html-import.js', 'utf8');
   assert.equal(parser.split('template.innerHTML = source;').length, 2);
   assert.match(parser, /const template = document.createElement\('template'\);/);

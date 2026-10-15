@@ -11,6 +11,8 @@ const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), '
   .replace('<!--ARTICLE_SEARCH-->', readFileSync(new URL('./search-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--ARTICLE_IMPORT-->', readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--WORD_HANDOFF-->', readFileSync(new URL('./word-handoff.html.inc', import.meta.url), 'utf8'))
+  .replace('<!--PUBLISHING_CHECKLIST-->', readFileSync(new URL('./publishing-profile.html.inc', import.meta.url), 'utf8'))
+  .replace('<!--PUBLISHING_PROFILE-->', readFileSync(new URL('./publishing-profile-editor.html.inc', import.meta.url), 'utf8'))
   .replace('<!--TEMPLATE_OPTIONS-->', TEMPLATES.map(t => '<option value="' + t.id + '">' + escapeHTML(t.title) + '</option>').join(''))
   .replace('<!--TEMPLATE_ANCHORS-->', TEMPLATES.map(t => '<span id="template-' + t.id + '" class="template-anchor" aria-hidden="true"></span>').join(''));
 const introEnd = deskBody.indexOf('</header>');

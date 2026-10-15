@@ -90,6 +90,56 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # Portable profiles reuse choices without replacing writing or completing review.
+    for profile_route in ['write','markdown-to-wordpress','markdown-to-html','markdown-to-word']:
+        page,context,state=open_page('/'+profile_route+'/')
+        page.fill('#title','Private fictional article')
+        page.fill('#body','## Keep this article\n\nA fictional paragraph to preserve.')
+        page.locator('#publishing-profile-panel > summary').click()
+        expect(page.locator('#publishing-profile-controls')).to_be_enabled()
+        page.fill('#publishing-profile-name','Weekly website')
+        page.fill('#publishing-profile-checks','Compare dates with source notes\nPreview my final page')
+        page.select_option('#publishing-destination','html')
+        page.check('#html-include-title')
+        first=page.locator('#publishing-checklist-items input').first
+        first.check();expect(page.locator('#publishing-checklist-status')).to_contain_text('1 / 2')
+        page.check('#reviewed')
+        with page.expect_download() as info:page.click('#download-publishing-profile')
+        content=Path(info.value.path()).read_text()
+        profile=json.loads(content)
+        assert profile['preferences']['destination']=='html' and profile['preferences']['htmlTitle'] is True
+        assert set(profile)=={'format','version','name','preferences','checklist'}
+        assert 'Private fictional article' not in content and 'fictional paragraph' not in content
+        page.select_option('#publishing-destination','word')
+        page.check('#reviewed')
+        page.locator('#load-publishing-profile').set_input_files({'name':'profile.json','mimeType':'application/json','buffer':content.encode()})
+        expect(page.locator('#publishing-profile-preview')).to_be_visible()
+        assert page.locator('#publishing-destination').input_value()=='word' and page.locator('#reviewed').is_checked()
+        page.click('#cancel-publishing-profile')
+        assert page.locator('#publishing-destination').input_value()=='word' and page.locator('#reviewed').is_checked()
+        page.locator('#load-publishing-profile').set_input_files({'name':'profile.json','mimeType':'application/json','buffer':content.encode()})
+        page.click('#apply-publishing-profile')
+        assert page.locator('#body').input_value()=='## Keep this article\n\nA fictional paragraph to preserve.'
+        assert page.locator('#publishing-destination').input_value()=='html' and not page.locator('#reviewed').is_checked()
+        assert not first.is_checked()
+        first.check();page.check('#reviewed')
+        page.locator('#publishing-profile-panel > summary').click()
+        assert first.is_checked() and page.locator('#reviewed').is_checked()
+        page.fill('#body','A revised fictional paragraph.')
+        assert not first.is_checked() and not page.locator('#reviewed').is_checked()
+        page.locator('#publishing-profile-panel > summary').click()
+        for width in [1440,850,390,320]:
+            page.set_viewport_size({'width':width,'height':900})
+            assert not page.evaluate('document.documentElement.scrollWidth > innerWidth'),f'Profile overflows at {width}'
+        assert state['calls']==0
+        context.close()
+    report['checks'].append('Profiles: four workspaces, real local file round trip, strict download fields, preview/cancel preservation, apply, reminder invalidation, view-only toggles, desktop/narrow overflow, and no API requests')
+    page,context,state=open_page('/markdown-to-word/',blocked_modules=('/publishing-profile-controls.js',))
+    page.fill('#body','Core writing still works.')
+    page.check('#reviewed')
+    expect(page.locator('#download-word')).to_be_enabled()
+    expect(page.locator('#publishing-profile-status')).to_contain_text('could not load')
+    context.close()
     # Converter layout retains DOM/keyboard order and changes only the view.
     for route_name in ['markdown-to-wordpress','markdown-to-html','markdown-to-word']:
         page,context,state=open_page('/'+route_name+'/')
