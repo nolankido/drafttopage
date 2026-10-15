@@ -1,6 +1,6 @@
 import { articleIssues } from './authoring.js';
 import { analyzeDraft, articleStructure, REVIEW_LIMIT } from './draft-review.js';
-import { inlineTokens } from './markdown-inline.js';
+import { inlineTokens, walkInlineTokens } from './markdown-inline.js';
 import { markdownTableRanges } from './markdown-table.js';
 import { markdownListRanges } from './markdown-list.js';
 import { analyzeWordPressImages } from './wordpress-images.js';
@@ -35,8 +35,8 @@ export function reviewWordPress(draft, { includeLinkedImages = false } = {}) {
       const original = originals[index], text = original.replace(/\r$/, ''), end = start + text.length, line = section.line + index;
       // Mask inline code and URLs before scanning unsupported syntax. Positions stay exact.
       let masked = '', offset = 0;
-      for (const token of inlineTokens(text)) {
-        if (['code', 'link', 'image'].includes(token.type)) { masked += text.slice(offset, token.start) + ' '.repeat(token.end - token.start); offset = token.end; }
+      for (const token of walkInlineTokens(inlineTokens(text))) {
+        if (token.start >= offset && ['code', 'link', 'image'].includes(token.type)) { masked += text.slice(offset, token.start) + ' '.repeat(token.end - token.start); offset = token.end; }
       }
       masked += text.slice(offset);
       const flag = (kind, message) => add(kind, message, start, end, line);

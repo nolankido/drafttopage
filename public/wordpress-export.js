@@ -1,11 +1,12 @@
 import { articleIssues } from './authoring.js';
-import { previewBlocks, inlineParts } from './preview.js';
+import { previewBlocks } from './preview.js';
+import { inlineHTML } from './inline-render.js';
 import { tableHTML } from './markdown-table.js';
 import { listHTML, listText } from './markdown-list.js';
 import { wordPressImageBlocks } from './wordpress-images.js';
 
 const escape = text => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const inline = text => inlineParts(text).map(part => part.type === 'text' ? escape(part.text) : part.type === 'a' ? '<a href="' + escape(part.href) + '" target="_blank" rel="noopener noreferrer">' + escape(part.text) + '</a>' : '<' + part.type + '>' + escape(part.text) + '</' + part.type + '>').join('').replaceAll('\n', '<br>');
+const inline = text => inlineHTML(text, { lineBreaks: true });
 const block = (name, html, attributes = '') => '<!-- wp:' + name + attributes + ' -->\n' + html + '\n<!-- /wp:' + name + ' -->';
 
 // Only article body becomes blocks. Title and page fields belong in WordPress fields.

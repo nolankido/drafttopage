@@ -1,5 +1,6 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
-import { inlineTokens, decodeMarkdownEscapes } from './markdown-inline.js';
+import { inlineParts } from './inline-render.js';
+export { inlineParts } from './inline-render.js';
 import { readMarkdownTable } from './markdown-table.js';
 import { readMarkdownList } from './markdown-list.js';
 // A bounded reading aid. Only explicit web links become navigation; no resources load.
@@ -42,22 +43,19 @@ export function previewBlocks(body) {
   }
   flush(); return result;
 }
-export function inlineParts(text) {
-  return inlineTokens(text).map(part => {
-    if (part.type === 'image' || (part.type === 'link' && !part.href)) return { type: 'text', text: text.slice(part.start, part.end) };
-    if (part.type === 'link') return { type: 'a', text: decodeMarkdownEscapes(part.text), href: part.href };
-    return { type: part.type, text: part.type === 'code' ? part.text : decodeMarkdownEscapes(part.text) };
-  });
-}
 function appendInline(node, text) {
-  for (const part of inlineParts(text)) {
-    if (part.type === 'text') node.append(document.createTextNode(part.text));
-    else {
-      const child = document.createElement(part.type); child.textContent = part.text;
-      if (part.type === 'a') { child.href = part.href; child.target = '_blank'; child.rel = 'noopener noreferrer'; child.setAttribute('aria-label', part.text + ' (opens in a new tab)'); }
-      node.append(child);
+  const append = (target, parts) => {
+    for (const part of parts) {
+      if (part.type === 'text') target.append(document.createTextNode(part.text));
+      else {
+        const child = document.createElement(part.type);
+        if (part.children) append(child, part.children); else child.textContent = part.text;
+        if (part.type === 'a') { child.href = part.href; child.target = '_blank'; child.rel = 'noopener noreferrer'; child.setAttribute('aria-label', part.text + ' (opens in a new tab)'); }
+        target.append(child);
+      }
     }
-  }
+  };
+  append(node, inlineParts(text));
 }
 export function renderPreview(target, title, body) {
   const fragment = document.createDocumentFragment();

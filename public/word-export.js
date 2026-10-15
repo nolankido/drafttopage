@@ -1,5 +1,6 @@
 import { articleIssues } from './authoring.js';
-import { previewBlocks, inlineParts } from './preview.js';
+import { previewBlocks } from './preview.js';
+import { inlineParts } from './inline-render.js';
 import { createWordZip, WORD_PART_NAMES } from './zip.js';
 
 export const WORD_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
@@ -48,14 +49,22 @@ export function wordDocumentParts(draft, { includeTitle = false } = {}) {
   const issues = wordDocumentIssues(draft, { includeTitle });
   if (Object.keys(issues).length) throw new Error(Object.values(issues)[0]);
   const links = new Map(), numbers = [];
-  const inline = text => inlineParts(text).map(part => {
-    if (part.type === 'a') {
-      if (!links.has(part.href)) links.set(part.href, 'rIdLink' + (links.size + 1));
-      return '<w:hyperlink r:id="' + links.get(part.href) + '">' + textRuns(part.text, '<w:rStyle w:val="Hyperlink"/>') + '</w:hyperlink>';
-    }
-    const props = part.type === 'strong' ? '<w:b/>' : part.type === 'em' ? '<w:i/>' : part.type === 'code' ? '<w:rStyle w:val="CodeChar"/>' : '';
-    return textRuns(part.text, props);
-  }).join('');
+  const inline = text => {
+    const render = (parts, flags = {}) => parts.map(part => {
+      const children = part.children || [{ type: 'text', text: part.text }];
+      if (part.type === 'strong') return render(children, { ...flags, bold: true });
+      if (part.type === 'em') return render(children, { ...flags, italic: true });
+      if (part.type === 'a') {
+        if (!links.has(part.href)) links.set(part.href, 'rIdLink' + (links.size + 1));
+        return '<w:hyperlink r:id="' + links.get(part.href) + '">' + render(children, { ...flags, link: true }) + '</w:hyperlink>';
+      }
+      const code = part.type === 'code';
+      const props = (flags.link ? '<w:rStyle w:val="Hyperlink"/>' : code ? '<w:rStyle w:val="CodeChar"/>' : '') +
+        (flags.bold ? '<w:b/>' : '') + (flags.italic ? '<w:i/>' : '') + (code && flags.link ? '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>' : '');
+      return textRuns(part.text, props);
+    }).join('');
+    return render(inlineParts(text));
+  };
   const paragraph = (content, props = '') => '<w:p>' + (props ? '<w:pPr>' + props + '</w:pPr>' : '') + content + '</w:p>';
   const list = (block, depth = 0) => {
     const id = numbers.length + 1, ordered = block.type === 'ol';

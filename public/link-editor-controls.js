@@ -25,7 +25,7 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy 
       $('article-link-list').replaceChildren(...links.slice(0, LINK_REVIEW_LIMIT).map(link => {
         const li = document.createElement('li'), label = document.createElement('p'), url = document.createElement('p'), state = document.createElement('p'), edit = document.createElement('button');
         label.textContent = 'Line ' + link.line + ' · ' + (link.label || '(empty label)'); url.textContent = 'URL: ' + link.url;
-        state.textContent = (link.href ? 'Supported web link. Destination not verified.' : 'Stays literal text. Use a non-empty label and an absolute HTTP or HTTPS URL without credentials.') + (link.inTable ? ' Edit table links directly in the article.' : '') + (/^(?:click here|here|read more|link)$/i.test(link.label.trim()) ? ' Consider a more descriptive label.' : '');
+        state.textContent = (link.href ? 'Supported web link. Destination not verified.' : 'Stays literal text. Use a non-empty label and an absolute HTTP or HTTPS URL without credentials.') + (link.inTable ? ' Edit table links directly in the article.' : '') + (link.formattedLabel || link.inEmphasis ? ' Edit this formatted link directly in the article; the Edit button selects its source.' : '') + (/^(?:click here|here|read more|link)$/i.test(link.label.trim()) ? ' Consider a more descriptive label.' : '');
         edit.type = 'button'; edit.className = 'secondary'; edit.textContent = 'Edit link on line ' + link.line;
         const original = snapshot;
         edit.addEventListener('click', () => {
@@ -40,7 +40,7 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy 
       }));
     }
     for (const button of $('article-link-list').querySelectorAll('button')) button.disabled = busy;
-    $('article-link-status').textContent = error || (links.length + ' recognized inline link(s); ' + links.filter(link => link.href).length + ' supported web link(s). ' + (links.length > LINK_REVIEW_LIMIT ? 'Showing the first 40; the download includes all. ' : '') + 'Plain URLs, reference links, images, nested Markdown, and code are outside this inspection. No URLs were visited.');
+    $('article-link-status').textContent = error || (links.length + ' recognized inline link(s); ' + links.filter(link => link.href).length + ' supported web link(s). ' + (links.length > LINK_REVIEW_LIMIT ? 'Showing the first 40; the download includes all. ' : '') + 'Links inside supported emphasis are included. Plain URLs, reference links, images, nested links, and code are outside this inspection. No URLs were visited.');
     for (const id of ['start-link-editor','link-use-selection','link-label','link-url']) $(id).disabled = busy;
     $('link-preview').disabled = busy || !target || Boolean(stale);
     $('link-preview-remove').disabled = busy || !target?.existing || Boolean(stale);

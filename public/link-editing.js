@@ -1,6 +1,6 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { articleStructure } from './draft-review.js';
-import { inlineTokens, decodeMarkdownEscapes, safeWebLink } from './markdown-inline.js';
+import { inlineTokens, walkInlineTokens, inlineVisibleText, decodeMarkdownEscapes, safeWebLink } from './markdown-inline.js';
 import { markdownTableRanges } from './markdown-table.js';
 
 export const LINK_LABEL_LIMIT = 300;
@@ -19,13 +19,14 @@ export function articleLinks(body) {
   const tables = markdownTableRanges(body), links = [];
   for (const block of articleStructure(body)) {
     if (block.kind === 'code') continue;
-    let line = block.line, offset = 0;
-    for (const token of inlineTokens(block.text)) {
+    let line = block.line, offset = 0, emphasisEnd = 0;
+    for (const token of walkInlineTokens(inlineTokens(block.text))) {
+      if (token.type === 'strong' || token.type === 'em') emphasisEnd = Math.max(emphasisEnd, token.end);
       if (token.type !== 'link') continue;
       line += (block.text.slice(offset, token.start).match(/\n/g) || []).length; offset = token.end;
       const start = block.contentStart + token.start, end = block.contentStart + token.end;
-      links.push({ start, end, label: decodeMarkdownEscapes(token.text), url: token.target, href: token.href,
-        line, inTable: tables.some(table => start >= table.start && end <= table.end) });
+      links.push({ start, end, label: token.children ? inlineVisibleText(token.children, { includeCode: true, includeImages: true }) : decodeMarkdownEscapes(token.text), formattedLabel: Boolean(token.children?.some(child => child.type !== 'text')), url: token.target, href: token.href,
+        line, inEmphasis: token.start < emphasisEnd, inTable: tables.some(table => start >= table.start && end <= table.end) });
     }
   }
   return links;
@@ -35,6 +36,8 @@ export function linkEditTarget(body, start, end) {
   if (!boundary(body, start) || !boundary(body, end) || end < start) throw new Error('Choose a complete article selection or place the cursor between characters.');
   const links = articleLinks(body);
   const existing = links.find(link => start === end ? start >= link.start && start < link.end : start === link.start && end === link.end);
+  if (existing?.formattedLabel) throw new Error('Edit this formatted link label directly in the article to preserve its emphasis and code.');
+  if (existing?.inEmphasis) throw new Error('Edit this link directly in the article to preserve the surrounding emphasis.');
   if (existing) { start = existing.start; end = existing.end; }
   const tables = markdownTableRanges(body);
   if (tables.some(table => start <= table.end && end >= table.start)) throw new Error('Edit links in tables directly in the article. The guided editor preserves table structure by leaving these positions alone.');
@@ -80,7 +83,7 @@ export function planLinkEdit(target, fields, body, mode = 'edit') {
 export function articleLinkNotes(body) {
   const links = articleLinks(body);
   return ['Draft to Page: article link review', '', links.length + ' recognized inline link(s). No URLs were visited or verified.',
-    'Plain URLs, reference links, nested Markdown, images, and code are outside this inspection. Table links may require direct source editing.', '',
+    'Links inside supported emphasis are included. Plain URLs, reference links, nested links, images, and code are outside this inspection. Formatted link labels, links inside emphasis, and table links may require direct source editing.', '',
     ...links.flatMap(link => ['Line ' + link.line + ': ' + (link.href ? 'Supported web link' : 'Stays literal text'), 'Label: ' + (link.label || '(empty)'), 'URL: ' + link.url, '']),
     'Inspect destination, label, factual support, and permission before publishing. These notes contain article labels and URLs only, excluding private source/review fields.'
   ].join('\n') + '\n';
