@@ -395,7 +395,7 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting and check browser recovery before leaving.'); }
 });
 await loadEditingTool(() => import('./browser-recovery.js'), ({ installBrowserRecovery }) => {
-  browserRecovery = installBrowserRecovery({ capture, hasWork, isBusy: () => recovery.reading() || Boolean(importer?.reading()), restore: value => {
+  browserRecovery = installBrowserRecovery({ capture, hasWork, stateChanged: () => { recovery.update(); update(); updateExitWarning(); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), restore: value => {
     revisions.captureBefore('Before browser recovery restore'); fill(value);
   } });
 }, () => { $('browser-recovery-status').textContent = 'Browser recovery could not load. Writing is kept in this tab; download a private backup before leaving.'; });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createBrowserRecovery, createBrowserCopy, parseBrowserCopy, RECOVERY_KEY } from '../public/browser-recovery.js';
+import { createBrowserRecovery, createBrowserCopy, parseBrowserCopy, installBrowserRecovery, RECOVERY_KEY } from '../public/browser-recovery.js';
 import { readFile } from 'node:fs/promises';
 
 const stamp = '2026-10-15T18:00:00.000Z';
@@ -133,4 +133,22 @@ test('Recovery wiring is public-only, consent-gated, and restricted to one audit
   assert.match(desk, /revisions\.captureBefore\('Before browser recovery restore'\)/);
   assert.match(page, /browser-recovery-consent/); assert.doesNotMatch(pilot, /browser-recovery\.js/);
   assert.match(privacy, /off by default/); assert.match(privacy, /unencrypted/); assert.match(privacy, /Anyone using that browser profile/);
+});
+test('Recovery UI reports both pending transitions so the surrounding editor unlocks after restore', async () => {
+  const env = environment(createBrowserCopy(writing(), stamp)), states = [], controls = new Map();
+  const node = () => ({ hidden: false, disabled: false, checked: false, open: false, textContent: '', addEventListener() {} });
+  const oldDocument = globalThis.document, oldWindow = globalThis.window, oldNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  globalThis.document = { getElementById: id => { if (!controls.has(id)) controls.set(id, node()); return controls.get(id); }, addEventListener() {} };
+  globalThis.window = { localStorage: env.storage, confirm: () => true, addEventListener() {} };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: env.locks } });
+  let workspace = writing();
+  try {
+    const control = installBrowserRecovery({ capture: () => workspace, restore: value => { workspace = value; }, hasWork: () => false, stateChanged: pending => states.push(pending) });
+    assert.equal(await control.resume(), true); assert.deepEqual(states, [false, true, false]);
+    control.flush(); assert.deepEqual(states, [false, true, false]); assert.equal(controls.get('browser-recovery-pause').hidden, false);
+    control.dispose();
+  } finally {
+    globalThis.document = oldDocument; globalThis.window = oldWindow;
+    if (oldNavigator) Object.defineProperty(globalThis, 'navigator', oldNavigator); else delete globalThis.navigator;
+  }
 });

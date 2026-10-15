@@ -160,7 +160,7 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
 export function installBrowserRecovery(options) {
   const $ = id => document.getElementById(id), panel = $('browser-recovery-panel');
   if (!panel) return null;
-  let controller, wasEnabled = false;
+  let controller, wasEnabled = false, wasPending = null;
   const render = state => {
     if (wasEnabled && !state.enabled) $('browser-recovery-consent').checked = false;
     wasEnabled = state.enabled;
@@ -176,6 +176,10 @@ export function installBrowserRecovery(options) {
     $('browser-recovery-now').hidden = !state.enabled;
     $('browser-recovery-forget').hidden = !state.available;
     for (const id of ['browser-recovery-pause', 'browser-recovery-now', 'browser-recovery-forget']) $(id).disabled = state.pending;
+    if (wasPending !== state.pending) {
+      wasPending = state.pending;
+      options.stateChanged?.(state.pending);
+    }
   };
   controller = createBrowserRecovery({ ...options, storage: () => window.localStorage, locks: () => navigator.locks, confirm: text => window.confirm(text), changed: render });
   $('browser-recovery-consent').addEventListener('change', () => render(controller.state()));
