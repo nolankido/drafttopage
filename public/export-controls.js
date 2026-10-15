@@ -15,17 +15,30 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
   const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy, getWordPressOptions });
   const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
   const word = installWordDocument({ getDraft, approved, changed, report, isBusy });
-  let kitSnapshot = null;
+  let kitSnapshot = null, copying = false, feedbackSignature = '';
+  function refreshFeedback() {
+    const draft = getDraft(), next = JSON.stringify([draft.title, draft.body, getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked]);
+    if (next !== feedbackSignature) { feedbackSignature = next; if ($('wordpress-action-status')) $('wordpress-action-status').textContent = ''; }
+  }
+  function reportWordPress(message) {
+    refreshFeedback();
+    // Mirror the existing live announcement visually beside the controls, without announcing twice.
+    if ($('wordpress-action-status')) $('wordpress-action-status').textContent = $('publishing-destination').value === 'wordpress' ? message : '';
+    report(message);
+  }
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
   function update() {
     const draft = getDraft(), reviewed = $('reviewed').checked;
+    refreshFeedback();
     const wordpress = $('publishing-destination').value === 'wordpress';
     $('wordpress-handoff').hidden = !wordpress;
     for (const id of ['wordpress-primary-review', 'wordpress-primary-actions']) if ($(id)) $(id).hidden = !wordpress;
     let article = null;
     try { if (wordpress) article = createWordPressArticle(draft, getWordPressOptions()); } catch { /* Readiness below explains missing article. */ }
-    for (const id of ['copy-wordpress', 'download-wordpress']) $(id).disabled = isBusy() || !reviewed || !article || !wordpress;
-    $('copy-wordpress-title').disabled = isBusy() || !reviewed || !wordpress || Boolean(articleIssues(draft, 'html').title);
+    $('copy-wordpress').disabled = copying || isBusy() || !reviewed || !article || !wordpress;
+    $('download-wordpress').disabled = isBusy() || !reviewed || !article || !wordpress;
+    $('copy-wordpress-title').disabled = copying || isBusy() || !reviewed || !wordpress || Boolean(articleIssues(draft, 'html').title);
+    if ($('wordpress-actions')) $('wordpress-actions').setAttribute('aria-busy', String(copying));
     $('wordpress-readiness').textContent = !article ? 'Paste an article first. Page metadata is optional.' : article.blockCount + ' top-level blocks prepared locally. ' + (reviewed ? 'Copy or download, then inspect them in WordPress.' : 'Review your reading preview, then check the approval box to copy or download.') + (articleIssues(draft, 'html').title ? ' Add a title separately in WordPress.' : ' Your title stays separate from the body.');
     $('wordpress-notices').replaceChildren(...(article?.notices || []).map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
     // Clear hidden or unapproved output immediately after edits, restore, or clear.
@@ -77,37 +90,45 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     } catch (error) { report(error.message); }
   });
   $('copy-wordpress').addEventListener('click', async () => {
-    if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
+    if (copying || isBusy() || $('publishing-destination').value !== 'wordpress') return;
     try {
       const copyState = () => JSON.stringify([getDraft().title, getDraft().body, getWordPressOptions(), $('publishing-destination').value]);
       const original = copyState();
       approved(); const article = createWordPressArticle(getDraft(), getWordPressOptions());
-      await navigator.clipboard.writeText(article.html);
+      copying = true;
+      const request = navigator.clipboard.writeText(article.html);
+      update(); reportWordPress('Copying WordPress blocks. Wait for confirmation before pasting.');
+      await request;
       $('wordpress-instructions').open = true;
       if (copyState() !== original || !$('reviewed').checked) {
-        report('An earlier article version was copied. The article changed while copying. Review and copy the current version again before continuing in WordPress.'); return;
+        reportWordPress('An earlier article version was copied. The article changed while copying. Review and copy the current version again before continuing in WordPress.'); return;
       }
-      report('WordPress blocks copied without a title or page fields. Paste into the Code editor of a new WordPress draft, return to Visual editor, and inspect the result.' + (article.imageCount ? ' Linked image URLs can load there.' : '') + ' Nothing was published.');
-    } catch (error) { report('WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks. ' + error.message); }
+      reportWordPress('WordPress blocks copied without a title or page fields. Paste into the Code editor of a new WordPress draft, return to Visual editor, and inspect the result.' + (article.imageCount ? ' Linked image URLs can load there.' : '') + ' Nothing was published.');
+    } catch (error) { reportWordPress('WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks. ' + error.message); }
+    finally { copying = false; update(); }
   });
   $('download-wordpress').addEventListener('click', () => {
     if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
     try {
       approved(); const draft = getDraft(), article = createWordPressArticle(draft, getWordPressOptions());
       downloadText(article.html, suggestFilename(draft.title) + '-wordpress.html', 'text/html;charset=utf-8');
-      report('WordPress blocks download requested. Open the file in a text editor and paste its contents into the WordPress Code editor. Opening it in a browser shows its reading view' + (article.imageCount ? ' and can load linked images' : '') + '. Nothing was published.');
-    } catch (error) { report(error.message); }
+      reportWordPress('WordPress blocks download requested. Open the file in a text editor and paste its contents into the WordPress Code editor. Opening it in a browser shows its reading view' + (article.imageCount ? ' and can load linked images' : '') + '. Nothing was published.');
+    } catch (error) { reportWordPress(error.message); }
   });
   $('copy-wordpress-title').addEventListener('click', async () => {
-    if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
+    if (copying || isBusy() || $('publishing-destination').value !== 'wordpress') return;
     try {
       const titleState = () => JSON.stringify([getDraft().title, $('publishing-destination').value]), original = titleState();
       approved(); const draft = getDraft(); if (articleIssues(draft, 'html').title) throw new Error('Add a valid title first.');
-      await navigator.clipboard.writeText(draft.title.trim());
-      if (titleState() !== original || !$('reviewed').checked) { report('A title from the previous review was copied. Review and copy the current title again before continuing in WordPress.'); return; }
-      report('Title copied separately. Paste into the WordPress title field. Nothing was published.');
+      copying = true;
+      const request = navigator.clipboard.writeText(draft.title.trim());
+      update(); reportWordPress('Copying the title. Wait for confirmation before pasting.');
+      await request;
+      if (titleState() !== original || !$('reviewed').checked) { reportWordPress('A title from the previous review was copied. Review and copy the current title again before continuing in WordPress.'); return; }
+      reportWordPress('Title copied separately. Paste into the WordPress title field. Nothing was published.');
     }
-    catch (error) { report('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
+    catch (error) { reportWordPress('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
+    finally { copying = false; update(); }
   });
-  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; if ($('other-export-formats')) $('other-export-formats').open = false; word.reset(); $('wordpress-code-preview').value = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
+  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; if ($('other-export-formats')) $('other-export-formats').open = false; word.reset(); $('wordpress-code-preview').value = ''; feedbackSignature = ''; if ($('wordpress-action-status')) $('wordpress-action-status').textContent = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
 }

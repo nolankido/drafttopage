@@ -109,6 +109,7 @@ class Control {
   querySelectorAll(tag) {return this.children.flatMap(node=>[...(node.tag===tag?[node]:[]),...node.querySelectorAll(tag)]);}
   focus() {this.focused=true;}
   setSelectionRange(start,end) {this.selection=[start,end];}
+  setAttribute(name,value) {this[name]=value;}
 }
 function controls(run) {
   const prior=globalThis.document,fields=new Map(),$=id=>{if(!fields.has(id))fields.set(id,new Control());return fields.get(id);};

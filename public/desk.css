@@ -80,5 +80,9 @@
 .guided-converter #wordpress-primary-actions .actions{margin-top:0;flex-wrap:wrap}
 .guided-converter #wordpress-primary-actions p{margin-bottom:0}
 .guided-converter #other-export-formats>summary{cursor:pointer;font-weight:600}
+#wordpress-actions button{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.action-feedback{flex-basis:100%;margin:0;overflow-wrap:anywhere;color:var(--ink)}
+.action-feedback:empty{display:none}
+.action-feedback:not(:empty){border-left:3px solid var(--accent);background:var(--white);padding:.65rem .8rem}
 @media(max-width:850px){.guided-converter #article-preview{max-height:none;overflow:visible}.guided-converter .conversion-results{padding:1rem}.article-edit-panel{padding:.85rem}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

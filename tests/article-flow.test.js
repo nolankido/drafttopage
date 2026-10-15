@@ -93,6 +93,9 @@ assert 'open' in p.ids['wordpress-instructions']['attrs']
 assert p.order.index('wordpress-findings')<p.order.index('reviewed')<p.order.index('copy-wordpress')<p.order.index('wordpress-instructions')
 assert 'wordpress-primary-review' in p.ids['wordpress-findings']['ancestors']
 assert 'wordpress-primary-actions' in p.ids['copy-wordpress']['ancestors']
+assert 'wordpress-actions' in p.ids['wordpress-action-status']['ancestors']
+assert p.ids['wordpress-action-status']['attrs']['aria-live']=='off'
+assert p.ids['desk-status']['attrs']['role']=='status'
 assert 'wordpress-handoff' not in p.ids['reviewed']['ancestors']
 assert 'wordpress-primary-actions' not in p.ids['reviewed']['ancestors']
 assert 'other-export-formats' in p.ids['publishing-destination']['ancestors']
