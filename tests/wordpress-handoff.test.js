@@ -11,7 +11,7 @@ import { QUICK_SAMPLE } from '../public/quick-sample.js';
 import { installWordPressHandoff } from '../public/wordpress-handoff-controls.js';
 
 test('Handoff review identifies actual conversion limits and unfinished passages in source order', () => {
-  const body = '# Post title\n\nTODO: finish this.\n\n![image](https://example.test/image.png)\n\n[relative](/page/)\n\n## A list\n\n  - Nested\n+ Alternative marker\n9. Different start\n10. Continues\n- [x] Task\n\n| Name | Count |\n| --- | --- |\n| A | 2 |\n\n[ref]: https://example.test/\nRead [the reference][ref].\n\n~~removed~~\n\n---\n\n<div>Source HTML</div>';
+  const body = '# Post title\n\nTODO: finish this.\n\n![image](https://example.test/image.png)\n\n[relative](/page/)\n\n## A list\n\n  - Nested\n+ Alternative marker\n9. Different start\n10. Continues\n- [x] Task\n\n| Name | Count |\n| --- | --- |\n| A | 2 | EXTRA |\n\n[ref]: https://example.test/\nRead [the reference][ref].\n\n~~removed~~\n\n---\n\n<div>Source HTML</div>';
   const result = reviewWordPress({ title: 'Post title', body });
   for (const kind of ['title','title-level','placeholder','image','link','nested-list','list-style','list-start','task-list','table','reference','strike','separator','html']) assert.ok(result.findings.some(item => item.kind === kind), kind);
   assert.equal(result.findings.filter(item => item.kind === 'list-start').length, 1);
@@ -31,7 +31,7 @@ test('Additional Markdown block forms are disclosed without rewriting the draft'
   assert.equal(JSON.stringify(draft), before);
 });
 test('CRLF and Unicode findings select the exact current editor line without altering it', () => {
-  const body = '日本語 😀\r\n\r\n  - Keep this line\r\n\r\n| 名前 | 数 |\r\n| --- | --- |\r\n| A | 1 |';
+  const body = '日本語 😀\r\n\r\n  - Keep this line\r\n\r\n| 名前 | 数 |\r\n| --- | --- |\r\n| A | 1 | EXTRA |';
   const before = body, result = reviewWordPress({ body });
   const nested = result.findings.find(item => item.kind === 'nested-list'), table = result.findings.find(item => item.kind === 'table');
   assert.equal(body.slice(nested.start,nested.end), '  - Keep this line'); assert.equal(nested.line, 3);

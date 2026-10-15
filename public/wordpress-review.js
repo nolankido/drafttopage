@@ -1,6 +1,7 @@
 import { articleIssues } from './authoring.js';
 import { analyzeDraft, articleStructure, REVIEW_LIMIT } from './draft-review.js';
 import { inlineTokens } from './markdown-inline.js';
+import { markdownTableRanges } from './markdown-table.js';
 
 export const WORDPRESS_REVIEW_LIMIT = REVIEW_LIMIT;
 export function reviewWordPress(draft) {
@@ -13,6 +14,7 @@ export function reviewWordPress(draft) {
   }));
   let totalFindings = basic.totalFindings;
   const add = (kind, message, start, end, line) => { totalFindings++; findings.push({ kind, message, start, end, line }); };
+  for (const table of markdownTableRanges(body)) if (!table.supported) add('table', 'This table stays text. ' + table.reason + ' Edit its Markdown or rebuild it in WordPress.', table.start, table.headerEnd, table.line);
   for (const section of articleStructure(body)) {
     if (section.kind === 'code') continue;
     if (section.kind === 'heading' && section.level === 1) add('title-level', 'This body H1 becomes H2 in WordPress. Keep the post title in its separate title field.', section.start, section.end, section.line);
@@ -38,8 +40,6 @@ export function reviewWordPress(draft) {
       if (/^> ?(?:>|[-*+] +|\d+[.)] +|#{1,6} +)/.test(masked)) flag('quote-format', 'Nested formatting in this quote stays text. Rebuild the intended list, heading, or nested quote in WordPress.');
       if (/(^|[^\\])~~[^~]+~~/.test(masked)) flag('strike', 'Strike-through is outside this converter. Apply it in WordPress if needed.');
       if (/^ {0,3}\[[^\]]+\]:|(^|[^\\])\[[^\]]+\]\[[^\]]*\]/.test(masked)) flag('reference', 'Reference links or footnotes stay text. Replace with inline links or rebuild them in WordPress.');
-      const next = originals[index + 1]?.replace(/\r$/, '') || '';
-      if (masked.includes('|') && /^\s*\|?\s*:?-{3,}:?\s*\|/.test(next)) flag('table', 'This Markdown table stays text. Rebuild it with a Table block in WordPress.');
       start += original.length + 1;
     }
   }
