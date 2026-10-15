@@ -368,13 +368,19 @@ with sync_playwright() as p:
     assert not page.locator('#reviewed').is_checked() and not page.locator('#word-include-title').is_checked()
     layout(page,'word-tool'); assert state['api']==[]; context.close()
     report['checks'].append('Word: actual DOCX download and XML/header/list reading, body-only readiness, source exclusion, title approval reset, destination switching, exact backup restore, and layout')
-    # Import actual DOCX download bytes through native XML parsing and staged replacement.
-    page,context,state=open_page('/markdown-to-wordpress/')
+    # The file-first acquisition route uses the same real DOCX import and handoff.
+    page,context,state=open_page('/word-to-wordpress/')
+    expect(page.locator('h1')).to_have_text('Word to WordPress converter')
+    assert page.locator('#import-panel').get_attribute('open') is not None
+    assert page.locator('#word-import-alternatives').get_attribute('open') is None
+    assert page.locator('#publishing-destination').input_value()=='wordpress'
     page.fill('#title','Keep the current title'); page.fill('#body','Keep the current article.')
     open_more(page); page.click('#start-notes'); page.fill('#notes','Keep fictional source notes.')
-    page.check('#reviewed'); page.click('#start-formatted-import')
-    page.locator('#import-file').set_input_files({'name':'fictional-article.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':word_import_bytes})
+    page.check('#reviewed')
+    with page.expect_file_chooser() as choice: page.click('#start-word-file')
+    choice.value.set_files({'name':'fictional-article.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':word_import_bytes})
     expect(page.locator('#import-summary')).to_contain_text('Word document')
+    expect(page.locator('#import-preview-heading')).to_be_focused()
     assert page.locator('#import-reading-preview h2').count()==1
     assert page.locator('#import-reading-preview ol[start="4"] ol[start="7"]').count()==1
     assert page.locator('#import-reading-preview th').count()==2
@@ -388,6 +394,8 @@ with sync_playwright() as p:
     assert 'Parent' in page.locator('#body').input_value() and page.locator('#notes').input_value()=='Keep fictional source notes.'
     assert not page.locator('#reviewed').is_checked() and page.locator('#import-file-status').inner_text()==''
     assert page.locator('#import-reading-preview').inner_html()==''
+    assert page.locator('#import-panel').get_attribute('open') is None
+    expect(page.locator('#body')).to_be_focused()
     imported_body=page.locator('#body').input_value()
     with zipfile.ZipFile(io.BytesIO(word_import_bytes)) as z: word_parts={n:z.read(n) for n in z.namelist()}
     rejected=io.BytesIO()
@@ -395,11 +403,15 @@ with sync_playwright() as p:
         for name,content in word_parts.items():
             if name=='word/document.xml': content=content.replace(b'<w:body>',b'<w:body><w:ins><w:p><w:r><w:t>Unresolved change</w:t></w:r></w:p></w:ins>')
             z.writestr(name,content)
-    page.locator('#import-file').set_input_files({'name':'unresolved.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':rejected.getvalue()})
+    with page.expect_file_chooser() as choice: page.click('#start-word-file')
+    choice.value.set_files({'name':'unresolved.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':rejected.getvalue()})
     expect(page.locator('#desk-status')).to_contain_text('tracked changes')
     expect(page.locator('#cancel-import')).to_be_visible(); page.click('#cancel-import')
     assert page.locator('#import-file-status').inner_text()=='' and page.locator('#body').input_value()==imported_body
-    layout(page,'word-import'); assert state['api']==[]; context.close()
+    if not page.locator('#start-formatted-import').is_visible(): page.click('#desk-more > summary')
+    page.click('#start-formatted-import'); assert page.locator('#word-import-alternatives').get_attribute('open') is not None
+    expect(page.locator('#import-text')).to_be_focused()
+    layout(page,'word-to-wordpress'); assert state['api']==[]; context.close()
     report['checks'].append('Word import: actual exported DOCX bytes, native XML parsing, nested numbering, table headers, inert literal markup, staged acknowledgement, cancelled replacement preservation, apply/source retention/approval reset, preview purge, and layout')
     # A distinct HTML tool provides reviewed source and keeps its destination after restore.
     page,context,state=open_page('/markdown-to-html/#sample')

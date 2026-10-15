@@ -5,7 +5,7 @@ import { MAX_DOCX_BYTES } from './docx-archive.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
-export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, report }) {
+export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, report, focusPreview = false }) {
   const $ = id => document.getElementById(id);
   let candidate = null, reading = false, sourceName = '', wordFile = null;
   const paste = installPasteGuard({ element: $('import-text'), limit: MAX_IMPORT_BYTES, maxBytes: MAX_IMPORT_BYTES, label: 'The import box', report: message => {
@@ -50,9 +50,13 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     $('import-changes-section').hidden = !candidate.requiresAck;
     updateApply();
     report('Import preview ready. Current writing is unchanged. Inspect the preview, then choose Import into editor.');
+    if (focusPreview) $('import-preview-heading').focus();
   }
   const allowed = () => candidate && !reading && !isBusy() && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
-  function updateApply() { $('apply-import').disabled = !allowed(); }
+  function updateApply() {
+    $('apply-import').disabled = !allowed();
+    if ($('start-word-file')) $('start-word-file').disabled = reading || isBusy();
+  }
   function updateFormat() { $('import-html-options').hidden = $('import-format').value !== 'html'; clear(); }
   $('import-text').addEventListener('input', () => { sourceName = ''; clear(); });
   $('import-format').addEventListener('change', updateFormat);
@@ -81,7 +85,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     try { preview(FORMATTED_EXAMPLE, ''); } catch (error) { clear(); report(error.message); }
   });
   async function previewWord() {
-    reading = true; clearPreview(); $('import-fields').disabled = true; $('cancel-import').disabled = true; busyChanged();
+    reading = true; clearPreview(); $('import-fields').disabled = true; $('cancel-import').disabled = true; updateApply(); busyChanged();
     try {
       const { parseDocxArticle } = await import('./docx-import.js');
       stage(await parseDocxArticle(wordFile.bytes, wordFile.name, { firstRowHeaders: $('import-first-row-headers').checked }));
@@ -97,7 +101,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
   $('import-file').addEventListener('change', async () => {
     const file = $('import-file').files?.[0];
     if (!file || reading || isBusy()) { $('import-file').value = ''; return; }
-    reading = true; clear(); $('import-fields').disabled = true; $('cancel-import').disabled = true; busyChanged();
+    reading = true; clear(); $('import-fields').disabled = true; $('cancel-import').disabled = true; updateApply(); busyChanged();
     try {
       if (/\.docx$/i.test(file.name)) {
         if (file.size > MAX_DOCX_BYTES) throw new Error('Choose a .docx file no larger than 8 MiB. Current writing is unchanged.');
@@ -133,9 +137,15 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     clear(); $('import-text').value = ''; sourceName = '';
     report('Import preview cleared. Current article and notes are unchanged.');
   });
-  return { reading: () => reading, clear, pending: () => Boolean(candidate || wordFile || $('import-text').value.trim()), openFormatted: () => {
+  return { reading: () => reading, clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || $('import-text').value.trim()), openWordFile: () => {
+    if (reading || isBusy()) { report('Finish the current file operation before choosing another document. Current writing is unchanged.'); return; }
+    $('import-panel').open = true;
+    try { $('import-file').click(); }
+    catch { $('import-file').focus(); report('Choose a Word document using the file control in the import panel. Current writing is unchanged.'); }
+  }, openFormatted: () => {
     if (reading || isBusy()) return;
     $('import-panel').open = true; $('import-format').value = 'html'; updateFormat();
+    if ($('word-import-alternatives')) $('word-import-alternatives').open = true;
     $('import-text').focus(); $('import-text').select();
     report('Formatted import ready. Choose a Word .docx or HTML file, or paste a copied selection, then inspect the preview before applying.');
   } };

@@ -15,7 +15,8 @@ import { installRevisions } from './revision-controls.js';
 import { QUICK_SAMPLE } from './quick-sample.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
-const wordpressTool = document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
+const wordImportTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
+const wordpressTool = wordImportTool || document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
 const htmlTool = document.querySelector('.desk-intro')?.dataset.workspace === 'html';
 const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word';
 
@@ -109,7 +110,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -259,6 +260,7 @@ $('add-question').addEventListener('click', () => {
 });
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
+  focusPreview: wordImportTool,
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()),
   isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report,
   apply: draft => {
@@ -269,11 +271,13 @@ importer = installArticleImport({
     sourceReview?.clear();
     wordPressImages?.reset();
     if (!publishingProfiles?.hasSetup()) $('export-format').value = 'page';
+    if (wordImportTool) $('import-panel').open = false;
     changed(); $('body').focus();
   }
 });
 $('start-import').addEventListener('click', () => { $('import-panel').open = true; $('import-file').focus(); });
 $('start-formatted-import').addEventListener('click', () => importer.openFormatted());
+$('start-word-file')?.addEventListener('click', () => importer.openWordFile());
 $('import-text').addEventListener('input', () => {
   updateExitWarning();
 });
@@ -334,5 +338,5 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });
 setFocus(true); update();
-report(wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
+report(wordImportTool ? 'Word to WordPress tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();

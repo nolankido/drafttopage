@@ -22,7 +22,7 @@ test('The acquisition route is self-canonical, discoverable, and indexed in the 
   const [tool, home, map, release] = await Promise.all(['markdown-to-wordpress/index.html', 'index.html', 'sitemap.xml', 'release.json'].map(path => readFile(`public/${path}`, 'utf8')));
   assert.match(tool, /<title>Free Markdown to WordPress Converter \| Draft to Page<\/title>/);
   assert.match(tool, /rel="canonical" href="https:\/\/drafttopage.com\/markdown-to-wordpress\/"/);
-  assert.match(tool, /href="\/markdown-to-wordpress\/" aria-current="page">WordPress tool/);
+  assert.match(tool, /href="\/markdown-to-wordpress\/" aria-current="page">Markdown to WordPress/);
   assert.match(home, /href="\/markdown-to-wordpress\/#draft"/);
   assert.match(home, /href="\/markdown-to-wordpress\/#sample"/);
   assert.equal((map.match(/<loc>https:\/\/drafttopage.com\/markdown-to-wordpress\/<\/loc>/g) || []).length, 1);
