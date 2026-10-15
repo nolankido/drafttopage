@@ -96,3 +96,6 @@
 .restore-preview textarea{width:100%;max-width:100%;min-width:0;white-space:pre-wrap}.restore-preview .actions{flex-wrap:wrap}
 @media(max-width:850px){.guided-converter #article-preview{max-height:none;overflow:visible}.guided-converter .conversion-results{padding:1rem}.article-edit-panel{padding:.85rem}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+.transfer-excerpt{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;padding:.75rem;background:var(--white);border:1px solid var(--line)}
+#wordpress-transfer-panel textarea{width:100%;max-width:100%;min-width:0}

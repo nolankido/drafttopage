@@ -7,6 +7,7 @@ import { suggestFilename } from './preview.js';
 import { installWordPressHandoff } from './wordpress-handoff-controls.js';
 import { installHTMLSource } from './html-source-controls.js';
 import { installWordDocument } from './word-controls.js';
+import { installWordPressTransfer } from './wordpress-transfer-controls.js';
 
 export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), defaultDestination = 'wordpress', compact = false }) {
   const $ = id => document.getElementById(id);
@@ -15,6 +16,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
   const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy, getWordPressOptions });
   const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
   const word = installWordDocument({ getDraft, approved, changed, report, isBusy });
+  const transfer = installWordPressTransfer({ getDraft, getWordPressOptions, report, isBusy });
   let kitSnapshot = null, copying = false, feedbackSignature = '';
   function refreshFeedback() {
     const draft = getDraft(), next = JSON.stringify([draft.title, draft.body, getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked]);
@@ -44,6 +46,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     // Clear hidden or unapproved output immediately after edits, restore, or clear.
     $('wordpress-code-preview').value = !isBusy() && wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
     handoff.update();
+    transfer.update();
     html.update();
     word.update();
     $('copy-formatted').disabled = !reviewed || Object.keys(articleIssues(draft, $('copy-title').checked ? 'html' : 'body')).length > 0;
@@ -130,5 +133,5 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     catch (error) { reportWordPress('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
     finally { copying = false; update(); }
   });
-  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; if ($('other-export-formats')) $('other-export-formats').open = false; word.reset(); $('wordpress-code-preview').value = ''; feedbackSignature = ''; if ($('wordpress-action-status')) $('wordpress-action-status').textContent = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
+  return { update, reset: () => { transfer.reset(); handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; if ($('other-export-formats')) $('other-export-formats').open = false; word.reset(); $('wordpress-code-preview').value = ''; feedbackSignature = ''; if ($('wordpress-action-status')) $('wordpress-action-status').textContent = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
 }
