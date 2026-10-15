@@ -129,6 +129,31 @@ with sync_playwright() as p:
     page.fill('#body',table)
     layout(page,'markdown-table'); assert state['api']==[]; context.close()
     report['checks'].append('Tables: live headers/alignment, escaped pipes, native blocks, reading file, malformed-source preservation, approval reset, and narrow layouts')
+    page,context,state=open_page('/markdown-to-wordpress/#sample')
+    expect(page.locator('#article-preview ol[start="4"]')).to_be_visible()
+    assert page.locator('#article-preview ol[start="7"]').count()==1
+    assert page.locator('#article-preview li > ul').count()>=2
+    lists='4. Inspect the article\n  - Compare facts\n    + Keep uncertainty\n  - Check links\n5. Prepare the handoff\n  7) Paste the blocks\n  8) Preview the post'
+    page.fill('#body',lists)
+    assert page.locator('#article-preview li').count()==7
+    assert page.locator('#wordpress-findings li').count()==0
+    page.check('#reviewed'); page.click('#wordpress-code-panel > summary')
+    code=page.locator('#wordpress-code-preview').input_value()
+    assert '"start":4' in code and '"start":7' in code
+    assert code.count('<!-- wp:list-item -->')==7
+    with page.expect_download() as info: page.click('#download-html')
+    reading=Path(info.value.path()).read_text()
+    assert '<ol start="4">' in reading and '<ol start="7">' in reading
+    bad='4. Keep the parent\n   - Irregular child\n5. KEEP THE LAST ITEM'
+    page.fill('#body',bad)
+    assert page.locator('#article-preview li').count()==0
+    expect(page.locator('#article-preview')).to_contain_text('KEEP THE LAST ITEM')
+    expect(page.locator('#wordpress-findings')).to_contain_text('two or four additional spaces')
+    page.locator('#wordpress-findings button').first.click()
+    assert page.locator('#body').evaluate('(el)=>el.value.slice(el.selectionStart,el.selectionEnd)')=='4. Keep the parent'
+    assert not page.locator('#reviewed').is_checked() and page.locator('#wordpress-code-preview').input_value()==''
+    page.fill('#body',lists); layout(page,'nested-lists'); assert state['api']==[]; context.close()
+    report['checks'].append('Lists: nested ownership and starts, native list-item blocks, reading file, complete malformed-source preservation, exact finding selection, approval reset, and narrow layouts')
     # The homepage sample uses the real workspace and approval-gated destination.
     page,context,state=open_page('/write/#sample')
     expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')

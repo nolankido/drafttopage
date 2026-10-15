@@ -2,6 +2,7 @@ import { articleIssues } from './authoring.js';
 import { analyzeDraft, articleStructure, REVIEW_LIMIT } from './draft-review.js';
 import { inlineTokens } from './markdown-inline.js';
 import { markdownTableRanges } from './markdown-table.js';
+import { markdownListRanges } from './markdown-list.js';
 
 export const WORDPRESS_REVIEW_LIMIT = REVIEW_LIMIT;
 export function reviewWordPress(draft) {
@@ -14,6 +15,9 @@ export function reviewWordPress(draft) {
   }));
   let totalFindings = basic.totalFindings;
   const add = (kind, message, start, end, line) => { totalFindings++; findings.push({ kind, message, start, end, line }); };
+  const lists = markdownListRanges(body);
+  let listIndex = 0;
+  for (const list of lists) if (!list.supported) add('list', 'This list group stays text. ' + list.reason + ' Edit its Markdown or rebuild it in WordPress.', list.start, list.headerEnd, list.line);
   for (const table of markdownTableRanges(body)) if (!table.supported) add('table', 'This table stays text. ' + table.reason + ' Edit its Markdown or rebuild it in WordPress.', table.start, table.headerEnd, table.line);
   for (const section of articleStructure(body)) {
     if (section.kind === 'code') continue;
@@ -30,11 +34,12 @@ export function reviewWordPress(draft) {
       masked += text.slice(offset);
       const flag = (kind, message) => add(kind, message, start, end, line);
       if (/(^|[^\\])<[^>\n]+>/.test(masked)) flag('html', 'Source HTML and angle-bracket links stay literal text. Rebuild the intended content in WordPress.');
-      if (/^\s+([-*+]\s+|\d+[.)]\s+)/.test(masked)) flag('nested-list', 'Indented lists are outside this converter. Rebuild nesting in WordPress.');
-      else if (/^(\+\s+|\d+\)\s+)/.test(masked)) flag('list-style', 'This list marker stays text. Use a flat - bullet or 1. numbered list, or rebuild it in WordPress.');
-      else if (/^(?: {4}|\t)\S/.test(masked)) flag('indented-code', 'Indented text is not converted to a Code block. Use a fenced code block if this is code.');
-      if (/^[-*] +\[[ xX]\]/.test(masked)) flag('task-list', 'Task checkboxes stay literal text inside the list. Rebuild them if your post needs checkboxes.');
-      if (/^\d+\. +/.test(masked) && !/^1\. +/.test(masked) && (index === 0 || !/^\d+\. +/.test(originals[index - 1]))) flag('list-start', 'This numbered list is exported starting at 1. Adjust its starting number in WordPress if needed.');
+      while (listIndex < lists.length && start >= lists[listIndex].end) listIndex++;
+      const inList = Boolean(lists[listIndex] && start >= lists[listIndex].start && start < lists[listIndex].end);
+      if (!inList && /^\s+([-*+]\s+|\d+[.)]\s+)/.test(masked)) flag('nested-list', 'This indented list has no supported parent. Start at the left edge, or nest under a parent item with two or four more spaces.');
+      else if (!inList && /^(?:[-*+]\s+|\d+[.)]\s+)/.test(masked)) flag('list-style', 'This list marker stays text. Use a nonempty item with -, *, +, or a number of up to nine digits.');
+      else if (!inList && /^(?: {4}|\t)\S/.test(masked)) flag('indented-code', 'Indented text is not converted to a Code block. Use a fenced code block if this is code.');
+      if (/^\s*(?:[-*+]|\d+[.)]) +\[[ xX]\]/.test(masked)) flag('task-list', 'Task checkboxes stay literal text inside the list. Rebuild them if your post needs checkboxes.');
       if (/^ {0,3}(?:-{3,}|_{3,}|(?:\*[ \t]*){3,})[ \t]*$/.test(masked) && !masked.includes('|')) flag('separator', 'This separator or setext heading marker stays text. Use a Markdown # heading or add a Separator block in WordPress.');
       if (/^ {0,3}={3,}[ \t]*$/.test(masked)) flag('setext', 'This setext heading marker stays text. Use a Markdown # heading for the intended heading.');
       if (/^> ?(?:>|[-*+] +|\d+[.)] +|#{1,6} +)/.test(masked)) flag('quote-format', 'Nested formatting in this quote stays text. Rebuild the intended list, heading, or nested quote in WordPress.');

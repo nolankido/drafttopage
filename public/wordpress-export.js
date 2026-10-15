@@ -1,6 +1,7 @@
 import { articleIssues } from './authoring.js';
 import { previewBlocks, inlineParts } from './preview.js';
 import { tableHTML } from './markdown-table.js';
+import { listHTML, listText } from './markdown-list.js';
 
 const escape = text => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const inline = text => inlineParts(text).map(part => part.type === 'text' ? escape(part.text) : part.type === 'a' ? '<a href="' + escape(part.href) + '" target="_blank" rel="noopener noreferrer">' + escape(part.text) + '</a>' : '<' + part.type + '>' + escape(part.text) + '</' + part.type + '>').join('').replaceAll('\n', '<br>');
@@ -14,13 +15,10 @@ export function createWordPressArticle(draft) {
   const blocks = previewBlocks(draft.body);
   const notices = [];
   if (blocks.some(item => item.level === 1)) notices.push('Body H1 headings become H2. Put the post title in the separate WordPress title field.');
-  if (blocks.some(item => item.type !== 'pre' && /!\[|<[^>]+>|\|.*\||^\s{2,}[-*+]|^\s*\d+\)|^\s*\[[^\]]+\]:|~~|^\s*(?:---+|\*\*\*+)\s*$/m.test(item.type === 'table' ? [item.head, ...item.rows].flat().join('\n').replaceAll('|', '') : item.items?.join('\n') ?? item.text))) notices.push('Some syntax may remain literal text: images, source HTML, malformed tables, nested lists, reference links, strike-through, or separators. Inspect it and rebuild those parts in WordPress.');
+  if (blocks.some(item => item.type !== 'pre' && /!\[|<[^>]+>|\|.*\||^\s*\[[^\]]+\]:|~~|^\s*(?:---+|\*\*\*+)\s*$/m.test(item.type === 'table' ? [item.head, ...item.rows].flat().join('\n').replaceAll('|', '') : item.items ? listText(item, text => text) : item.text))) notices.push('Some syntax may remain literal text: images, source HTML, malformed tables or lists, reference links, strike-through, or separators. Inspect it and rebuild those parts in WordPress.');
   const html = blocks.map(item => {
     if (item.type === 'table') return block('table', tableHTML(item, inline, { wordpress: true }), ' {"hasFixedLayout":true}');
-    if (item.items) {
-      const items = item.items.map(text => block('list-item', '<li>' + inline(text) + '</li>')).join('\n');
-      return block('list', '<' + item.type + ' class="wp-block-list">' + items + '</' + item.type + '>', item.type === 'ol' ? ' {"ordered":true}' : '');
-    }
+    if (item.items) return listHTML(item, inline, { wordpress: true });
     if (item.type === 'pre') return block('code', '<pre class="wp-block-code"><code>' + escape(item.text) + '</code></pre>');
     if (item.level) {
       const level = Math.max(2, item.level);
