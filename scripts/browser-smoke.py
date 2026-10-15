@@ -1082,6 +1082,40 @@ with sync_playwright() as p:
     layout(page,'optional-search-unavailable')
     report['checks'].append('Optional search module rejection leaves the core desk ready, formatting and checkpoint recovery available, and actual body export functional')
     context.close()
+    page,context,state=open_page('/word-to-wordpress/')
+    image_placeholder='\\[Image or object omitted from Word document\\]'
+    image_original='Before '+image_placeholder+' after.'
+    page.fill('#body',image_original);page.fill('#title','Fictional image edit');page.check('#reviewed')
+    page.click('#start-image-editor');page.click('#image-use-placeholder')
+    page.fill('#image-url','https://example.com/fictional_(1).jpg?a=1&b=2')
+    page.fill('#image-alt','Fictional [workshop] participants')
+    page.click('#image-preview')
+    assert page.locator('#image-before').input_value()==image_placeholder
+    assert page.locator('#image-after').input_value().startswith('\n\n![')
+    assert page.locator('#body').input_value()==image_original and page.locator('#reviewed').is_checked()
+    page.fill('#body',image_original+' Revised.')
+    expect(page.locator('#image-apply')).to_be_disabled();assert page.locator('#image-after').input_value()==''
+    page.click('#image-use-placeholder');page.click('#image-preview');page.click('#image-apply')
+    assert page.locator('#body').input_value().startswith('Before \n\n![')
+    assert page.locator('#body').input_value().endswith('\n\n after. Revised.')
+    assert not page.locator('#reviewed').is_checked() and not page.locator('#wordpress-linked-images').is_checked()
+    assert page.locator('#article-preview img').count()==0
+    page.locator('#wordpress-image-panel > summary').click();page.check('#wordpress-linked-images');page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    blocks=Path(info.value.path()).read_text()
+    assert blocks.count('<!-- wp:image -->')==1 and 'alt="Fictional [workshop] participants"' in blocks
+    assert 'fictional_(1).jpg?a=1&amp;b=2' in blocks
+    page.locator('#wordpress-image-list button').first.click();page.click('#image-preview');page.click('#image-apply')
+    assert page.locator('#reviewed').is_checked() and page.locator('#wordpress-linked-images').is_checked()
+    assert state['api']==[];layout(page,'guided-image-editor');context.close()
+    report['checks'].append('Guided image editor: Word placeholder selection, exact replacement preview, stale-target rejection, checkpointed apply, explicit linked images, downloaded block source, no image DOM, and no-op approval preservation')
+    page,context,state=open_page('/write/',blocked_modules=('/image-editor-controls.js',))
+    expect(page.locator('#image-editor-status')).to_contain_text('could not load')
+    page.fill('#body','Fictional fallback writing.');page.check('#reviewed');page.click('#copy-body')
+    assert page.locator('#body').input_value()=='Fictional fallback writing.' and state['api']==[]
+    context.close()
+    report['checks'].append('Guided image optional-module failure keeps article editing and ordinary exports available')
+
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()

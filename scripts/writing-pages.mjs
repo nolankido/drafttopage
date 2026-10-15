@@ -11,6 +11,7 @@ const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), '
   .replace('<!--DRAFT_COLLECTION-->', readFileSync(new URL('./draft-collection.html.inc', import.meta.url), 'utf8'))
   .replace('<!--WORKSPACE_REVISIONS-->', readFileSync(new URL('./revision-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--ARTICLE_SEARCH-->', readFileSync(new URL('./search-panel.html.inc', import.meta.url), 'utf8'))
+  .replace('<!--IMAGE_EDITOR-->', readFileSync(new URL('./image-editor.html.inc', import.meta.url), 'utf8'))
   .replace('<!--SOURCE_REVIEW-->', readFileSync(new URL('./source-review.html.inc', import.meta.url), 'utf8'))
   .replace('<!--ARTICLE_IMPORT-->', importPanel)
   .replace('<!--WORD_HANDOFF-->', readFileSync(new URL('./word-handoff.html.inc', import.meta.url), 'utf8'))

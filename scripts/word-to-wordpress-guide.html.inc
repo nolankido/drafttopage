@@ -8,7 +8,7 @@
 <tr><td>Bold, italic, and safe web links</td><td>Common emphasis and absolute HTTP(S) hyperlinks. Unsupported styling may be simplified with notices; link availability is not checked.</td></tr>
 <tr><td>Ordinary bullets and decimal lists</td><td>Editable lists with supported starts, continuation, and nesting. Up to six levels and 200 items per continuous group. Custom or lettered numbering needs simplification first.</td></tr>
 <tr><td>Simple rectangular tables</td><td>Editable tables with a column-header row. Unmarked headers require an explicit choice. Up to twelve columns and 100 data rows. Merged or nested tables are rejected.</td></tr>
-<tr><td>Images and embedded objects</td><td>Visible text placeholders. No image or embedded-file bytes are extracted or loaded. Add permitted images in WordPress and review their alternative text.</td></tr>
+<tr><td>Images and embedded objects</td><td>Visible text placeholders. No image or embedded-file bytes are extracted or loaded. Use Add or edit image below the article to replace a placeholder with an existing HTTPS image URL and alternative text. Preview and apply the change, then explicitly select linked images for WordPress. You can also add images in WordPress.</td></tr>
 <tr><td>Headers, footers, comments, author metadata, fonts, colors, and page layout</td><td>Excluded or simplified. Keep the original Word document and compare it with the preview.</td></tr>
 <tr><td>Tracked changes, fields, footnotes, endnotes, equations, and complex structures</td><td>Rejected before replacing writing. Resolve changes, automatic tables of contents, and unsupported structures in Word, or import a smaller formatted selection.</td></tr>
 </tbody></table></div>

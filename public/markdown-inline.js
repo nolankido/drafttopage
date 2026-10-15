@@ -17,8 +17,13 @@ function readLink(text, start) {
   const image = text[start] === '!';
   const open = start + (image ? 1 : 0);
   if (text[open] !== '[') return null;
-  const close = text.indexOf(']', open + 1);
-  if (close < 0 || /[\[\n]/.test(text.slice(open + 1, close)) || text[close + 1] !== '(') return null;
+  let close = open + 1;
+  for (; close < text.length; close++) {
+    if (text[close] === '\\' && close + 1 < text.length && text[close + 1] !== '\n') { close++; continue; }
+    if (text[close] === '[' || text[close] === '\n') return null;
+    if (text[close] === ']') break;
+  }
+  if (close >= text.length || text[close + 1] !== '(') return null;
   let depth = 1, end = close + 2;
   for (; end < text.length && text[end] !== '\n'; end++) {
     if (text[end] === '(') depth++;
