@@ -6,10 +6,12 @@ import { WORDPRESS_TOOL_GUIDE } from './wordpress-tool-guide.mjs';
 import { HTML_TOOL_GUIDE } from './html-tool-guide.mjs';
 import { WORD_TOOL_GUIDE } from './word-tool-guide.mjs';
 import { googleDocsWorkspace } from './google-docs-tool.mjs';
+import { workflowNavigation } from './workflow-navigation.mjs';
 const importPanel = readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8');
 const collectionPanel = readFileSync(new URL('./draft-collection.html.inc', import.meta.url), 'utf8');
 const revisionPanel = readFileSync(new URL('./revision-panel.html.inc', import.meta.url), 'utf8');
 const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), 'utf8')
+  .replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation())
   .replace('<!--WORKSPACE_RECOVERY-->', RECOVERY_HTML)
   .replace('<!--DRAFT_COLLECTION-->', collectionPanel)
   .replace('<!--WORKSPACE_REVISIONS-->', revisionPanel)
@@ -25,9 +27,10 @@ const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), '
   .replace('<!--PUBLISHING_PROFILE-->', readFileSync(new URL('./publishing-profile-editor.html.inc', import.meta.url), 'utf8'))
   .replace('<!--TEMPLATE_OPTIONS-->', TEMPLATES.map(t => '<option value="' + t.id + '">' + escapeHTML(t.title) + '</option>').join(''))
   .replace('<!--TEMPLATE_ANCHORS-->', TEMPLATES.map(t => '<span id="template-' + t.id + '" class="template-anchor" aria-hidden="true"></span>').join(''));
-const introEnd = deskBody.indexOf('</header>');
-if (introEnd < 0) throw new Error('The writing workspace needs its shared introduction.');
-const compactBase = deskBody.slice(introEnd + '</header>'.length)
+const workspaceMarker = '<!--WORKSPACE_START-->';
+const workspaceStart = deskBody.indexOf(workspaceMarker);
+if (workspaceStart < 0) throw new Error('The writing workspace needs its shared body marker.');
+const compactBase = deskBody.slice(workspaceStart + workspaceMarker.length)
   .replace('<details id="preview-panel">', '<details id="preview-panel" open>')
   .replace('<details id="additional-exports" open>', '<details id="additional-exports">')
   .replace('<details id="html-source-code-panel" open>', '<details id="html-source-code-panel">');
@@ -42,11 +45,11 @@ const compactBody = (compactBase.slice(0, toolsStart) +
   '<details id="editing-tools" class="editing-tools"><summary>More editing tools and draft history</summary><p class="small">Edit links, images, and tables, check the draft, or compare earlier versions. Opening these tools keeps your writing and export approval.</p>' +
   compactBase.slice(toolsStart, toolsEnd).replace(imageStatus, '') + collectionPanel + revisionPanel + '</details>' + compactBase.slice(toolsEnd))
   .replace(collectionPanel, '').replace(revisionPanel, '');
-const wordpressBody = readFileSync(new URL('./wordpress-tool-intro.html.inc', import.meta.url), 'utf8') +
+const wordpressBody = readFileSync(new URL('./wordpress-tool-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('wordpress')) +
   compactBody + WORDPRESS_TOOL_GUIDE;
-const htmlBody = readFileSync(new URL('./html-tool-intro.html.inc', import.meta.url), 'utf8') +
+const htmlBody = readFileSync(new URL('./html-tool-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('html')) +
   compactBody + HTML_TOOL_GUIDE;
-const wordBody = readFileSync(new URL('./word-tool-intro.html.inc', import.meta.url), 'utf8') +
+const wordBody = readFileSync(new URL('./word-tool-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('word')) +
   compactBody + WORD_TOOL_GUIDE;
 // Keep one shared importer. Only this entry page puts its file flow first and
 // folds the pasted-source choices into a native disclosure.
@@ -61,10 +64,10 @@ const wordFirstPanel = (importPanel.slice(0, alternativeStart) + importPanel.sli
   .replace('<details id="import-panel" class="import-panel">', '<details id="import-panel" class="import-panel" open>')
   .replace('id="import-preview-heading"', 'id="import-preview-heading" tabindex="-1"')
   .replace('<summary>Import an article or drafting result</summary>', '<summary>1. Open your Word document</summary>');
-const wordToWordPressBody = readFileSync(new URL('./word-to-wordpress-intro.html.inc', import.meta.url), 'utf8') +
+const wordToWordPressBody = readFileSync(new URL('./word-to-wordpress-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('word-import')) +
   wordFirstPanel + compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>') + readFileSync(new URL('./word-to-wordpress-guide.html.inc', import.meta.url), 'utf8');
 export const writingPages = [
-  { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody, script: '/desk.js', wide: true, desk: true },
+  { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody.replace(workspaceMarker, ''), script: '/desk.js', wide: true, desk: true },
   { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown, tables, lists, and selected linked images to editable WordPress blocks. Free local preparation, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/word-to-wordpress/', title: 'Free Word to WordPress Converter', description: 'Open a Word .docx locally, preview its article conversion, and take editable WordPress blocks. Free, with no upload or account needed.', body: wordToWordPressBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/google-docs-to-wordpress/', title: 'Free Google Docs to WordPress Converter', description: 'Paste a Google Docs selection, inspect its local conversion, and take editable WordPress blocks. Free, with no Google account connection or upload.', body: googleDocsWorkspace(importPanel, compactBody), script: '/desk.js', wide: true, desk: true, converter: true },
@@ -72,6 +75,7 @@ export const writingPages = [
   { route: '/markdown-to-word/', title: 'Free Markdown to Word Converter', description: 'Convert simple Markdown to an editable Word document. Preview your article and download .docx locally, free, with no account or API credits.', body: wordBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/help/local-workspace/', title: 'Save and restore your writing', description: 'Use the public writing workspace, load note outlines, and keep unfinished work in explicit private backup files.',
     body: '<header class="page-intro"><p class="eyebrow">Workspace help</p><h1>Keep your writing moving.</h1><p class="lead">Start from notes or bring an article. The public workspace is manual and works before the private AI pilot is activated.</p></header>' +
+    readFileSync(new URL('./workflow-help.html.inc', import.meta.url), 'utf8') +
     readFileSync(new URL('./draft-collection-help.html.inc', import.meta.url), 'utf8') +
     '<h2>Start from notes</h2><ol><li><a href="/write/#notes">Open the notes workspace</a> and choose an outline, or use a template directly from <a href="/templates/">the template library</a>.</li><li>Replace the prompts with your own facts. Separate observations, interpretation, and missing details.</li><li>Write the article yourself, or open Prepare a brief for your chosen writing tool. The brief is assembled locally; copying it does not call AI. Review the other tool before sending material there.</li><li>Bring the resulting article into the editor and compare it with your source.</li></ol>' +
     '<h2>Bring an existing draft</h2><p><a href="/write/#draft">Open the article editor</a>, enter a title, and paste the article body. You can copy or download the body after review without filling page metadata. Use Import an article to preview a Markdown file or structured drafting result before replacing the article. Source notes are kept. Workspace restore accepts the separate backup format described below.</p>' +

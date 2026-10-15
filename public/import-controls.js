@@ -8,7 +8,7 @@ import { downloadText } from './download.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
-export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
+export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
   const $ = id => document.getElementById(id);
   let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null;
   const clearWordImages = () => {
@@ -85,7 +85,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     updateApply();
     workChanged();
     report('Import preview ready. Current writing is unchanged. Inspect the conversion and choose its destination before applying.');
-    if (focusPreview) $('import-preview-heading').focus();
+    if (focusPreview) focusImportPreview($('import-preview-heading'));
   }
   const allowed = () => candidate && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
   function updateApply() {
@@ -223,7 +223,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     clear(); $('import-text').value = ''; sourceName = '';
     report('Import preview cleared. Current article and notes are unchanged.');
   });
-  return { reading: () => reading, clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || copiedSource || $('import-text').value.trim()), openCopied: () => {
+  return { reading: () => reading, staged: () => Boolean(candidate && !copiedFailed), clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || copiedSource || $('import-text').value.trim()), openCopied: () => {
     if (reading || isBusy()) return;
     $('import-panel').open = true; $('import-format').value = 'html'; $('import-html-options').hidden = false;
     if ($('copied-import-alternatives')) $('copied-import-alternatives').open = false;

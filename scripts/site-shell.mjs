@@ -1,4 +1,4 @@
-export const RELEASE = 'inline-formatting-20261015';
+export const RELEASE = 'guided-conversion-20261015';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const converters = [['/word-to-wordpress/', 'Word to WordPress'], ['/google-docs-to-wordpress/', 'Google Docs to WordPress'], ['/markdown-to-wordpress/', 'Markdown to WordPress'], ['/markdown-to-html/', 'Markdown to HTML'], ['/markdown-to-word/', 'Markdown to Word']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false, converter = false }) {
