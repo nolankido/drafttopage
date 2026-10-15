@@ -112,3 +112,7 @@ The workspace and three converters can save export choices and a personal publis
 ## Private draft collections
 
 The writer and three converters can explicitly save up to eight complete workspace snapshots in one private JSON collection, within 2 MiB. Add/Update saves current writing; editor typing never updates a saved entry automatically. Preview a selected collection file before loading it, then open an article separately with checkpoint protection. One collection undo recovers saved-entry mutations. Download requires private-content acknowledgement, excludes history/preferences/approval, and includes source and review notes. No browser persistence or account is added. See [the collection release](docs/DRAFT_COLLECTIONS_RELEASE.md).
+
+## Source passage reviews
+
+Select a short claim, compare it with source notes, and record a source reference, evidence, and your own decision. Saved reviews are bounded existing private review notes, so v1 backups, checkpoints, and collection entries retain them without a format change. They are excluded from article exports. Stale preparation, ambiguous passage navigation, checkpoint failures, and edited-note identity changes are guarded; no verification score or automated fact-checking is claimed. No account, persistence, upload, AI call, dependency, or Actions job is added. See [the passage review release](docs/SOURCE_PASSAGE_REVIEW_RELEASE.md).

@@ -1,4 +1,4 @@
-export const RELEASE = 'draft-collections-20261014';
+export const RELEASE = 'source-passage-review-20261014';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const navigation = [['/write/', 'Write'], ['/markdown-to-wordpress/', 'WordPress tool'], ['/markdown-to-html/', 'HTML tool'], ['/markdown-to-word/', 'Word tool'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false, converter = false }) {
