@@ -740,7 +740,7 @@ with sync_playwright() as p:
     page.check('#copy-title'); page.check('#reviewed'); page.click('#copy-formatted')
     expect(page.locator('#desk-status')).to_contain_text('copied')
     page.click('#start-formatted-import'); page.locator('#import-text').press('Control+V')
-    page.click('#preview-import'); expect(page.locator('#import-summary')).to_contain_text('Formatted article')
+    page.click('#preview-import'); expect(page.locator('#import-summary')).to_contain_text('Copied formatted writing')
     assert page.locator('#import-reading-preview table').count()==1
     assert page.locator('#apply-import').is_disabled()
     page.click('#cancel-import')
@@ -1197,6 +1197,21 @@ with sync_playwright() as p:
     page.click('#start-insert-import');page.fill('#import-text','Another section.');page.click('#preview-import');page.click('#preview-insertion')
     assert state['api']==[];layout(page,'article-import-insertion');context.close()
     report['checks'].append('Article insertion: exact append preview, stale location recovery retaining conversion, optional section title, existing title preservation, checkpointed apply, WordPress download, and contained layout')
+
+    page,context,state=open_page('/google-docs-to-wordpress/')
+    page.click('#start-copied-paste');assert page.locator('#import-format').input_value()=='html'
+    page.click('#import-html-example');expect(page.locator('#import-summary')).to_contain_text('Copied formatted writing')
+    assert page.locator('#import-text').input_value()=='' and page.locator('#body').input_value()==''
+    expect(page.locator('#apply-import')).to_be_disabled();page.check('#import-changes-ok');page.click('#apply-import')
+    assert 'fictional' in page.locator('#title').input_value() and page.locator('#article-preview table').count()==1
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    copied_blocks=Path(info.value.path()).read_text();assert '<strong>bold text</strong>' in copied_blocks and '<!-- wp:table' in copied_blocks
+    page.click('#start-copied-paste');page.locator('#import-text').fill('Only plain text for fallback.')
+    page.locator('#import-text').press('Control+A');page.locator('#import-text').press('Control+C');page.locator('#import-text').press('Control+V')
+    expect(page.locator('#import-summary')).to_contain_text('Copied plain text');expect(page.locator('#import-warnings')).to_contain_text('Only plain text')
+    assert state['api']==[];layout(page,'google-docs-paste');context.close()
+    report['checks'].append('Google Docs paste-first route: local example preview, acknowledgement, native table WordPress download, copied plain-text warning and responsive layout')
 
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):

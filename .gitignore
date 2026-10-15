@@ -34,3 +34,5 @@ public/about/
 
 __pycache__/
 *.pyc
+
+/public/google-docs-to-wordpress/

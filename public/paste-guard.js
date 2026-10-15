@@ -8,7 +8,7 @@ export function pastedTextFits(current, start, end, pasted, limit, maxBytes = In
   return !Number.isFinite(maxBytes) || new TextEncoder().encode(current.slice(0, start) + text + current.slice(end)).byteLength <= maxBytes;
 }
 
-export function installPasteGuard({ element, limit, maxBytes, label, report }) {
+export function installPasteGuard({ element, limit, maxBytes, label, report, skipPaste = () => false }) {
   const clear = () => report('');
   const reject = (event, message) => { event.preventDefault(); report(message + ' Current text is unchanged. The original remains in your clipboard or source file.'); };
   const inspect = (event, transfer) => {
@@ -22,7 +22,7 @@ export function installPasteGuard({ element, limit, maxBytes, label, report }) {
     }
     clear();
   };
-  element.addEventListener('paste', event => inspect(event, event.clipboardData));
+  element.addEventListener('paste', event => { if (!skipPaste(event)) inspect(event, event.clipboardData); });
   // Covers dropped text and bulk insertions exposed through beforeinput.
   element.addEventListener('beforeinput', event => {
     if (!['insertFromPaste', 'insertFromDrop'].includes(event.inputType) && !(event.inputType === 'insertText' && typeof event.data === 'string' && event.data.length > 1)) return;
