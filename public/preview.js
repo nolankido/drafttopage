@@ -1,4 +1,5 @@
 import { inlineTokens } from './markdown-inline.js';
+import { readMarkdownTable } from './markdown-table.js';
 // A bounded reading aid. Only explicit web links become navigation; no resources load.
 export function previewBlocks(body) {
   if (typeof body !== 'string' || body.length > 12000) throw new Error('Preview supports at most 12,000 body characters.');
@@ -32,6 +33,12 @@ export function previewBlocks(body) {
       while (i + 1 < lines.length && /^> ?/.test(lines[i + 1])) text.push(lines[++i].replace(/^> ?/, ''));
       result.push({ type: 'blockquote', text: text.join('\n') }); continue;
     }
+    const table = readMarkdownTable(lines, i);
+    if (table) {
+      flush();
+      result.push(table.supported ? table.table : { type: 'p', text: lines.slice(i, table.end).join('\n') });
+      i = table.end - 1; continue;
+    }
     paragraph.push(line);
   }
   flush(); return result;
@@ -57,6 +64,21 @@ export function renderPreview(target, title, body) {
   const fragment = document.createDocumentFragment();
   const heading = document.createElement('h3'); heading.textContent = title || 'Untitled article'; fragment.append(heading);
   for (const block of previewBlocks(body)) {
+    if (block.type === 'table') {
+      const region = document.createElement('div'), table = document.createElement('table');
+      region.className = 'article-table'; region.tabIndex = 0; region.setAttribute('role', 'region'); region.setAttribute('aria-label', 'Article table, scroll horizontally if needed');
+      const section = (name, rows, header) => {
+        const group = document.createElement(name);
+        for (const cells of rows) {
+          const row = document.createElement('tr');
+          cells.forEach((text, column) => { const cell = document.createElement(header ? 'th' : 'td'); if (header) cell.setAttribute('scope', 'col'); if (block.align[column]) cell.className = 'has-text-align-' + block.align[column]; appendInline(cell, text); row.append(cell); });
+          group.append(row);
+        }
+        table.append(group);
+      };
+      section('thead', [block.head], true); if (block.rows.length) section('tbody', block.rows, false);
+      region.append(table); fragment.append(region); continue;
+    }
     const node = document.createElement(block.type);
     if (block.items) for (const text of block.items) { const item = document.createElement('li'); appendInline(item, text); node.append(item); }
     else if (block.type === 'pre') { const code = document.createElement('code'); code.textContent = block.text; node.append(code); }

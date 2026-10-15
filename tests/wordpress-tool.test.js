@@ -41,7 +41,7 @@ test('The educational example matches actual conversion and renders its block ma
 });
 
 test('The guide discloses conversion, storage, and manual publishing limits', () => {
-  for (const pattern of [/12,000/, /48 KiB/, /limited subset/, /Numbered lists start at 1/, /Images, tables, nested lists/, /no autosave/, /six-file ZIP/, /Optional fields can remain empty/, /current handoff findings/, /publish the post in your own WordPress editor/]) assert.match(WORDPRESS_TOOL_GUIDE, pattern);
+  for (const pattern of [/12,000/, /48 KiB/, /limited subset/, /Numbered lists start at 1/, /Images, nested lists/, /no autosave/, /six-file ZIP/, /Optional fields can remain empty/, /current handoff findings/, /publish the post in your own WordPress editor/]) assert.match(WORDPRESS_TOOL_GUIDE, pattern);
   assert.doesNotMatch(WORDPRESS_TOOL_GUIDE, /\u2014|<img\b|<script\b/);
 });
 

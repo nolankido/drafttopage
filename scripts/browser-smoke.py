@@ -106,6 +106,29 @@ with sync_playwright() as p:
     assert page.locator('#wordpress-findings li').count()==0
     layout(page,'wordpress-tool'); assert state['api']==[]; context.close()
     report['checks'].append('Acquisition tool: working sample, live preview, current findings, approval-gated exact-body ZIP, edit resets, and narrow layouts')
+    page,context,state=open_page('/markdown-to-wordpress/#sample')
+    expect(page.locator('#article-preview table')).to_be_visible()
+    assert page.locator('#article-preview th[scope=col]').count()==2
+    assert page.locator('#article-preview tbody tr').count()==3
+    table='| Name | Count |\n| :--- | ---: |\n| **Alpha** | 2 |\n| Beta \\| Gamma | 3 |'
+    page.fill('#body',table)
+    assert page.locator('#wordpress-findings li').count()==0
+    page.check('#reviewed'); page.click('#wordpress-code-panel > summary')
+    assert '<!-- wp:table' in page.locator('#wordpress-code-preview').input_value()
+    assert 'data-align="right"' in page.locator('#wordpress-code-preview').input_value()
+    with page.expect_download() as info: page.click('#download-html')
+    reading=Path(info.value.path()).read_text()
+    assert '<thead>' in reading and 'Beta | Gamma' in reading
+    bad=table+'\n| EXTRA | CELL | KEEP |'
+    page.fill('#body',bad)
+    assert page.locator('#article-preview table').count()==0
+    expect(page.locator('#article-preview')).to_contain_text('KEEP')
+    expect(page.locator('#wordpress-findings')).to_contain_text('same column count')
+    assert not page.locator('#reviewed').is_checked()
+    assert page.locator('#wordpress-code-preview').input_value()==''
+    page.fill('#body',table)
+    layout(page,'markdown-table'); assert state['api']==[]; context.close()
+    report['checks'].append('Tables: live headers/alignment, escaped pipes, native blocks, reading file, malformed-source preservation, approval reset, and narrow layouts')
     # The homepage sample uses the real workspace and approval-gated destination.
     page,context,state=open_page('/write/#sample')
     expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
