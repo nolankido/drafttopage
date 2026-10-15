@@ -37,3 +37,7 @@
 #publishing-profile-panel { margin: 1rem 0; }
 #publishing-profile-panel fieldset { min-width: 0; padding: 0; border: 0; }
 #publishing-profile-preview { overflow-wrap: anywhere; border-left: 3px solid var(--line, #d5dbd5); padding-left: .75rem; margin: 1rem 0; }
+#draft-collection-panel fieldset { min-width: 0; padding: 0; border: 0; }
+#draft-collection-select { max-width: 100%; }
+#draft-collection-file-preview { overflow-wrap: anywhere; margin-top: 1rem; }
+#draft-collection-saved-preview { font: .8rem/1.5 ui-monospace, monospace; }

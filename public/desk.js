@@ -21,7 +21,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -33,7 +33,7 @@ const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
-const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork());
+const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork());
 function updateExitWarning() {
   window.removeEventListener('beforeunload', warn);
   if (hasWork()) window.addEventListener('beforeunload', warn);
@@ -82,6 +82,7 @@ function update() {
   publishingProfiles?.update();
   revisions?.update();
   articleSearch?.refresh();
+  draftCollection?.update();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -104,7 +105,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -202,12 +203,13 @@ $('copy-brief').addEventListener('click', () => {
 });
 $('clear').addEventListener('click', () => {
   if (recovery.reading() || importer?.reading()) return;
-  if (hasWork() && !confirm('Clear the notes, article, questions, and ALL checkpoints in this tab? Download a private backup first to keep unfinished work. This cannot be undone in the workspace.')) return;
+  if (hasWork() && !confirm('Clear the notes, article, questions, publishing profile, private draft collection, collection undo, and ALL checkpoints in this tab? Download a private backup and collection first to keep unfinished work. This cannot be undone in the workspace.')) return;
   revisions?.clear();
+  draftCollection?.clear();
   fill({ source: { profile: 'personal', audience: '', purpose: '', notes: '' }, draft: null });
   $('template-select').value = '';
   $('backup-private-ok').checked = false; recovery.update(); update();
-  report('Writing desk and all in-tab checkpoints cleared. Files already downloaded to your device are unchanged.');
+  report('Writing desk, private collection, collection undo, and all in-tab checkpoints cleared. Files already downloaded to your device are unchanged.');
 });
 function setFocus(active) {
   $('main').classList.toggle('desk-focus', active);
@@ -253,7 +255,7 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0,
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); }, report,
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
@@ -284,6 +286,11 @@ loadEditingTool(() => import('./publishing-profile-controls.js'), ({ installPubl
   $('publishing-profile-status').textContent = 'Publishing profiles could not load in this browser. Continue using the destination and title choices directly. Your writing is kept.';
 });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
+loadEditingTool(() => import('./draft-collection-controls.js'), ({ installDraftCollection }) => {
+  draftCollection = installDraftCollection({ capture, openWorkspace: value => { revisions.captureBefore('Before opening a saved article'); fill(value); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+}, () => {
+  $('draft-collection-status').textContent = 'Draft collections could not load in this browser. Use single-workspace backups to keep writing. Your current work is unchanged.';
+});
 // An optional editing tool must not block the core writing/recovery workspace.
 loadEditingTool(() => import('./revision-diff-controls.js'), ({ installRevisionDiff }) => {
   revisionDiff = installRevisionDiff({ getComparison: () => revisions.articleComparison() });
