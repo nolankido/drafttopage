@@ -9,6 +9,9 @@ test('Word authors get the complete shared workspace, WordPress destination, and
   assert.equal(new Set(ids(page)).size, ids(page).length);
   for (const id of ids(writer)) assert.ok(ids(page).includes(id), id);
   assert.match(page, /data-workspace="word-to-wordpress"/);
+  assert.match(page, /id="article-heading">Edit your imported article/);
+  assert.match(page, /For workspace JSON backups, use Save or restore this workspace/);
+  assert.doesNotMatch(page, /backups belong in Save or restore, above/);
   assert.match(page, /<title>Free Word to WordPress Converter \| Draft to Page<\/title>/);
   assert.match(page, /rel="canonical" href="https:\/\/drafttopage.com\/word-to-wordpress\/"/);
   assert.match(page, /href="\/word-to-wordpress\/" aria-current="page">Word to WordPress/);

@@ -45,7 +45,7 @@ const wordFirstPanel = (importPanel.slice(0, alternativeStart) + importPanel.sli
   .replace('id="import-preview-heading"', 'id="import-preview-heading" tabindex="-1"')
   .replace('<summary>Import an article or drafting result</summary>', '<summary>1. Open your Word document</summary>');
 const wordToWordPressBody = readFileSync(new URL('./word-to-wordpress-intro.html.inc', import.meta.url), 'utf8') +
-  wordFirstPanel + compactBody.replace(importPanel, '') + readFileSync(new URL('./word-to-wordpress-guide.html.inc', import.meta.url), 'utf8');
+  wordFirstPanel + compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>') + readFileSync(new URL('./word-to-wordpress-guide.html.inc', import.meta.url), 'utf8');
 export const writingPages = [
   { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody, script: '/desk.js', wide: true, desk: true },
   { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown, tables, lists, and selected linked images to editable WordPress blocks. Free local preparation, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true, converter: true },
