@@ -1,8 +1,9 @@
-export const RELEASE = 'google-docs-paste-feedback-20261014';
+export const RELEASE = 'clear-first-use-20261015';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const navigation = [['/write/', 'Write'], ['/word-to-wordpress/', 'Word to WordPress'], ['/google-docs-to-wordpress/', 'Google Docs tool'], ['/markdown-to-wordpress/', 'Markdown to WordPress'], ['/markdown-to-html/', 'HTML tool'], ['/markdown-to-word/', 'Word tool'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
+const converters = [['/word-to-wordpress/', 'Word to WordPress'], ['/google-docs-to-wordpress/', 'Google Docs to WordPress'], ['/markdown-to-wordpress/', 'Markdown to WordPress'], ['/markdown-to-html/', 'Markdown to HTML'], ['/markdown-to-word/', 'Markdown to Word']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false, converter = false }) {
-  const current = navigation.map(([href, label]) => '<a href="' + href + '"' + (route === href ? ' aria-current="page"' : '') + '>' + label + '</a>').join('');
+  const navLink = ([href, label]) => '<a href="' + href + '"' + (route === href ? ' aria-current="page"' : '') + '>' + label + '</a>';
+  const current = '<details class="nav-converters' + (converters.some(([href]) => route === href) ? ' current-converter' : '') + '"><summary>Convert</summary><div class="nav-tools-menu">' + converters.map(navLink).join('') + '</div></details>' + [['/write/', 'Writing desk'], ['/examples/', 'Examples'], ['/help/', 'Help']].map(navLink).join('');
   const canonical = 'https://drafttopage.com' + route;
   return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + escapeHTML(title) + ' | Draft to Page</title><meta name="description" content="' + escapeHTML(description) + '">' +
@@ -18,6 +19,6 @@ export function renderPage({ route, title, description, body, script = '', wide 
     (route === '/' ? '' : 'wrap content-main' + (wide ? ' wide' : '') + (desk ? ' desk-main' : '') + (converter ? ' converter-main' : '')) +
     '" data-release="' + RELEASE + '">' + body + '</main>' +
     '<footer class="site-footer wrap"><div><a class="brand" href="/">Draft to Page.</a><p>Your ideas. Your voice. Your approval.</p></div>' +
-    '<nav aria-label="Footer navigation"><a href="/getting-started/">Getting started</a><a href="/about/">About &amp; support</a><a href="/access/">Access &amp; status</a><a href="/privacy/">Data use</a><a href="/pilot">Private pilot</a></nav><span class="badge">In development</span></footer>' +
+    '<nav aria-label="Footer navigation"><a href="/getting-started/">Getting started</a><a href="/templates/">Templates</a><a href="/about/">About &amp; support</a><a href="/access/">Access &amp; status</a><a href="/privacy/">Data use</a><a href="/pilot">Private pilot</a></nav><span class="badge">In development</span></footer>' +
     (script ? '<script type="module" src="' + script + '"></script>' : '') + '</body></html>\n';
 }

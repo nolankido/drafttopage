@@ -7,10 +7,12 @@ import { HTML_TOOL_GUIDE } from './html-tool-guide.mjs';
 import { WORD_TOOL_GUIDE } from './word-tool-guide.mjs';
 import { googleDocsWorkspace } from './google-docs-tool.mjs';
 const importPanel = readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8');
+const collectionPanel = readFileSync(new URL('./draft-collection.html.inc', import.meta.url), 'utf8');
+const revisionPanel = readFileSync(new URL('./revision-panel.html.inc', import.meta.url), 'utf8');
 const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), 'utf8')
   .replace('<!--WORKSPACE_RECOVERY-->', RECOVERY_HTML)
-  .replace('<!--DRAFT_COLLECTION-->', readFileSync(new URL('./draft-collection.html.inc', import.meta.url), 'utf8'))
-  .replace('<!--WORKSPACE_REVISIONS-->', readFileSync(new URL('./revision-panel.html.inc', import.meta.url), 'utf8'))
+  .replace('<!--DRAFT_COLLECTION-->', collectionPanel)
+  .replace('<!--WORKSPACE_REVISIONS-->', revisionPanel)
   .replace('<!--ARTICLE_SEARCH-->', readFileSync(new URL('./search-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--IMAGE_EDITOR-->', readFileSync(new URL('./image-editor.html.inc', import.meta.url), 'utf8'))
   .replace('<!--LINK_EDITOR-->', readFileSync(new URL('./link-editor.html.inc', import.meta.url), 'utf8'))
@@ -25,10 +27,21 @@ const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), '
   .replace('<!--TEMPLATE_ANCHORS-->', TEMPLATES.map(t => '<span id="template-' + t.id + '" class="template-anchor" aria-hidden="true"></span>').join(''));
 const introEnd = deskBody.indexOf('</header>');
 if (introEnd < 0) throw new Error('The writing workspace needs its shared introduction.');
-const compactBody = deskBody.slice(introEnd + '</header>'.length)
+const compactBase = deskBody.slice(introEnd + '</header>'.length)
   .replace('<details id="preview-panel">', '<details id="preview-panel" open>')
   .replace('<details id="additional-exports" open>', '<details id="additional-exports">')
   .replace('<details id="html-source-code-panel" open>', '<details id="html-source-code-panel">');
+// Keep the conversion itself in view; richer editing and in-tab history stay
+// available together. The full writing desk retains its existing layout.
+const toolsStart = compactBase.indexOf('<div class="actions"><button id="start-link-editor"');
+const toolsEnd = compactBase.indexOf('<details id="page-details">', toolsStart);
+if (toolsStart < 0 || toolsEnd <= toolsStart) throw new Error('The converter needs its shared editing controls.');
+const imageStatus = '<p id="article-image-status" class="small"></p>';
+const compactBody = (compactBase.slice(0, toolsStart) +
+  imageStatus +
+  '<details id="editing-tools" class="editing-tools"><summary>More editing tools and draft history</summary><p class="small">Edit links, images, and tables, check the draft, or compare earlier versions. Opening these tools keeps your writing and export approval.</p>' +
+  compactBase.slice(toolsStart, toolsEnd).replace(imageStatus, '') + collectionPanel + revisionPanel + '</details>' + compactBase.slice(toolsEnd))
+  .replace(collectionPanel, '').replace(revisionPanel, '');
 const wordpressBody = readFileSync(new URL('./wordpress-tool-intro.html.inc', import.meta.url), 'utf8') +
   compactBody + WORDPRESS_TOOL_GUIDE;
 const htmlBody = readFileSync(new URL('./html-tool-intro.html.inc', import.meta.url), 'utf8') +

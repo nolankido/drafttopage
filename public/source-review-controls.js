@@ -1,3 +1,4 @@
+import { revealDetails } from './disclosure.js';
 import { createSourceReviewNote, parseSourceReviewNote, locateReviewedPassage, planSourceReviewNote } from './source-review.js';
 import { revealArticleSelection } from './editing.js';
 import { installPasteGuard } from './paste-guard.js';
@@ -87,13 +88,13 @@ export function installSourceReview({ getWorkspace, applyNotes, showSource = () 
   });
   $('source-review-panel').addEventListener('toggle', refresh);
   $('edit-review-source').addEventListener('click', () => { if (!isBusy()) showSource(); });
-  $('return-source-review').addEventListener('click', () => { $('source-review-panel').open = true; $('review-passage').focus(); });
+  $('return-source-review').addEventListener('click', () => { revealDetails($('source-review-panel')); $('review-passage').focus(); });
   $('pin-review-passage').addEventListener('click', () => {
     if (isBusy()) return;
     const body = $('body'), passage = body.value.slice(body.selectionStart, body.selectionEnd);
     if (!passage.trim() || passage.length > 240) { report('Select 1 to 240 characters in the article body first. Nothing was cut off or changed.'); return; }
     if (hasWork() && !confirmAction('Discard the unsaved passage review and start a new one from this selection? Saved notes are kept.')) return;
-    clear(); $('review-passage').value = passage; baseline = signature(); $('source-review-panel').open = true; refresh(); workChanged(); $('review-source-reference').focus();
+    clear(); $('review-passage').value = passage; baseline = signature(); revealDetails($('source-review-panel')); refresh(); workChanged(); $('review-source-reference').focus();
     report('Article passage pinned. Compare it with a source, record your evidence, and save a private review note.');
   });
   $('pin-review-evidence').addEventListener('click', () => {

@@ -15,6 +15,7 @@ import { installRevisions } from './revision-controls.js';
 import { QUICK_SAMPLE } from './quick-sample.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
+import { revealDetails } from './disclosure.js';
 const wordImportTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
 const copiedPasteTool = document.querySelector('.desk-intro')?.dataset.workspace === 'google-docs';
 const wordpressTool = wordImportTool || copiedPasteTool || document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
@@ -169,10 +170,10 @@ function followFragment() {
   else if (hash === '#notes') $('start-notes').click();
   else if (hash === '#draft') $('start-draft').click();
   else if (hash === '#sample') loadSample();
-  else if (hash === '#table-editor-panel') { $('table-editor-panel').open = true; $('table-editor-panel').querySelector('summary').focus(); }
-  else if (hash === '#link-editor-panel') { $('link-editor-panel').open = true; $('link-editor-panel').querySelector('summary').focus(); }
-  else if (hash === '#image-editor-panel') { $('image-editor-panel').open = true; $('image-editor-panel').querySelector('summary').focus(); }
-  else if (hash === '#source-review-panel') { $('source-review-panel').open = true; $('source-review-panel').querySelector('summary').focus(); }
+  else if (hash === '#table-editor-panel') { revealDetails($('table-editor-panel')); $('table-editor-panel').querySelector('summary').focus(); }
+  else if (hash === '#link-editor-panel') { revealDetails($('link-editor-panel')); $('link-editor-panel').querySelector('summary').focus(); }
+  else if (hash === '#image-editor-panel') { revealDetails($('image-editor-panel')); $('image-editor-panel').querySelector('summary').focus(); }
+  else if (hash === '#source-review-panel') { revealDetails($('source-review-panel')); $('source-review-panel').querySelector('summary').focus(); }
 }
 window.addEventListener('hashchange', followFragment);
 $('suggest-slug').addEventListener('click', () => {
@@ -351,7 +352,7 @@ loadEditingTool(() => import('./image-editor-controls.js'), ({ installImageEdito
 loadEditingTool(() => import('./source-review-controls.js'), ({ installSourceReview }) => {
   sourceReview = installSourceReview({ getWorkspace: capture, applyNotes: (notes, label) => { revisions.captureBefore(label); questions = [...notes]; renderQuestions(); changed(); }, showSource: () => { setFocus(false); $('notes-panel').open = true; $('notes').focus(); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
   $('start-source-review').disabled = false;
-  $('start-source-review').addEventListener('click', () => { $('source-review-panel').open = true; $('pin-review-passage').click(); });
+  $('start-source-review').addEventListener('click', () => { revealDetails($('source-review-panel')); $('pin-review-passage').click(); });
 }, () => {
   $('source-review-status').textContent = 'Passage review could not load. Use ordinary private review notes under Source notes & review. Your writing is kept.';
 });

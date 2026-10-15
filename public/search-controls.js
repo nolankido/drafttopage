@@ -1,3 +1,4 @@
+import { revealDetails } from './disclosure.js';
 import { findArticleMatches, navigateArticleMatch, replaceArticleMatch, previewArticleReplacements } from './article-search.js';
 import { revealArticleSelection } from './editing.js';
 
@@ -41,7 +42,7 @@ export function installArticleSearch({ apply, isBusy, report, reveal = revealArt
     try { reveal(body); } catch { /* Keep the exact selection if layout measurement is unavailable. */ }
     refresh(); report('Selected match ' + (active + 1) + ' of ' + matches.length + '. Searching kept your writing and review approval.');
   }
-  $('start-find').addEventListener('click', () => { $('find-panel').open = true; $('find-text').focus(); refresh(); });
+  $('start-find').addEventListener('click', () => { revealDetails($('find-panel')); $('find-text').focus(); refresh(); });
   $('find-panel').addEventListener('toggle', refresh);
   $('find-text').addEventListener('input', refresh);
   $('find-case').addEventListener('change', refresh);

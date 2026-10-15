@@ -1,3 +1,4 @@
+import { revealDetails } from './disclosure.js';
 import { TABLE_LIMITS, markdownTableRanges } from './markdown-table.js';
 import { TABLE_CELL_LIMIT, TABLE_PAGE_ROWS, TABLE_CHOICE_LIMIT, copyEditableTable, tableEditTarget, newTableTarget, recheckTableTarget, changeEditableTable, planTableEdit } from './table-editing.js';
 import { renderPreview } from './preview.js';
@@ -93,7 +94,7 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
   }
   function load(next) {
     if (hasWork() && (dirty() || target.kind === 'append') && !confirmAction('Replace the current table preparation? Unsaved cell edits are excluded from backups and checkpoints. The article is kept.')) return false;
-    target = next; cells = copyEditableTable(next.table); page = 0; purgePreview(); grid(); $('table-editor-panel').open = true;
+    target = next; cells = copyEditableTable(next.table); page = 0; purgePreview(); grid(); revealDetails($('table-editor-panel'));
     status('Table preparation ready. Edit cells, preview the result, then apply.'); refresh(); workChanged(); $('table-head-0').focus(); return true;
   }
   function choose(start, end = start) {
@@ -106,7 +107,7 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
     status('Table preparation cleared. Article writing and approval are kept.'); refresh(); workChanged();
   }
   $('start-table-editor').addEventListener('click', () => {
-    if (isBusy()) return; $('table-editor-panel').open = true;
+    if (isBusy()) return; revealDetails($('table-editor-panel'));
     if (!target && !choose($('body').selectionStart, $('body').selectionEnd)) { refresh(); $('table-create').focus(); }
     else if (target) $('table-grid').focus();
   });
