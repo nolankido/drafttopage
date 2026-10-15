@@ -39,7 +39,7 @@ for route,html in json.load(sys.stdin).items():
  assert p.ids['article-preview']['attrs']['tabindex']=='0' and p.ids['article-preview']['attrs']['role']=='region'
  assert bool('open' in extra['attrs'])==(route=='write')
  assert bool('open' in p.ids['html-source-code-panel']['attrs'])==(route=='write')
- assert 'open' not in p.ids['wordpress-instructions']['attrs']
+ assert ('open' in p.ids['wordpress-instructions']['attrs'])==(route=='word-to-wordpress')
  assert p.ids['preview-empty']['tag']=='p'
  out[route]={'balanced':True,'sourceOrder':['article','result','notes'],'compact':route!='write'}
 print(json.dumps(out))

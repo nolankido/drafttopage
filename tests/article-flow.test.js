@@ -64,6 +64,7 @@ assert 'article-edit-panel' not in p.ids['article-preview']['ancestors']
 assert 'open' not in p.ids['article-edit-panel']['attrs']
 assert 'workspace-tools' in p.ids['backup-controls']['ancestors']
 assert p.ids['conversion-heading']['attrs']['tabindex']=='-1'
+assert 'open' in p.ids['wordpress-instructions']['attrs']
 `], { input: page });
   }
 });
