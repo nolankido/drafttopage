@@ -17,6 +17,7 @@ import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
 const wordpressTool = document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
 const htmlTool = document.querySelector('.desk-intro')?.dataset.workspace === 'html';
+const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word';
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
@@ -47,7 +48,8 @@ function update() {
   const issues = articleIssues(value.draft);
   for (const id of DRAFT_FIELDS) {
     const error = $(id + '-error');
-    const showError = Boolean(issues[id]) && (touched.has(id) || $(id).value.length > 0);
+    const optionalWordField = wordTool && id !== 'body' && !(id === 'title' && $('word-include-title').checked) && !$(id).value.length;
+    const showError = !optionalWordField && Boolean(issues[id]) && (touched.has(id) || $(id).value.length > 0);
     error.textContent = issues[id] || ''; error.hidden = !showError;
     if (showError) $(id).setAttribute('aria-invalid', 'true'); else $(id).removeAttribute('aria-invalid');
   }
@@ -58,6 +60,7 @@ function update() {
   const missing = Object.keys(issues).map(id => ({ title: 'title', body: 'article', excerpt: 'excerpt', description: 'description', slug: 'filename' })[id]);
   $('markdown-readiness').textContent = missing.length ? 'For page Markdown, complete: ' + missing.join(', ') + '.' : 'All page fields are complete. Choose how the title heading will be handled.';
   $('export-readiness').textContent = issues.body ? 'Add an article, review it, then choose how to take it with you.' : issues.title ? 'Body copying and downloading are available after review. Add a title for a reading page or publishing kit.' : 'After review, copy into an editor, take a reading page, or download a publishing kit. Open Markdown with page details for website Markdown.';
+  if (wordTool && !issues.body) $('export-readiness').textContent = 'Read the preview, choose whether to include the title, then review and download Word. Page metadata can remain empty.';
   $('load-outline').disabled = !$('template-select').value;
   try { $('drafting-brief').value = makeDraftingBrief(value.source); }
   catch (error) { $('drafting-brief').value = error.message; }
@@ -106,7 +109,7 @@ $('start-notes').addEventListener('click', () => {
 });
 $('start-draft').addEventListener('click', () => {
   setFocus(true); $('notes-panel').open = false; $('body').focus();
-  report(htmlTool ? 'Paste simple Markdown into the article body. Review the preview, then copy HTML source. The title is optional unless you include it.' : wordpressTool ? 'Paste simple Markdown into the article body. Keep the post title separate. The reading preview updates as you edit.' : 'Paste or write your article. Page details can wait until you need a full Markdown export.');
+  report(wordTool ? 'Paste simple Markdown into the article body. Review the preview, then download Word. The title is optional unless you include it.' : htmlTool ? 'Paste simple Markdown into the article body. Review the preview, then copy HTML source. The title is optional unless you include it.' : wordpressTool ? 'Paste simple Markdown into the article body. Keep the post title separate. The reading preview updates as you edit.' : 'Paste or write your article. Page details can wait until you need a full Markdown export.');
 });
 $('start-review').addEventListener('click', () => {
   $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
@@ -114,7 +117,7 @@ $('start-review').addEventListener('click', () => {
 });
 $('start-handoff').addEventListener('click', () => {
   $('publishing-destination').focus();
-  report('Choose HTML source, WordPress blocks, or another export. Review the article and check the approval box before copying or downloading.');
+  report('Choose Word, HTML source, WordPress blocks, or another export. Review the article and check the approval box before copying or downloading.');
 });
 function loadSample() {
   if (recovery.reading() || importer?.reading()) return;
@@ -123,7 +126,7 @@ function loadSample() {
   try { revisions?.captureBefore('Before fictional sample'); } catch (error) { report(error.message); return; }
   fill({ source: existing.source, draft: { ...QUICK_SAMPLE, questions: existing.draft.questions } });
   setFocus(true); $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
-  report('Fictional sample loaded. Try the reading preview, review the article, then ' + (htmlTool ? 'copy HTML source' : 'copy WordPress blocks or choose another export') + '. Replace this sample before publishing.');
+  report('Fictional sample loaded. Try the reading preview, review the article, then ' + (wordTool ? 'download Word' : htmlTool ? 'copy HTML source' : 'copy WordPress blocks or choose another export') + '. Replace this sample before publishing.');
 }
 $('start-sample').addEventListener('click', loadSample);
 function loadOutline(id) {
@@ -264,7 +267,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: htmlTool ? 'html' : 'wordpress' });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress' });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
 // An optional editing tool must not block the core writing/recovery workspace.
 loadEditingTool(() => import('./revision-diff-controls.js'), ({ installRevisionDiff }) => {
@@ -290,5 +293,5 @@ window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });
 setFocus(true); update();
-report(htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
+report(wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();

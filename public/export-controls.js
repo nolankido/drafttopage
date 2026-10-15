@@ -6,12 +6,14 @@ import { createWordPressArticle } from './wordpress-export.js';
 import { suggestFilename } from './preview.js';
 import { installWordPressHandoff } from './wordpress-handoff-controls.js';
 import { installHTMLSource } from './html-source-controls.js';
+import { installWordDocument } from './word-controls.js';
 
 export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, defaultDestination = 'wordpress' }) {
   const $ = id => document.getElementById(id);
   $('publishing-destination').value = defaultDestination;
   const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy });
   const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
+  const word = installWordDocument({ getDraft, approved, changed, report, isBusy });
   let kitSnapshot = null;
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
   function update() {
@@ -28,6 +30,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     $('wordpress-code-preview').value = wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
     handoff.update();
     html.update();
+    word.update();
     $('copy-formatted').disabled = !reviewed || Object.keys(articleIssues(draft, $('copy-title').checked ? 'html' : 'body')).length > 0;
     let kit = null, error = '';
     try { kit = publishingKitFiles(draft, options()); }
@@ -87,5 +90,5 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     try { approved(); const draft = getDraft(); if (articleIssues(draft, 'html').title) throw new Error('Add a valid title first.'); await navigator.clipboard.writeText(draft.title.trim()); report('Title copied separately. Paste into the WordPress title field. Nothing was published.'); }
     catch (error) { report('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
   });
-  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
+  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; word.reset(); $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
 }

@@ -94,3 +94,7 @@ User writing and imported markup are treated as text. The local preview creates 
 
 Use feature branches and reviewed pull requests. Keep private material out of all public branches and documents. Preserve existing work when reconciling older branches. Distinguish source changes, local/manual tests, native Cloudflare deployment, and genuine AI activation in release reports. Do not start GitHub Actions for validation.
 
+
+## Editable Word export
+
+The free `/markdown-to-word/` route and Word destination in the shared workspace produce an editable `.docx` locally after review. An explicit title option controls title inclusion; page metadata and private source/review/history fields are excluded. `public/word-export.js` maps the existing bounded Markdown subset to WordprocessingML heading styles, runs, safe hyperlinks, native numbering with start values, and header tables. `public/zip.js` keeps publishing-kit filename rules unchanged and exposes a separate exact-six-part Word archive allowlist. No macro, image, embedded object, author metadata, dependency, upload, account, AI request, or Actions workflow is added. Direct DOCX import is not implemented. See [the Word document release](docs/WORD_DOCUMENT_RELEASE.md).

@@ -15,9 +15,18 @@ export function crc32(bytes) {
 }
 export function createZip(entries) {
   if (!Array.isArray(entries) || !entries.length || entries.length > 8) throw new Error('A publishing ZIP supports one to eight files.');
+  return storedZip(entries, name => /^[a-z0-9][a-z0-9._-]{0,100}\.(?:md|html|json|txt)$/i.test(name) && !name.includes('..') && !/^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\./i.test(name));
+}
+// Word packaging has a separate fixed allowlist. Publishing kits still accept flat text names only.
+export const WORD_PART_NAMES = Object.freeze(['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/_rels/document.xml.rels', 'word/styles.xml', 'word/numbering.xml']);
+export function createWordZip(entries) {
+  if (!Array.isArray(entries) || entries.length !== WORD_PART_NAMES.length) throw new Error('A Word document needs exactly its six supported parts.');
+  return storedZip(entries, name => WORD_PART_NAMES.includes(name));
+}
+function storedZip(entries, allowedName) {
   const seen = new Set(); let total = 22;
   const files = entries.map(entry => {
-    if (!entry || typeof entry.name !== 'string' || !/^[a-z0-9][a-z0-9._-]{0,100}\.(?:md|html|json|txt)$/i.test(entry.name) || entry.name.includes('..') || /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])\./i.test(entry.name) || seen.has(entry.name.toLowerCase())) throw new Error('The publishing ZIP has an unsafe or duplicate filename.');
+    if (!entry || typeof entry.name !== 'string' || !allowedName(entry.name) || seen.has(entry.name.toLowerCase())) throw new Error('The publishing ZIP has an unsafe or duplicate filename.');
     if (typeof entry.content !== 'string') throw new Error('The publishing ZIP accepts text files only.');
     // Bound input before allocating encoded bytes.
     if (entry.content.length > MAX_ZIP_BYTES) throw new Error('The publishing ZIP exceeds its 4 MiB limit.');
