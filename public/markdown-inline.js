@@ -1,4 +1,8 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
+// Decode punctuation for display only. Tokens retain original source offsets for review.
+export function decodeMarkdownEscapes(text) {
+  return text.replace(/\\([!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~])/g, '$1');
+}
 // A small, bounded inline parser shared by review, preview, and HTML export.
 // Web links are opt-in navigation. Parsing never loads a URL or an image.
 export function safeWebLink(target) {

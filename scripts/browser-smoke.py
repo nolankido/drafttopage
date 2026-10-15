@@ -376,6 +376,43 @@ with sync_playwright() as p:
     layout(page,'import-review'); assert state['api']==[]
     context.close()
     report['checks'].append('Imports: real Markdown file, custom filename, JSON preview/apply/cancel, invalid and oversized preservation, source retention, editable review-note backup/restore, formatting, focus mode, unmapped-field decision, inert imported markup, and no API calls')
+    # Explicit formatted import uses the browser parser and never attaches source HTML.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    page.fill('#title','Keep original title'); page.fill('#body','Keep original article.')
+    open_more(page); page.click('#start-notes'); page.fill('#notes','Fictional source notes to retain.')
+    page.check('#reviewed'); page.click('#start-formatted-import')
+    rich='<b style="font-weight:normal"><h1>A fictional imported article</h1><p>Keep <span style="font-weight:700">important</span> text.<br>Next line.</p><ol start="4"><li>Parent<ol start="7"><li>Child</li></ol></li><li>Next</li></ol><table><tr><th>Name</th><th>Count</th></tr><tr><td>One</td><td>2</td></tr></table><p>Literal *stars* and <a href="https://example.test/">safe link</a>.</p><img src="https://example.test/no-image.png" alt="Fictional image" onerror="document.body.dataset.htmlImportPwned=\'true\'"><script>document.body.dataset.htmlImportPwned="true"</script></b>'
+    page.fill('#import-text',rich); page.click('#preview-import')
+    expect(page.locator('#import-preview')).to_be_visible()
+    assert page.locator('#import-reading-preview strong').inner_text()=='important'
+    assert page.locator('#import-reading-preview ol[start="4"] ol[start="7"]').count()==1
+    assert page.locator('#import-reading-preview th[scope="col"]').count()==2
+    assert page.locator('#import-reading-preview script, #import-reading-preview img, #import-reading-preview iframe').count()==0
+    assert page.locator('body').get_attribute('data-html-import-pwned') is None
+    expect(page.locator('#body')).to_have_value('Keep original article.')
+    assert page.locator('#reviewed').is_checked() and page.locator('#apply-import').is_disabled()
+    page.check('#import-changes-ok'); state['accept']=False; page.click('#apply-import')
+    expect(page.locator('#body')).to_have_value('Keep original article.')
+    state['accept']=True; page.click('#apply-import')
+    expect(page.locator('#desk-status')).to_contain_text('imported locally')
+    assert page.locator('#notes').input_value()=='Fictional source notes to retain.'
+    assert not page.locator('#reviewed').is_checked()
+    assert page.locator('#import-text').input_value()=='' and page.locator('#import-reading-preview').inner_html()==''
+    # The existing formatted-copy action provides a real rich clipboard round trip.
+    page.check('#copy-title'); page.check('#reviewed'); page.click('#copy-formatted')
+    expect(page.locator('#desk-status')).to_contain_text('copied')
+    page.click('#start-formatted-import'); page.locator('#import-text').press('Control+V')
+    page.click('#preview-import'); expect(page.locator('#import-summary')).to_contain_text('Formatted article')
+    assert page.locator('#import-reading-preview table').count()==1
+    assert page.locator('#apply-import').is_disabled()
+    page.click('#cancel-import')
+    page.locator('#import-file').set_input_files({'name':'header-choice.html','mimeType':'text/html','buffer':b'<table><tr><td>Name</td></tr><tr><td>One</td></tr></table>'})
+    expect(page.locator('#desk-status')).to_contain_text('no explicit header')
+    page.check('#import-first-row-headers'); page.click('#preview-import')
+    assert page.locator('#import-reading-preview th').count()==1 and page.locator('#apply-import').is_disabled()
+    layout(page,'formatted-import'); assert state['api']==[]
+    context.close()
+    report['checks'].append('Formatted HTML: browser parsing, staged source/readable previews, omissions acknowledgement, cancellation, source retention, checkpointed replacement, approval reset, rich clipboard round trip, HTML file header choice, and no source execution/resources')
     # Checks remain advisory and select exact current editor text. Links never preload.
     page,context,state=open_page('/write/')
     body='## A fictional update\n\nTODO: add context.\n\n## Next step\n\nRead [A resource](https://example.test/a_(b)) and [relative](/local).\n\n![Image](https://example.test/image.png)'

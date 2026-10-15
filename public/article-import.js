@@ -1,5 +1,7 @@
 import { DRAFT_FIELDS, validateDraft } from './workspace.js';
 import { suggestFilename } from './preview.js';
+import { decodeMarkdownEscapes } from './markdown-inline.js';
+import { parseHTMLArticle } from './html-import.js';
 
 import { ARTICLE_LIMITS, MAX_IMPORT_BYTES } from './writing-limits.js';
 export { MAX_IMPORT_BYTES };
@@ -32,13 +34,18 @@ function scalar(value) {
 function firstHeading(body) {
   const match = /^# +([^\n]+)(?:\n|$)/.exec(body);
   if (!match) return null;
-  const title = match[1].replace(/\\([\\\x60*_{}\[\]()<>#!|])/g, '$1').trim();
+  const title = decodeMarkdownEscapes(match[1]).trim();
   return { title, length: match[0].length };
 }
-export function parseArticleImport(raw, filename = '', format = 'auto') {
+export function parseArticleImport(raw, filename = '', format = 'auto', options = {}) {
   if (typeof raw !== 'string' || new TextEncoder().encode(raw).byteLength > MAX_IMPORT_BYTES) throw new Error('Choose text no larger than 512 KiB.');
   if (controls.test(raw)) throw new Error('The import contains unsupported control characters.');
-  if (!['auto', 'markdown', 'json'].includes(format)) throw new Error('Choose a supported import format.');
+  if (!['auto', 'markdown', 'json', 'html'].includes(format)) throw new Error('Choose a supported import format.');
+  if (format === 'html' || (format === 'auto' && /\.html?$/i.test(filename))) {
+    const converted = parseHTMLArticle(raw, options);
+    const result = parseArticleImport(converted.markdown, String(filename).replace(/\.html?$/i, ''), 'markdown');
+    return { ...result, kind: 'Formatted article', warnings: [...converted.warnings, ...result.warnings], requiresAck: true };
+  }
   let text = raw.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   if (!text.trim()) throw new Error('The import is empty.');
   const warnings = [];

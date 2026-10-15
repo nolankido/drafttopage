@@ -1,5 +1,5 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
-import { inlineTokens } from './markdown-inline.js';
+import { inlineTokens, decodeMarkdownEscapes } from './markdown-inline.js';
 import { readMarkdownTable } from './markdown-table.js';
 import { readMarkdownList } from './markdown-list.js';
 // A bounded reading aid. Only explicit web links become navigation; no resources load.
@@ -45,8 +45,8 @@ export function previewBlocks(body) {
 export function inlineParts(text) {
   return inlineTokens(text).map(part => {
     if (part.type === 'image' || (part.type === 'link' && !part.href)) return { type: 'text', text: text.slice(part.start, part.end) };
-    if (part.type === 'link') return { type: 'a', text: part.text, href: part.href };
-    return { type: part.type, text: part.text };
+    if (part.type === 'link') return { type: 'a', text: decodeMarkdownEscapes(part.text), href: part.href };
+    return { type: part.type, text: part.type === 'code' ? part.text : decodeMarkdownEscapes(part.text) };
   });
 }
 function appendInline(node, text) {
