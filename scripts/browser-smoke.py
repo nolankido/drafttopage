@@ -121,7 +121,7 @@ with sync_playwright() as p:
     open_extra_exports(page)
     with page.expect_download() as info:page.click('#download-body')
     assert Path(info.value.path()).read_text()==review_passage+' Updated context.\n'
-    page.locator('.recovery-box > summary').click()
+    page.locator('.recovery-box:has(#backup-controls) > summary').click()
     page.check('#backup-private-ok')
     with page.expect_download() as info:page.click('#save-backup')
     review_backup=json.loads(Path(info.value.path()).read_bytes())
@@ -304,7 +304,7 @@ with sync_playwright() as p:
     page.fill('#title','A fictional Word article'); page.check('#reviewed')
     page.select_option('#publishing-destination','html'); assert page.locator('#word-handoff').is_hidden() and not page.locator('#reviewed').is_checked()
     page.select_option('#publishing-destination','word'); page.check('#reviewed')
-    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
     word_backup=Path(info.value.path()).read_bytes(); assert b'word-include-title' not in word_backup
     page.fill('#body','Changed article.'); restore(page,word_backup)
@@ -333,7 +333,7 @@ with sync_playwright() as p:
     page.check('#reviewed'); assert page.locator('#html-source-preview').input_value().startswith('<h1>')
     page.select_option('#publishing-destination','wordpress'); assert page.locator('#html-source-preview').input_value()==''
     page.select_option('#publishing-destination','html'); page.check('#reviewed')
-    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
     html_backup=Path(info.value.path()).read_bytes()
     page.fill('#body','Short changed article.'); restore(page,html_backup)
@@ -361,7 +361,7 @@ with sync_playwright() as p:
     open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-html')
     assert 'KEEP THE ENTIRE ENDING' in Path(info.value.path()).read_text()
-    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
     long_backup=Path(info.value.path()).read_bytes()
     assert json.loads(long_backup)['draft']['body']==long_body
@@ -520,7 +520,7 @@ with sync_playwright() as p:
     assert article.suggested_filename=='edited-local-article.md'
     assert 'An edited local article' in text and source['notes'] not in text and 'draft: true' in text
     page.fill('#body','Changed article text.'); assert not page.locator('#reviewed').is_checked() and page.locator('#download').is_disabled()
-    page.locator('.recovery-box summary').click()
+    page.locator('.recovery-box:has(#backup-controls) > summary').click()
     assert page.locator('#save-backup').is_disabled()
     page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
@@ -582,7 +582,7 @@ with sync_playwright() as p:
     page.check('#reviewed'); page.fill('#review-question-0','Resolved: keep the uncertain outcome explicit.')
     assert not page.locator('#reviewed').is_checked()
     page.click('#add-question'); page.fill('#review-question-1','Check the destination title once more.')
-    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
     review_backup=Path(info.value.path()).read_bytes()
     assert json.loads(review_backup)['draft']['questions']==['Resolved: keep the uncertain outcome explicit.','Check the destination title once more.']
@@ -694,7 +694,7 @@ with sync_playwright() as p:
     assert reader.locator('a').count()==1 and reader.locator('script,img').count()==0
     assert reader.locator('h1').count()==1 and reader.locator('h2').count()==2
     layout(reader,'reading-links'); reader.close()
-    page.locator('.recovery-box > summary').click(); page.check('#backup-private-ok')
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
     kept=json.loads(Path(info.value.path()).read_bytes())
     assert kept['version']==1 and set(kept)=={'format','version','source','draft'}
@@ -805,7 +805,7 @@ with sync_playwright() as p:
     open_more(page); page.click('#start-checks')
     expect(page.locator('#draft-check-stats')).to_contain_text('4 approximate words')
     expect(page.locator('#body-count')).to_contain_text('4 approximate words')
-    page.locator('.recovery-box > summary').click(); page.check('#backup-private-ok')
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
     saved=json.loads(Path(info.value.path()).read_bytes())
     assert saved['version']==1 and set(saved['draft'])=={'title','excerpt','description','slug','body','questions'}
@@ -863,7 +863,7 @@ with sync_playwright() as p:
     page.click('#preview-import'); page.click('#apply-import')
     assert 'Imported article text.' in page.locator('#body').input_value()
     page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
-    page.locator('.recovery-box summary').click(); restore(page,backup)
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); restore(page,backup)
     expect(page.locator('#desk-status')).to_contain_text('restored locally')
     page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
     open_more(page); page.click('#start-notes'); page.select_option('#template-select','progress'); page.click('#load-outline')
@@ -911,7 +911,7 @@ with sync_playwright() as p:
     context.close()
     page,context,state=open_page('/write/')
     expect(page.locator('#desk-status')).to_contain_text('ready')
-    page.locator('.recovery-box summary').click(); restore(page,backup)
+    page.locator('.recovery-box:has(#backup-controls) > summary').click(); restore(page,backup)
     expect(page.locator('#desk-status')).to_contain_text('restored locally')
     original_search_body='foo and FOO and foo $& []'
     page.fill('#body',original_search_body); page.check('#reviewed')
@@ -1029,7 +1029,7 @@ with sync_playwright() as p:
         page.fill('#title','A pilot edit'); page.check('#reviewed')
         with page.expect_download() as info: page.click('#download')
         assert 'A pilot edit' in Path(info.value.path()).read_text()
-        page.locator('.recovery-box summary').click(); calls=state['calls']; restore(page,backup)
+        page.locator('.recovery-box:has(#backup-controls) > summary').click(); calls=state['calls']; restore(page,backup)
         expect(page.locator('#status')).to_contain_text('restored locally')
         assert state['calls']==calls and not page.locator('#consent').is_checked() and not page.locator('#reviewed').is_checked()
         page.check('#consent'); state['failure']=True; old=page.locator('#body').input_value(); page.click('#generate')
