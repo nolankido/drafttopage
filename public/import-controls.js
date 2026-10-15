@@ -81,12 +81,12 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
     try { preview(FORMATTED_EXAMPLE, ''); } catch (error) { clear(); report(error.message); }
   });
   async function previewWord() {
-    reading = true; clearPreview(); $('import-fields').disabled = true; busyChanged();
+    reading = true; clearPreview(); $('import-fields').disabled = true; $('cancel-import').disabled = true; busyChanged();
     try {
       const { parseDocxArticle } = await import('./docx-import.js');
       stage(await parseDocxArticle(wordFile.bytes, wordFile.name, { firstRowHeaders: $('import-first-row-headers').checked }));
     } catch (error) { clearPreview(); report(error.message || 'Word import is unavailable. Current writing is unchanged. Try a formatted selection instead.'); }
-    finally { reading = false; $('import-fields').disabled = false; updateApply(); busyChanged(); }
+    finally { reading = false; $('import-fields').disabled = false; $('cancel-import').disabled = false; updateApply(); busyChanged(); }
   }
   $('preview-import').addEventListener('click', async () => {
     if (reading || isBusy()) return;
@@ -97,7 +97,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
   $('import-file').addEventListener('change', async () => {
     const file = $('import-file').files?.[0];
     if (!file || reading || isBusy()) { $('import-file').value = ''; return; }
-    reading = true; clear(); $('import-fields').disabled = true; busyChanged();
+    reading = true; clear(); $('import-fields').disabled = true; $('cancel-import').disabled = true; busyChanged();
     try {
       if (/\.docx$/i.test(file.name)) {
         if (file.size > MAX_DOCX_BYTES) throw new Error('Choose a .docx file no larger than 8 MiB. Current writing is unchanged.');
@@ -115,7 +115,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
       $('import-text').value = content; sourceName = file.name;
       preview(content, file.name);
     } catch (error) { clearPreview(); report(error instanceof TypeError && !wordFile ? 'Use a UTF-8 text file. Current writing is unchanged.' : error.message); }
-    finally { reading = false; $('import-fields').disabled = false; $('import-file').value = ''; updateApply(); busyChanged(); }
+    finally { reading = false; $('import-fields').disabled = false; $('cancel-import').disabled = false; $('import-file').value = ''; updateApply(); busyChanged(); }
   });
   $('apply-import').addEventListener('click', () => {
     if (!allowed()) return;
