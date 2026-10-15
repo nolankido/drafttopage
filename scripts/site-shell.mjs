@@ -1,4 +1,4 @@
-export const RELEASE = 'guided-image-editor-20261014';
+export const RELEASE = 'guided-link-editor-20261014';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const navigation = [['/write/', 'Write'], ['/word-to-wordpress/', 'Word to WordPress'], ['/markdown-to-wordpress/', 'Markdown to WordPress'], ['/markdown-to-html/', 'HTML tool'], ['/markdown-to-word/', 'Word tool'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false, converter = false }) {

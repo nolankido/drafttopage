@@ -2,11 +2,14 @@ import { analyzeDraft, REVIEW_LIMIT } from './draft-review.js';
 import { articleSections, moveArticleSection } from './article-sections.js';
 import { revealArticleSelection } from './editing.js';
 
-export function installDraftReview({ getDraft, applySectionMove, isBusy = () => false, report, reveal = revealArticleSelection }) {
+export function installDraftReview({ getDraft, applySectionMove, editLink = () => false, isBusy = () => false, report, reveal = revealArticleSelection }) {
   const $ = id => document.getElementById(id);
   let checked = null, snapshot = '', outlineBody = null;
   const signature = draft => JSON.stringify([draft.title, draft.body]);
   function jump(item) {
+    if (isBusy()) return;
+    if (item.type === 'link' && (!checked || signature(getDraft()) !== snapshot)) { refresh(); report('The article changed. Run draft checks again before choosing a link.'); return; }
+    if (item.type === 'link' && editLink(item.start, item.end)) return;
     const body = $('body'); body.focus(); body.setSelectionRange(item.start, item.end);
     try { reveal(body); } catch { /* The exact selection remains available. */ }
     report('Selected article text on line ' + item.line + '. Edit it in the article field.');

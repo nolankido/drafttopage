@@ -1116,6 +1116,39 @@ with sync_playwright() as p:
     context.close()
     report['checks'].append('Guided image optional-module failure keeps article editing and ordinary exports available')
 
+    page,context,state=open_page('/markdown-to-wordpress/')
+    link_original='Read this resource. [Original resource](https://example.com/original)'
+    page.fill('#body',link_original);page.fill('#title','Fictional link editing');page.check('#reviewed')
+    page.locator('#body').evaluate('(el)=>el.setSelectionRange(10,18)')
+    page.click('#start-link-editor');page.fill('#link-label','Fictional [reading group]');page.fill('#link-url','https://example.com/reading_(1)?a=1&b=2');page.click('#link-preview')
+    assert page.locator('#link-before').input_value()=='resource'
+    assert page.locator('#body').input_value()==link_original and page.locator('#reviewed').is_checked()
+    page.fill('#body',link_original+' Revised.')
+    expect(page.locator('#link-apply')).to_be_disabled();assert page.locator('#link-after').input_value()==''
+    page.locator('#body').evaluate('(el)=>el.setSelectionRange(10,18)');page.click('#link-use-selection')
+    page.fill('#link-label','Fictional [reading group]');page.click('#link-preview');page.click('#link-apply')
+    assert not page.locator('#reviewed').is_checked();assert page.locator('#link-url').input_value()==''
+    assert page.locator('#article-preview a').count()==2
+    page.check('#reviewed');page.locator('#article-link-list-panel > summary').click()
+    assert page.locator('#article-link-list li').count()==2 and page.locator('#article-link-list a').count()==0
+    page.locator('#article-link-list button').first.click();page.click('#link-preview');page.click('#link-apply')
+    assert page.locator('#reviewed').is_checked()
+    page.locator('#article-link-list button').first.click();page.click('#link-preview-remove');page.click('#link-apply')
+    assert page.locator('#article-preview a').count()==1 and not page.locator('#reviewed').is_checked()
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    link_blocks=Path(info.value.path()).read_text()
+    assert link_blocks.count('<a ')==1 and 'Fictional [reading group]' in link_blocks and 'https://example.com/original' in link_blocks
+    assert 'https://example.com/reading_(1)' not in link_blocks
+    assert state['api']==[];layout(page,'guided-link-editor');context.close()
+    report['checks'].append('Guided link editor: exact selection preview, stale-target rejection, checkpointed apply, literal inventory, no-op approval preservation, unlink keeping label, and downloaded WordPress source')
+    page,context,state=open_page('/write/',blocked_modules=('/link-editor-controls.js',))
+    expect(page.locator('#link-editor-status')).to_contain_text('could not load')
+    page.fill('#body','Fictional link fallback writing.');page.check('#reviewed');page.click('#copy-body')
+    assert page.locator('#body').input_value()=='Fictional link fallback writing.' and state['api']==[]
+    context.close()
+    report['checks'].append('Guided link optional-module failure keeps article editing and ordinary exports available')
+
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()

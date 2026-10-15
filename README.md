@@ -132,3 +132,7 @@ Open a plain .docx up to 8 MiB in the shared writer or converter import panel. A
 ## Guided image editing
 
 All five writing workspaces offer Add or edit image: choose an omitted Word image placeholder, pin the current article selection, or append an image. Enter an existing HTTPS URL and alternative text, preview the exact replacement, then apply with a checkpoint. Surrounding prose is preserved, stale targets require a new explicit location, and empty alt text requires an explicit decorative choice. No image loads or uploads here. Applying clears approval and the WordPress linked-image choice; select that option separately. Pending preparation is excluded from unchanged private file formats. See [the guided image release](docs/GUIDED_IMAGE_EDITOR_RELEASE.md).
+
+## Guided hyperlink editing
+
+All five writing workspaces offer Add or edit link and an article-wide inline link inventory. Choose selected plain text, a cursor, or a complete existing link; enter a descriptive label and HTTP(S) URL; inspect an exact change or unlink preview; then apply with a checkpoint. Source outside the selected range stays exact. Stale targets, partial formatting, code/table contexts, malformed URLs, and overflow are rejected. Pending preparation stays out of unchanged private formats; no-op/discard keeps approval. No URL is fetched or verified. See [the link editor release](docs/GUIDED_LINK_EDITOR_RELEASE.md).
