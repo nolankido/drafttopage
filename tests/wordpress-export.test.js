@@ -7,10 +7,10 @@ import { installPublishingExports } from '../public/export-controls.js';
 test('WordPress handoff creates editable blocks and keeps all other fields separate', () => {
   const draft = { ...QUICK_SAMPLE, title: 'PRIVATE TITLE', excerpt: 'PRIVATE EXCERPT', description: 'PRIVATE DESCRIPTION', slug: 'private-slug', questions: ['PRIVATE QUESTION'], source: { notes: 'PRIVATE SOURCE' } };
   const before = JSON.stringify(draft), result = createWordPressArticle(draft);
-  assert.equal(result.blockCount, 9); assert.deepEqual(result.notices, []);
+  assert.equal(result.blockCount, 10); assert.deepEqual(result.notices, []);
   assert.match(result.html, /<!-- wp:list -->\n<ul class="wp-block-list">/);
-  assert.equal((result.html.match(/<!-- wp:list-item -->/g) || []).length, 6);
-  assert.match(result.html, /<!-- wp:list {"ordered":true} -->\n<ol/);
+  assert.equal((result.html.match(/<!-- wp:list-item -->/g) || []).length, 10);
+  assert.match(result.html, /<!-- wp:list {"ordered":true,"start":4} -->\n<ol/);
   assert.match(result.html, /<!-- wp:quote -->\n<blockquote class="wp-block-quote"><!-- wp:paragraph -->/);
   assert.doesNotMatch(result.html, /PRIVATE|private-slug|<h1>/);
   assert.equal(JSON.stringify(draft), before);

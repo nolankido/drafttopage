@@ -1,5 +1,6 @@
 import { inlineTokens } from './markdown-inline.js';
 import { readMarkdownTable } from './markdown-table.js';
+import { readMarkdownList } from './markdown-list.js';
 // A bounded reading aid. Only explicit web links become navigation; no resources load.
 export function previewBlocks(body) {
   if (typeof body !== 'string' || body.length > 12000) throw new Error('Preview supports at most 12,000 body characters.');
@@ -19,13 +20,10 @@ export function previewBlocks(body) {
     }
     const heading = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|$)/.exec(line);
     if (heading) { flush(); result.push({ type: 'h' + Math.min(6, heading[1].length + 2), level: heading[1].length, text: (heading[2] || '').replace(/[ \t]+#+[ \t]*$/, '').trim() }); continue; }
-    const unordered = /^[-*] +(.+)$/.exec(line);
-    const ordered = /^\d+\. +(.+)$/.exec(line);
-    if (unordered || ordered) {
-      flush(); const pattern = unordered ? /^[-*] +(.+)$/ : /^\d+\. +(.+)$/;
-      const items = [(unordered || ordered)[1]];
-      while (i + 1 < lines.length && pattern.test(lines[i + 1])) items.push(pattern.exec(lines[++i])[1]);
-      result.push({ type: unordered ? 'ul' : 'ol', items }); continue;
+    const list = readMarkdownList(lines, i);
+    if (list) {
+      flush(); result.push(...(list.supported ? list.blocks : [{ type: 'p', text: lines.slice(i, list.end).join('\n') }]));
+      i = list.end - 1; continue;
     }
     const quote = /^> ?(.*)$/.exec(line);
     if (quote) {
@@ -63,7 +61,14 @@ function appendInline(node, text) {
 export function renderPreview(target, title, body) {
   const fragment = document.createDocumentFragment();
   const heading = document.createElement('h3'); heading.textContent = title || 'Untitled article'; fragment.append(heading);
+  const renderList = list => {
+    const node = document.createElement(list.type);
+    if (list.type === 'ol' && list.start !== undefined) node.setAttribute('start', String(list.start));
+    list.items.forEach((text, index) => { const item = document.createElement('li'); appendInline(item, text); for (const child of list.children?.[index] || []) item.append(renderList(child)); node.append(item); });
+    return node;
+  };
   for (const block of previewBlocks(body)) {
+    if (block.items) { fragment.append(renderList(block)); continue; }
     if (block.type === 'table') {
       const region = document.createElement('div'), table = document.createElement('table');
       region.className = 'article-table'; region.tabIndex = 0; region.setAttribute('role', 'region'); region.setAttribute('aria-label', 'Article table, scroll horizontally if needed');
@@ -80,8 +85,7 @@ export function renderPreview(target, title, body) {
       region.append(table); fragment.append(region); continue;
     }
     const node = document.createElement(block.type);
-    if (block.items) for (const text of block.items) { const item = document.createElement('li'); appendInline(item, text); node.append(item); }
-    else if (block.type === 'pre') { const code = document.createElement('code'); code.textContent = block.text; node.append(code); }
+    if (block.type === 'pre') { const code = document.createElement('code'); code.textContent = block.text; node.append(code); }
     else appendInline(node, block.text);
     fragment.append(node);
   }

@@ -13,8 +13,8 @@ import { installWordPressHandoff } from '../public/wordpress-handoff-controls.js
 test('Handoff review identifies actual conversion limits and unfinished passages in source order', () => {
   const body = '# Post title\n\nTODO: finish this.\n\n![image](https://example.test/image.png)\n\n[relative](/page/)\n\n## A list\n\n  - Nested\n+ Alternative marker\n9. Different start\n10. Continues\n- [x] Task\n\n| Name | Count |\n| --- | --- |\n| A | 2 | EXTRA |\n\n[ref]: https://example.test/\nRead [the reference][ref].\n\n~~removed~~\n\n---\n\n<div>Source HTML</div>';
   const result = reviewWordPress({ title: 'Post title', body });
-  for (const kind of ['title','title-level','placeholder','image','link','nested-list','list-style','list-start','task-list','table','reference','strike','separator','html']) assert.ok(result.findings.some(item => item.kind === kind), kind);
-  assert.equal(result.findings.filter(item => item.kind === 'list-start').length, 1);
+  for (const kind of ['title','title-level','placeholder','image','link','nested-list','task-list','table','reference','strike','separator','html']) assert.ok(result.findings.some(item => item.kind === kind), kind);
+  assert.equal(result.findings.filter(item => ['list-start', 'list-style'].includes(item.kind)).length, 0);
   assert.equal(result.findings.filter(item => item.kind === 'table').length, 1);
   assert.ok(result.findings.every((item, index, all) => !index || item.start >= all[index - 1].start));
   for (const item of result.findings) { assert.ok(item.start >= 0 && item.end <= body.length); assert.equal(item.line, body.slice(0,item.start).split('\n').length); }
@@ -68,7 +68,7 @@ test('The kit preserves exact source whitespace and CRLF so review line numbers 
   const draft = { title: 'A fictional source', body: '\r\n\r\n  - Nested source\r\n\r\n' };
   const files = Object.fromEntries(wordPressKitFiles(draft).files.map(file => [file.name, file.content]));
   assert.equal(files['article-body.md'], draft.body);
-  assert.match(files['REVIEW.txt'], /Line 3: Indented lists/);
+  assert.match(files['REVIEW.txt'], /Line 3: This indented list/);
   assert.match(files['README.txt'], /line numbers refer to the exact original body/);
 });
 test('An independent ZIP reader checks all six file bytes, CRCs, UTF-8 metadata, and safe paths', () => {
