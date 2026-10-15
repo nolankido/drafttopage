@@ -7,6 +7,7 @@ Run npm run build first. --desk-only restricts testing to the new local writing 
 import argparse
 import json
 import zipfile
+import xml.etree.ElementTree as ET
 import mimetypes
 import shutil
 import subprocess
@@ -83,6 +84,37 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # Native Word download is review-gated and keeps destination defaults across restore.
+    page,context,state=open_page('/markdown-to-word/')
+    expect(page.locator('#desk-status')).to_contain_text('Markdown to Word tool ready')
+    assert page.locator('#publishing-destination').input_value()=='word'
+    expect(page.locator('h1')).to_have_text('Markdown to Word converter')
+    assert page.locator('#word-handoff').is_visible() and page.locator('#download-word').is_disabled()
+    word_body='## A fictional section\n\nKeep **important** and *quiet* writing.\nNext line.\n\n4. Parent\n  7. Child\n5. Next\n\n| Step | Keep |\n| --- | --- |\n| One | Uncertainty |\n\n<script>Literal source</script>'
+    page.fill('#body',word_body); page.locator('#title').focus(); page.locator('#body').focus()
+    assert not page.locator('#title-error').is_visible()
+    open_more(page); page.click('#start-notes'); page.fill('#notes','Fictional source excluded from the Word article.')
+    page.check('#reviewed')
+    with page.expect_download() as info: page.click('#download-word')
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None and len(z.namelist())==6
+        document=ET.fromstring(z.read('word/document.xml')); ns={'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+        assert len(document.findall('.//w:tblHeader',ns))==1
+        assert len(document.findall('.//w:ilvl',ns))==3
+        assert 'Fictional source excluded' not in z.read('word/document.xml').decode()
+        assert '<script>Literal source</script>' in ''.join(document.itertext())
+    page.check('#word-include-title'); assert not page.locator('#reviewed').is_checked() and page.locator('#download-word').is_disabled()
+    page.fill('#title','A fictional Word article'); page.check('#reviewed')
+    page.select_option('#publishing-destination','html'); assert page.locator('#word-handoff').is_hidden() and not page.locator('#reviewed').is_checked()
+    page.select_option('#publishing-destination','word'); page.check('#reviewed')
+    page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
+    with page.expect_download() as info: page.click('#save-backup')
+    word_backup=Path(info.value.path()).read_bytes(); assert b'word-include-title' not in word_backup
+    page.fill('#body','Changed article.'); restore(page,word_backup)
+    assert page.locator('#body').input_value()==word_body and page.locator('#publishing-destination').input_value()=='word'
+    assert not page.locator('#reviewed').is_checked() and not page.locator('#word-include-title').is_checked()
+    layout(page,'word-tool'); assert state['api']==[]; context.close()
+    report['checks'].append('Word: actual DOCX download and XML/header/list reading, body-only readiness, source exclusion, title approval reset, destination switching, exact backup restore, and layout')
     # A distinct HTML tool provides reviewed source and keeps its destination after restore.
     page,context,state=open_page('/markdown-to-html/#sample')
     expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')

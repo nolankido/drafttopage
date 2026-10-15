@@ -24,3 +24,5 @@
 .article-preview ul,.article-preview ol{padding-left:1.35rem}.article-preview li>ul,.article-preview li>ol{margin-block:.35rem}
 
 #html-source-handoff{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1rem;margin-top:1rem;min-width:0}#html-source-handoff h4{margin-top:0}#html-source-code-panel>summary{font-weight:650;cursor:pointer}#html-source-preview{width:100%;min-width:0;max-width:100%;font:.8rem/1.5 ui-monospace,monospace}
+
+#word-handoff{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:1rem;margin-top:1rem;min-width:0;overflow-wrap:anywhere}#word-handoff h4{margin-top:0}
