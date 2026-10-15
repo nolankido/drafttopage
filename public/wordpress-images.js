@@ -1,5 +1,5 @@
 import { articleStructure } from './draft-review.js';
-import { inlineTokens, decodeMarkdownEscapes, safeWebLink } from './markdown-inline.js';
+import { inlineTokens, walkInlineTokens, decodeMarkdownEscapes, safeWebLink } from './markdown-inline.js';
 import { previewBlocks } from './preview.js';
 
 export const IMAGE_REVIEW_LIMIT = 40;
@@ -25,7 +25,7 @@ export function analyzeWordPressImages(body) {
   for (const section of articleStructure(body)) {
     if (section.kind === 'code') continue;
     const standalone = section.kind === 'paragraph' ? standaloneWordPressImage(section.text) : null;
-    for (const token of inlineTokens(section.text)) {
+    for (const token of walkInlineTokens(inlineTokens(section.text))) {
       if (token.type !== 'image') continue;
       const start = section.contentStart + token.start, end = section.contentStart + token.end;
       const url = safeImageLink(token.target), eligible = Boolean(standalone?.url);

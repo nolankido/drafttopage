@@ -1,10 +1,10 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
-import { inlineTokens } from './markdown-inline.js';
+import { inlineTokens, walkInlineTokens, inlineVisibleText } from './markdown-inline.js';
 
 export const REVIEW_LIMIT = 40;
 export const PARAGRAPH_WORDS = 120;
 const wordsIn = text => (text.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu) || []).length;
-const visibleText = tokens => tokens.filter(p => p.type !== 'image' && p.type !== 'code').map(p => p.text).join('');
+const visibleText = tokens => inlineVisibleText(tokens);
 // Character positions use the unchanged editor string, including CRLF and Unicode.
 export function articleStructure(body) {
   if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Draft checks support at most 60,000 article characters.');
@@ -72,8 +72,9 @@ export function analyzeDraft(draft, { imageFindings = true } = {}) {
       if (!/^ {0,3}(?:[-*+] |\d+[.)] |>)/m.test(block.text) && wordsIn(visible) > PARAGRAPH_WORDS) add(block, 'paragraph', 'This paragraph exceeds ' + PARAGRAPH_WORDS + ' approximate words. Consider a break for easier reading.');
     }
     // Ignore inline code when identifying editorial placeholders.
-    for (const token of tokens.filter(p => p.type !== 'code')) {
-      for (const match of token.text.matchAll(/\b(?:TODO|TBD|TK)\b|\[(?:insert|add|check|verify|source|citation needed|placeholder)\b[^\]\n]*\]|\{\{[^{}\n]+\}\}|\bLorem ipsum\b/gi)) {
+    for (const token of walkInlineTokens(tokens)) {
+      if (token.type === 'code') continue;
+      for (const match of (token.children ? '' : token.text).matchAll(/\b(?:TODO|TBD|TK)\b|\[(?:insert|add|check|verify|source|citation needed|placeholder)\b[^\]\n]*\]|\{\{[^{}\n]+\}\}|\bLorem ipsum\b/gi)) {
         // Text tokens have exact offsets; formatted labels use the whole block.
         const exact = token.type === 'text', start = exact ? block.contentStart + token.start + match.index : block.start;
         add(block, 'placeholder', 'Possible unfinished text: ' + match[0].slice(0, 100) + '. Resolve it before publishing.', start, exact ? start + match[0].length : block.end);
@@ -84,7 +85,7 @@ export function analyzeDraft(draft, { imageFindings = true } = {}) {
         if (token.type === 'image' && imageFindings) add(block, 'image', 'Images remain text in the reading page. Add and inspect the image in your destination.', start, end);
         else if (token.type === 'image') continue;
         else if (!token.href) add(block, 'link', 'This link stays text in the reading page. Use a non-empty label and an absolute http:// or https:// URL without credentials.', start, end);
-        else if (/^(?:click here|here|read more|link)$/i.test(token.text.trim())) add(block, 'link-label', 'Give this link a descriptive label so readers know where it leads.', start, end);
+        else if (/^(?:click here|here|read more|link)$/i.test(inlineVisibleText(token.children || [token]).trim())) add(block, 'link-label', 'Give this link a descriptive label so readers know where it leads.', start, end);
       }
     }
   }

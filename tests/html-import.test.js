@@ -56,10 +56,11 @@ test('Images, scripts, embeds, and explicitly hidden content cannot reach the re
   assert.equal(inlineParts(result.markdown).map(p => p.text).join(''), 'Visible [Image: a *literal* picture]');
   assert.ok(result.warnings.some(w => w.includes('Images'))); assert.ok(result.warnings.some(w => w.includes('hidden')));
 });
-test('Tracked changes are rejected, and nested or delimiter emphasis keeps all text with notices', () => {
+test('Tracked changes are rejected, while nested emphasis and escaped literal delimiters are preserved', () => {
   for (const name of ['ins', 'del']) assert.throws(() => convert(element('p', [element(name, ['Unresolved'])])), /tracked changes/);
   const result = convert(element('p', [element('strong', ['A ', element('em', ['nested']), ' word']), ' ', element('strong', ['A *literal* delimiter'])]));
-  assert.ok(result.warnings.some(w => w.includes('Nested'))); assert.ok(result.warnings.some(w => w.includes('delimiter')));
+  assert.doesNotMatch(result.warnings.join(' '), /Nested|delimiter/);
+  assert.match(createHTMLSource({body:result.markdown}), /<strong>A <em>nested<\/em> word<\/strong> <strong>A \*literal\* delimiter<\/strong>/);
   assert.ok(inlineParts(result.markdown).map(p => p.text).join('').includes('A *literal* delimiter'));
 });
 test('Nested lists retain starting numbers and hierarchy in both destinations', () => {

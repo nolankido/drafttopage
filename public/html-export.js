@@ -1,13 +1,11 @@
 import { articleIssues } from './authoring.js';
-import { previewBlocks, inlineParts } from './preview.js';
+import { previewBlocks } from './preview.js';
+import { inlineHTML, inlinePlainText } from './inline-render.js';
 import { tableHTML } from './markdown-table.js';
 import { listHTML, listText } from './markdown-list.js';
 
 const escape = text => String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const inline = (text, portable = false) => {
-  const html = inlineParts(text).map(p => p.type === 'text' ? escape(p.text) : p.type === 'a' ? '<a href="' + escape(p.href) + '" target="_blank" rel="noopener noreferrer" aria-label="' + escape(p.text + ' (opens in a new tab)') + '">' + escape(p.text) + '</a>' : '<' + p.type + '>' + escape(p.text) + '</' + p.type + '>').join('');
-  return portable ? html.replaceAll('\n', '<br>') : html;
-};
+const inline = (text, portable = false) => inlineHTML(text, { accessibleLinks: true, lineBreaks: portable });
 export function createFormattedArticle(draft, { includeTitle = false, portable = false } = {}) {
   const issues = articleIssues(draft, includeTitle ? 'html' : 'body');
   if (Object.keys(issues).length) throw new Error(Object.values(issues)[0]);
@@ -20,7 +18,7 @@ export function createFormattedArticle(draft, { includeTitle = false, portable =
     const tag = block.level ? 'h' + Math.max(2, block.level) : block.type;
     return '<' + tag + '>' + renderInline(block.text) + '</' + tag + '>';
   }).join('\n');
-  const plainInline = text => inlineParts(text).map(part => part.type === 'a' ? part.text + ' (' + part.href + ')' : part.text).join('');
+  const plainInline = text => inlinePlainText(text, { linkURLs: true });
   const text = blocks.map(block => block.type === 'table' ? [block.head, ...block.rows].map(row => row.map(plainInline).join('\t')).join('\n') : block.items ? listText(block, plainInline) : block.type === 'pre' ? block.text : plainInline(block.text)).join('\n\n');
   return { html: (includeTitle ? '<h1>' + escape(draft.title.trim()) + '</h1>\n' : '') + body, text: (includeTitle ? draft.title.trim() + '\n\n' : '') + text };
 }

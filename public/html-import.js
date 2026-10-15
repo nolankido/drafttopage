@@ -1,5 +1,6 @@
 import { ARTICLE_BODY_LIMIT, MAX_IMPORT_BYTES } from './writing-limits.js';
 import { safeWebLink } from './markdown-inline.js';
+import { markdownFromInline } from './inline-markdown.js';
 
 const MAX_NODES = 12000, MAX_DEPTH = 32, MAX_TAGS = 6000;
 const controls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
@@ -66,51 +67,56 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false } = {}) {
     if (tag(node) === 'img') { warn('Images were replaced with text placeholders; no image was loaded.'); return '[Image: ' + (attr(node, 'alt') || 'no description supplied') + ']'; }
     return children(node).map(plain).join('');
   }
-  function inline(node, nested = false) {
-    if (node.nodeType === 3) return escapeText(whitespace(node.nodeValue));
-    if (node.nodeType !== 1 && node.nodeType !== 11) return '';
-    if (skip(node)) return '';
+  function inlineNodes(node, inLink = false) {
+    const text = value => [{ type: 'text', text: value }];
+    if (node.nodeType === 3) return text(whitespace(node.nodeValue));
+    if (node.nodeType !== 1 && node.nodeType !== 11 || skip(node)) return [];
     const name = tag(node);
-    if (name === 'img') { warn('Images were replaced with text placeholders; no image was loaded.'); return escapeText('[Image: ' + whitespace(attr(node, 'alt') || 'no description supplied') + ']'); }
-    if (name === 'br') return '\n';
-    if (name === 'a') {
-      const label = whitespace(children(node).map(plain).join('')).trim();
-      const href = safeWebLink(attr(node, 'href'));
-      if (!href) { warn('Unsafe, relative, or missing link targets were omitted; their text was kept.'); return escapeText(label); }
-      if (children(node).some(child => child.nodeType === 1)) warn('Formatting inside link labels was simplified.');
-      if (!label || /[\[\]\\]/.test(label)) {
-        warn('A link label could not be represented as a Markdown link; its safe URL was kept as text.');
-        return escapeText((label ? label + ' ' : '') + '(' + href + ')');
-      }
-      return '[' + escapeText(label) + '](' + href.replaceAll('(', '%28').replaceAll(')', '%29') + ')';
-    }
-    const style = styles(node);
-    const weight = style.get('font-weight');
-    const bold = weight ? weight === 'bold' || Number(weight) >= 600 : name === 'strong' || name === 'b';
-    const italic = style.has('font-style') ? style.get('font-style') === 'italic' : name === 'em' || name === 'i';
-    const formatted = bold || italic || name === 'code';
-    const content = children(node).map(child => inline(child, nested || formatted)).join('');
-    if (['sup', 'sub', 's', 'strike', 'u', 'mark'].includes(name)) warn('Some inline formatting was simplified to plain text.');
-    if (!formatted || !content.trim()) return content;
-    if (nested || (bold && italic) || /\n/.test(content)) { warn('Nested or multiline emphasis was simplified.'); return content; }
-    const leading = /^ */.exec(content)[0], trailing = / *$/.exec(content)[0], text = content.trim();
+    if (name === 'img') { warn('Images were replaced with text placeholders; no image was loaded.'); return text('[Image: ' + whitespace(attr(node, 'alt') || 'no description supplied') + ']'); }
+    if (name === 'br') return text('\n');
     if (name === 'code') {
       const raw = children(node).map(plain).join('');
-      if (/[`\n]/.test(raw)) { warn('Inline code with backticks or line breaks was kept as plain text.'); return content; }
-      return '`' + raw + '`';
+      if (/[\r\n]/.test(raw)) { warn('Inline code with line breaks was kept as plain text.'); return text(whitespace(raw)); }
+      return [{ type: 'code', text: raw }];
     }
-    if (bold && text.includes('*')) { warn('Emphasis containing a delimiter was kept as plain text.'); return content; }
-    const delimiter = bold ? '**' : !text.includes('*') ? '*' : !text.includes('_') ? '_' : '';
-    if (!delimiter) { warn('Emphasis containing a delimiter was kept as plain text.'); return content; }
-    return leading + delimiter + text + delimiter + trailing;
+    let content = children(node).flatMap(child => inlineNodes(child, inLink || name === 'a'));
+    if (name === 'a') {
+      const label = whitespace(children(node).map(plain).join('')).trim(), href = safeWebLink(attr(node, 'href'));
+      if (!href || inLink) { warn('Unsafe, relative, missing, or nested link targets were omitted; their text was kept.'); return content; }
+      if (!label || /[\[\]\\]/.test(label) || content.some(part => part.type === 'text' && /[\r\n]/.test(part.text))) {
+        warn('A link label could not be represented as a Markdown link; its safe URL was kept as text.');
+        return text((label ? label + ' ' : '') + '(' + href + ')');
+      }
+      content = [{ type: 'a', href, children: content }];
+    }
+    const style = styles(node), weight = style.get('font-weight');
+    const bold = weight ? weight === 'bold' || Number(weight) >= 600 : name === 'strong' || name === 'b';
+    const italic = style.has('font-style') ? style.get('font-style') === 'italic' : name === 'em' || name === 'i';
+    if (['sup', 'sub', 's', 'strike', 'u', 'mark'].includes(name)) warn('Some inline formatting was simplified to plain text.');
+    if ((bold || italic) && /[\r\n]/.test(children(node).map(plain).join(''))) { warn('Multiline emphasis was simplified.'); return content; }
+    if (bold) content = [{ type: 'strong', children: content }];
+    if (italic) content = [{ type: 'em', children: content }];
+    return content;
   }
+  function writeInline(nodes) {
+    const result = markdownFromInline(nodes);
+    if (result.simplified) warn('Ambiguous or overly complex inline formatting was simplified to literal text with safe link URLs.');
+    return result.markdown;
+  }
+  const inline = node => writeInline(inlineNodes(node));
   function flattened(nodes) {
-    const pieces = nodes.map(node => {
-      if (blocks.has(tag(node))) { warn('Paragraph breaks inside a list item or table cell were simplified.'); return inline(node) + ' '; }
-      return inline(node);
-    }).join('');
-    if (pieces.includes('\n')) warn('Line breaks inside a list item or table cell were simplified.');
-    return pieces.replace(/\s+/gu, ' ').trim();
+    const pieces = nodes.flatMap(node => {
+      if (blocks.has(tag(node))) { warn('Paragraph breaks inside a list item or table cell were simplified.'); return [...inlineNodes(node), { type: 'text', text: ' ' }]; }
+      return inlineNodes(node);
+    });
+    const simplify = parts => parts.map(part => {
+      if (part.type === 'text' || part.type === 'code') {
+        if (/[\r\n]/.test(part.text)) warn('Line breaks inside a list item or table cell were simplified.');
+        return { ...part, text: whitespace(part.text) };
+      }
+      return { ...part, children: simplify(part.children) };
+    });
+    return writeInline(simplify(pieces)).trim();
   }
   function list(node, depth, budget) {
     if (depth > 6) throw new Error('Lists support at most six levels. Simplify this list before importing.');
@@ -195,11 +201,11 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false } = {}) {
     return inline(node).trim();
   }
   function flow(node) {
-    const result = []; let run = '';
-    const flush = () => { if (run.trim()) result.push(run.trim()); run = ''; };
+    const result = []; let run = [];
+    const flush = () => { const value = writeInline(run).trim(); if (value) result.push(value); run = []; };
     for (const child of children(node)) {
       if (blocks.has(tag(child)) || blockDescendants.has(child)) { flush(); const value = render(child); if (value) result.push(value); }
-      else run += inline(child);
+      else run.push(...inlineNodes(child));
     }
     flush(); return result.join('\n\n');
   }
