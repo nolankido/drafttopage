@@ -5,10 +5,13 @@ import { downloadText } from './download.js';
 import { createWordPressArticle } from './wordpress-export.js';
 import { suggestFilename } from './preview.js';
 import { installWordPressHandoff } from './wordpress-handoff-controls.js';
+import { installHTMLSource } from './html-source-controls.js';
 
-export function installPublishingExports({ getDraft, approved, changed, report, isBusy }) {
+export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, defaultDestination = 'wordpress' }) {
   const $ = id => document.getElementById(id);
+  $('publishing-destination').value = defaultDestination;
   const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy });
+  const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
   let kitSnapshot = null;
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
   function update() {
@@ -16,7 +19,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     const wordpress = $('publishing-destination').value === 'wordpress';
     $('wordpress-handoff').hidden = !wordpress;
     let article = null;
-    try { article = createWordPressArticle(draft); } catch { /* Readiness below explains missing article. */ }
+    try { if (wordpress) article = createWordPressArticle(draft); } catch { /* Readiness below explains missing article. */ }
     for (const id of ['copy-wordpress', 'download-wordpress']) $(id).disabled = !reviewed || !article || !wordpress;
     $('copy-wordpress-title').disabled = !reviewed || !wordpress || Boolean(articleIssues(draft, 'html').title);
     $('wordpress-readiness').textContent = !article ? 'Paste an article first. Page metadata is optional.' : article.blockCount + ' top-level blocks prepared locally. ' + (reviewed ? 'Copy or download, then inspect them in WordPress.' : 'Review your reading preview, then check the approval box to copy or download.') + (articleIssues(draft, 'html').title ? ' Add a title separately in WordPress.' : ' Your title stays separate from the body.');
@@ -24,6 +27,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     // Clear hidden or unapproved output immediately after edits, restore, or clear.
     $('wordpress-code-preview').value = wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
     handoff.update();
+    html.update();
     $('copy-formatted').disabled = !reviewed || Object.keys(articleIssues(draft, $('copy-title').checked ? 'html' : 'body')).length > 0;
     let kit = null, error = '';
     try { kit = publishingKitFiles(draft, options()); }
@@ -83,5 +87,5 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     try { approved(); const draft = getDraft(); if (articleIssues(draft, 'html').title) throw new Error('Add a valid title first.'); await navigator.clipboard.writeText(draft.title.trim()); report('Title copied separately. Paste into the WordPress title field. Nothing was published.'); }
     catch (error) { report('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
   });
-  return { update, reset: () => { handoff.reset(); $('copy-title').checked = false; $('publishing-destination').value = 'wordpress'; $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
+  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
 }

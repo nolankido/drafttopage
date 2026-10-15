@@ -38,7 +38,16 @@
 <h3 id="export-heading">3. Choose your export</h3>
 <p id="export-readiness" class="small" aria-live="polite"></p>
 <label class="check"><input id="reviewed" type="checkbox"><span>I have reviewed the article and understand that exporting does not publish it.</span></label>
-<label for="publishing-destination">Where will you take this article?</label><select id="publishing-destination"><option value="wordpress">WordPress block editor</option><option value="other">Another editor or Markdown site</option></select>
+<label for="publishing-destination">Where will you take this article?</label><select id="publishing-destination"><option value="wordpress">WordPress block editor</option><option value="html">HTML source for a website</option><option value="other">Another editor or Markdown site</option></select>
+<section id="html-source-handoff" hidden aria-labelledby="html-source-heading">
+<h4 id="html-source-heading">Continue with HTML source</h4>
+<p id="html-source-readiness" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
+<label class="check"><input id="html-include-title" type="checkbox"><span>Include the article title as an H1 heading in HTML source</span></label>
+<p class="small">Copy code for an editor that accepts HTML source. The body is enough; title and page fields are optional. Add the title separately if your website already displays one. Source HTML and images in your Markdown remain literal text. Theme styling can vary.</p>
+<div class="actions"><button id="copy-html-source" type="button" class="button" disabled>Copy HTML source</button><button id="download-html-source" type="button" class="secondary" disabled>Download HTML fragment</button></div>
+<details id="html-source-code-panel" open><summary>Inspect or manually copy the approved HTML source</summary><label for="html-source-preview">HTML source, available after review</label><textarea id="html-source-preview" rows="8" readonly spellcheck="false" aria-describedby="html-source-help"></textarea></details>
+<p id="html-source-help" class="small">This is an article fragment without document metadata or WordPress block comments. The generated code uses explicit line breaks and fixed table alignment and wrapping hints; editors can strip styling. It excludes private source notes, review questions, and revisions. For a complete document to open in a browser, choose Download reading page below. No upload or publishing occurs. <a href="/help/publishing-handoff/#html-source" target="_blank" rel="noopener">HTML handoff help (new tab)</a></p>
+</section>
 <section id="wordpress-handoff" aria-labelledby="wordpress-heading">
 <h4 id="wordpress-heading">Continue in WordPress</h4>
 <p id="wordpress-readiness" class="small" role="status" aria-live="polite" aria-atomic="true"></p><ul id="wordpress-notices" class="small"></ul>

@@ -73,11 +73,11 @@ export function markdownTableRanges(body) {
 }
 
 // Inline content is rendered by the same safe, escaped formatter as the article.
-export function tableHTML(table, inline, { wordpress = false } = {}) {
+export function tableHTML(table, inline, { wordpress = false, portable = false } = {}) {
   const row = (cells, header = false) => '<tr>' + cells.map((text, column) => {
     const tag = header ? 'th' : 'td', align = ['left', 'center', 'right'].includes(table.align[column]) ? table.align[column] : null;
-    return '<' + tag + (header ? ' scope="col"' : '') + (align ? ' class="has-text-align-' + align + '" data-align="' + align + '"' : '') + '>' + inline(text) + '</' + tag + '>';
+    return '<' + tag + (header ? ' scope="col"' : '') + (align ? ' class="has-text-align-' + align + '" data-align="' + align + '"' : '') + (portable ? ' style="text-align:' + (align || 'left') + '"' : '') + '>' + inline(text) + '</' + tag + '>';
   }).join('') + '</tr>';
   const html = '<table' + (wordpress ? ' class="has-fixed-layout"' : '') + '><thead>' + row(table.head, true) + '</thead>' + (table.rows.length ? '<tbody>' + table.rows.map(cells => row(cells)).join('') + '</tbody>' : '') + '</table>';
-  return wordpress ? '<figure class="wp-block-table">' + html + '</figure>' : '<div class="article-table" role="region" aria-label="Article table, scroll horizontally if needed" tabindex="0">' + html + '</div>';
+  return wordpress ? '<figure class="wp-block-table">' + html + '</figure>' : '<div class="article-table" role="region" aria-label="Article table, scroll horizontally if needed" tabindex="0"' + (portable ? ' style="max-width:100%;overflow-x:auto"' : '') + '>' + html + '</div>';
 }
