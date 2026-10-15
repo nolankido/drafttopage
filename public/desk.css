@@ -76,5 +76,9 @@
 .guided-converter .desk-intro #sample{margin:.65rem 0}
 .guided-converter .import-panel #import-html-options details{margin:.5rem 0}
 .guided-converter .import-panel #import-text{min-height:5rem}
+.guided-converter #wordpress-primary-actions{background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:.85rem 1rem;margin:.75rem 0 1rem;min-width:0}
+.guided-converter #wordpress-primary-actions .actions{margin-top:0;flex-wrap:wrap}
+.guided-converter #wordpress-primary-actions p{margin-bottom:0}
+.guided-converter #other-export-formats>summary{cursor:pointer;font-weight:600}
 @media(max-width:850px){.guided-converter #article-preview{max-height:none;overflow:visible}.guided-converter .conversion-results{padding:1rem}.article-edit-panel{padding:.85rem}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}

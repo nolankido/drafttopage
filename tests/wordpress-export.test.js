@@ -46,12 +46,12 @@ test('WordPress controls require approval, clear stale output, and provide a cli
   const nodes = Object.fromEntries(['additional-exports','word-handoff','word-readiness','word-include-title','download-word','export-format','reviewed','publishing-destination','wordpress-handoff','copy-wordpress','download-wordpress','copy-wordpress-title','wordpress-readiness','wordpress-notices','wordpress-code-panel','wordpress-code-preview','html-source-handoff','html-source-readiness','html-include-title','copy-html-source','download-html-source','html-source-code-panel','html-source-preview','copy-formatted','copy-title','download-kit','kit-readiness','publishing-kit-panel','kit-files','wordpress-review-status','wordpress-review-panel','wordpress-findings','copy-wordpress-excerpt','copy-wordpress-slug','copy-wordpress-description','wordpress-fields-status','download-wordpress-kit','wordpress-kit-status','wordpress-kit-panel','wordpress-kit-files','wordpress-edit-fields','page-details','excerpt','body'].map(id => [id, element()]));
   nodes['publishing-destination'].value = 'wordpress'; nodes['export-format'].value = 'page'; nodes['wordpress-code-panel'].open = true;
   const oldDocument = globalThis.document, oldNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
-  let copied = '', message = '', draft = { ...QUICK_SAMPLE };
+  let copied = '', message = '', busy = false, draft = { ...QUICK_SAMPLE };
   globalThis.document = { getElementById: id => nodes[id], createElement: () => element() };
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async text => { copied = text; } } } });
   try {
     let control;
-    control = installPublishingExports({ getDraft: () => draft, approved: () => { if (!nodes.reviewed.checked) throw new Error('Review first.'); }, changed: () => { nodes.reviewed.checked = false; control.update(); }, report: text => { message = text; } });
+    control = installPublishingExports({ getDraft: () => draft, approved: () => { if (!nodes.reviewed.checked) throw new Error('Review first.'); }, changed: () => { nodes.reviewed.checked = false; control.update(); }, report: text => { message = text; }, isBusy: () => busy });
     control.update(); assert.equal(nodes['copy-wordpress'].disabled, true); assert.equal(nodes['wordpress-code-preview'].value, '');
     await nodes['copy-wordpress'].fire('click'); assert.equal(copied, '');
     nodes.reviewed.checked = true; control.update();
@@ -63,6 +63,12 @@ test('WordPress controls require approval, clear stale output, and provide a cli
     await nodes['copy-wordpress'].fire('click'); assert.match(message, /earlier article version/); assert.equal(nodes.reviewed.checked, false);
     navigator.clipboard.writeText = async text => { copied = text; }; nodes.reviewed.checked = true;
     await nodes['copy-wordpress-title'].fire('click'); assert.equal(copied, draft.title);
+    busy = true; copied = ''; control.update(); assert.equal(nodes['copy-wordpress-title'].disabled, true);
+    await nodes['copy-wordpress-title'].fire('click'); assert.equal(copied, ''); busy = false;
+    nodes['publishing-destination'].value = 'html'; control.update(); await nodes['copy-wordpress-title'].fire('click'); assert.equal(copied, '');
+    nodes['publishing-destination'].value = 'wordpress'; nodes.reviewed.checked = true;
+    navigator.clipboard.writeText = async text => { copied = text; draft = { ...draft, title: 'Changed during title copy' }; nodes.reviewed.checked = false; };
+    await nodes['copy-wordpress-title'].fire('click'); assert.match(message, /previous review/); assert.equal(draft.title, 'Changed during title copy');
     draft = { body: 'A changed article.', title: '' }; nodes.reviewed.checked = false; control.update();
     assert.equal(nodes['wordpress-code-preview'].value, ''); assert.equal(nodes['copy-wordpress-title'].disabled, true);
     nodes.reviewed.checked = true; control.update(); assert.equal(nodes['copy-wordpress'].disabled, false);

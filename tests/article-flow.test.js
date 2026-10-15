@@ -6,19 +6,22 @@ import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 
 class Control {
-  constructor() { this.hidden = false; this.open = false; this.checked = false; this.attributes = {}; this.listeners = {}; this.textContent = ''; this.focused = false; }
+  constructor() { this.value = ''; this.hidden = false; this.open = false; this.checked = false; this.attributes = {}; this.listeners = {}; this.textContent = ''; this.focused = false; }
   addEventListener(event, action) { this.listeners[event] = action; }
+  dispatchEvent(event) { this.listeners[event.type]?.(event); }
   setAttribute(key, value) { this.attributes[key] = value; }
   removeAttribute(key) { delete this.attributes[key]; }
   focus() { this.focused = true; }
 }
 function withFlow(run) {
   const previous = globalThis.document;
-  const nodes = new Map(['article-edit-panel','conversion-results','reviewed','start-word-file','start-review','start-handoff','article-progress','preview-panel','conversion-heading'].map(id => [id, new Control()]));
-  let body = '', message = '', altered = 0;
+  const nodes = new Map(['article-edit-panel','conversion-results','reviewed','start-word-file','start-review','start-handoff','article-progress','preview-panel','conversion-heading','publishing-destination','other-export-formats','import-panel'].map(id => [id, new Control()]));
+  let body = '', message = '', altered = 0, busy = false, destinationChanges = 0;
+  nodes.get('publishing-destination').value = 'wordpress';
+  nodes.get('publishing-destination').addEventListener('change', () => { destinationChanges++; nodes.get('reviewed').checked = false; flow.update(); });
   globalThis.document = { getElementById: id => nodes.get(id) ?? null, querySelector: selector => selector === 'main' ? { classList: { add() {} } } : nodes.get(selector.slice(1)) ?? null };
-  const flow = installArticleFlow({ getDraft: () => ({ body }), report: text => { message = text; } });
-  try { run({ flow, $: id => nodes.get(id), edit: value => { body = value; altered++; }, body: () => body, message: () => message, altered: () => altered }); }
+  const flow = installArticleFlow({ getDraft: () => ({ body }), report: text => { message = text; }, isBusy: () => busy });
+  try { run({ flow, $: id => nodes.get(id), edit: value => { body = value; altered++; }, body: () => body, message: () => message, altered: () => altered, busy: value => { busy = value; }, destinationChanges: () => destinationChanges }); }
   finally { globalThis.document = previous; }
 }
 test('An empty guided workspace shows the import step and keeps empty results out of the task', () => withFlow(({ flow, $, message }) => {
@@ -27,9 +30,10 @@ test('An empty guided workspace shows the import step and keeps empty results ou
   assert.equal(flow.handoff(), true); assert.match(message(), /Bring an article first/);
 }));
 test('An applied article opens the reading path without forcing source editing or granting approval', () => withFlow(({ flow, $, edit, body }) => {
-  edit('Converted body'); flow.reading();
+  edit('Converted body'); $('import-panel').open = true; flow.reading();
   assert.equal($('conversion-results').hidden, false); assert.equal($('article-edit-panel').open, false); assert.equal($('conversion-heading').focused, true);
   assert.equal($('reviewed').checked, false); assert.equal(body(), 'Converted body'); assert.equal($('start-review').attributes['aria-current'], 'step');
+  assert.equal($('import-panel').open, false);
 }));
 test('Approval updates progress without claiming a successful copy, and editing resets the step', () => withFlow(({ flow, $, edit }) => {
   edit('An article'); $('reviewed').checked = true; flow.update();
@@ -38,6 +42,27 @@ test('Approval updates progress without claiming a successful copy, and editing 
 }));
 test('Handoff takes users to review consent and does not change writing or approval', () => withFlow(({ flow, $, edit, body, altered }) => {
   edit('Unchanged article'); flow.handoff(); assert.equal($('reviewed').focused, true); assert.equal($('reviewed').checked, false); assert.equal(body(), 'Unchanged article'); assert.equal(altered(), 1);
+}));
+test('The WordPress shortcut selects its destination, clears stale approval and preserves writing', () => withFlow(({ flow, $, edit, body, destinationChanges }) => {
+  edit('Keep the article'); $('publishing-destination').value = 'html'; $('reviewed').checked = true; $('other-export-formats').open = true;
+  flow.handoff();
+  assert.equal($('publishing-destination').value, 'wordpress'); assert.equal(destinationChanges(), 1);
+  assert.equal($('reviewed').checked, false); assert.equal($('reviewed').focused, true);
+  assert.equal($('other-export-formats').open, false); assert.equal(body(), 'Keep the article');
+}));
+test('An already selected WordPress handoff keeps its valid approval', () => withFlow(({ flow, $, edit, destinationChanges }) => {
+  edit('Reviewed article'); $('reviewed').checked = true; flow.handoff();
+  assert.equal($('reviewed').checked, true); assert.equal(destinationChanges(), 0);
+}));
+test('Other approved destinations have accurate progress without silently changing the destination', () => withFlow(({ flow, $, edit }) => {
+  edit('Article for another editor'); $('publishing-destination').value = 'html'; $('reviewed').checked = true; flow.update();
+  assert.equal($('article-progress').textContent, '3. Ready to export your article');
+  assert.equal($('publishing-destination').value, 'html'); assert.equal($('reviewed').checked, true);
+}));
+test('Busy handoff shortcuts preserve the current destination and approval', () => withFlow(({ flow, $, edit, busy, message, destinationChanges }) => {
+  edit('Keep current writing'); $('publishing-destination').value = 'word'; $('reviewed').checked = true; busy(true); flow.handoff();
+  assert.equal($('publishing-destination').value, 'word'); assert.equal($('reviewed').checked, true);
+  assert.equal(destinationChanges(), 0); assert.equal($('reviewed').focused, false); assert.match(message(), /Finish the current file operation/);
 }));
 test('Findings and page fields can reveal the optional editor before focusing their target', () => {
   const outer = { tagName: 'DETAILS', id: 'article-edit-panel', hidden: true, open: false, parentElement: null };
@@ -65,6 +90,13 @@ assert 'open' not in p.ids['article-edit-panel']['attrs']
 assert 'workspace-tools' in p.ids['backup-controls']['ancestors']
 assert p.ids['conversion-heading']['attrs']['tabindex']=='-1'
 assert 'open' in p.ids['wordpress-instructions']['attrs']
+assert p.order.index('wordpress-findings')<p.order.index('reviewed')<p.order.index('copy-wordpress')<p.order.index('wordpress-instructions')
+assert 'wordpress-primary-review' in p.ids['wordpress-findings']['ancestors']
+assert 'wordpress-primary-actions' in p.ids['copy-wordpress']['ancestors']
+assert 'wordpress-handoff' not in p.ids['reviewed']['ancestors']
+assert 'wordpress-primary-actions' not in p.ids['reviewed']['ancestors']
+assert 'other-export-formats' in p.ids['publishing-destination']['ancestors']
+assert 'open' not in p.ids['other-export-formats']['attrs']
 `], { input: page });
   }
 });

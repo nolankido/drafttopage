@@ -93,3 +93,16 @@ test('Hidden or busy general kit actions cannot start a stale download', () => w
 test('The general writing workspace keeps its additional exports expanded', () => withControls(({ $, ui }) => {
   assert.equal($('additional-exports').open, true); $('additional-exports').open = false; ui.reset(); assert.equal($('additional-exports').open, true);
 }, false));
+test('Guided WordPress groups follow the selected format while approval remains available for other exports', () => withControls(({ $, ui }) => {
+  $('publishing-destination').value = 'wordpress'; $('publishing-destination').fire('change');
+  assert.equal($('wordpress-primary-review').hidden, false); assert.equal($('wordpress-primary-actions').hidden, false);
+  assert.equal($('copy-wordpress').disabled, true);
+  $('reviewed').checked = true; ui.update(); assert.equal($('copy-wordpress').disabled, false);
+  $('publishing-destination').value = 'html'; $('publishing-destination').fire('change');
+  assert.equal($('wordpress-primary-review').hidden, true); assert.equal($('wordpress-primary-actions').hidden, true);
+  assert.equal($('reviewed').hidden, false); assert.equal($('reviewed').checked, false);
+  assert.equal($('html-source-handoff').hidden, false);
+  $('reviewed').checked = true; ui.update(); assert.equal($('copy-html-source').disabled, false);
+  $('other-export-formats').open = true; ui.reset(); ui.update();
+  assert.equal($('other-export-formats').open, false); assert.equal($('publishing-destination').value, 'word');
+}));

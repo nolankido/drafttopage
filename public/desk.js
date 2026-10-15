@@ -37,7 +37,7 @@ const capture = () => ({
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
 const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork()) || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork());
-const articleFlow = installArticleFlow({ getDraft: () => capture().draft, report });
+const articleFlow = installArticleFlow({ getDraft: () => capture().draft, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()) });
 function focusBody() { revealEditorFor($('body')); $('body').focus(); }
 function updateExitWarning() {
   window.removeEventListener('beforeunload', warn);
@@ -155,7 +155,7 @@ function loadSample() {
   if ((DRAFT_FIELDS.some(id => existing.draft[id].length) || importer?.pending() || sourceReview?.hasWork() || imageEditor?.hasWork() || linkEditor?.hasWork() || tableEditor?.hasWork()) && !confirm('Replace the current article with a fictional sample? A checkpoint keeps the current writing in this tab. Source notes and saved review questions are kept. Unsaved passage review, image preparation, link preparation, and table preparation are discarded. Save a private backup to keep them after leaving.')) return;
   try { revisions?.captureBefore('Before fictional sample'); } catch (error) { report(error.message); return; }
   fill({ source: existing.source, draft: { ...QUICK_SAMPLE, questions: existing.draft.questions } });
-  setFocus(true); $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
+  setFocus(true); $('preview-panel').open = true; update(); if (!articleFlow.reading()) $('preview-panel').querySelector('summary').focus();
   report('Fictional sample loaded. Try the reading preview, review the article, then ' + (wordTool ? 'download Word' : htmlTool ? 'copy HTML source' : 'copy WordPress blocks or choose another export') + '. Replace this sample before publishing.');
 }
 $('start-sample').addEventListener('click', loadSample);
