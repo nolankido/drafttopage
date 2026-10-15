@@ -1,7 +1,7 @@
-export const RELEASE = 'word-document-tool-20261014';
+export const RELEASE = 'focused-converters-20261014';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 const navigation = [['/write/', 'Write'], ['/markdown-to-wordpress/', 'WordPress tool'], ['/markdown-to-html/', 'HTML tool'], ['/markdown-to-word/', 'Word tool'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
-export function renderPage({ route, title, description, body, script = '', wide = false, desk = false }) {
+export function renderPage({ route, title, description, body, script = '', wide = false, desk = false, converter = false }) {
   const current = navigation.map(([href, label]) => '<a href="' + href + '"' + (route === href ? ' aria-current="page"' : '') + '>' + label + '</a>').join('');
   const canonical = 'https://drafttopage.com' + route;
   return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
@@ -15,7 +15,7 @@ export function renderPage({ route, title, description, body, script = '', wide 
     (route === '/404.html' ? '<meta name="robots" content="noindex">' : '') +
     '</head><body><a class="skip-link" href="#main">Skip to content</a><header class="site-header wrap"><a class="brand" href="/">Draft to Page<span aria-hidden="true">.</span></a>' +
     '<nav aria-label="Main navigation">' + current + '</nav></header><main id="main" class="' +
-    (route === '/' ? '' : 'wrap content-main' + (wide ? ' wide' : '') + (desk ? ' desk-main' : '')) +
+    (route === '/' ? '' : 'wrap content-main' + (wide ? ' wide' : '') + (desk ? ' desk-main' : '') + (converter ? ' converter-main' : '')) +
     '" data-release="' + RELEASE + '">' + body + '</main>' +
     '<footer class="site-footer wrap"><div><a class="brand" href="/">Draft to Page.</a><p>Your ideas. Your voice. Your approval.</p></div>' +
     '<nav aria-label="Footer navigation"><a href="/getting-started/">Getting started</a><a href="/about/">About &amp; support</a><a href="/access/">Access &amp; status</a><a href="/privacy/">Data use</a><a href="/pilot">Private pilot</a></nav><span class="badge">In development</span></footer>' +

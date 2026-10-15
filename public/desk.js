@@ -62,6 +62,8 @@ function update() {
   $('export-readiness').textContent = issues.body ? 'Add an article, review it, then choose how to take it with you.' : issues.title ? 'Body copying and downloading are available after review. Add a title for a reading page or publishing kit.' : 'After review, copy into an editor, take a reading page, or download a publishing kit. Open Markdown with page details for website Markdown.';
   if (wordTool && !issues.body) $('export-readiness').textContent = 'Read the preview, choose whether to include the title, then review and download Word. Page metadata can remain empty.';
   $('load-outline').disabled = !$('template-select').value;
+  const hasBody = Boolean(value.draft.body.trim());
+  $('preview-empty').hidden = hasBody; $('article-preview').hidden = !hasBody;
   try { $('drafting-brief').value = makeDraftingBrief(value.source); }
   catch (error) { $('drafting-brief').value = error.message; }
   if ($('preview-panel').open) {
@@ -267,7 +269,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress' });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
 // An optional editing tool must not block the core writing/recovery workspace.
 loadEditingTool(() => import('./revision-diff-controls.js'), ({ installRevisionDiff }) => {

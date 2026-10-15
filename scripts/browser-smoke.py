@@ -34,6 +34,12 @@ def open_more(page):
         page.click('#desk-more > summary')
 
 
+def open_extra_exports(page):
+    panel=page.locator('#additional-exports')
+    if panel.count() and panel.get_attribute('open') is None:
+        page.locator('#additional-exports > summary').click()
+
+
 with sync_playwright() as p:
     options = {'headless':True,'args':['--no-sandbox','--disable-dev-shm-usage']}
     binary = shutil.which('chromium') or shutil.which('chromium-browser')
@@ -84,6 +90,31 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # Converter layout retains DOM/keyboard order and changes only the view.
+    for route_name in ['markdown-to-wordpress','markdown-to-html','markdown-to-word']:
+        page,context,state=open_page('/'+route_name+'/')
+        expect(page.locator('#preview-empty')).to_be_visible()
+        assert page.locator('#additional-exports').get_attribute('open') is None
+        body='## A fictional article\n\n'+'\n\n'.join(f'Paragraph {i}: keep a distinct fictional observation and inspect the result.' for i in range(100))+'\n\nKEEP THE ENDING'
+        page.fill('#body',body)
+        expect(page.locator('#preview-empty')).not_to_be_visible()
+        region=page.locator('#article-preview');region.focus();region.press('End')
+        assert region.evaluate('(el)=>el.scrollTop')>0
+        assert 'KEEP THE ENDING' in region.inner_text()
+        for width in [1440,850,390,320]:
+            page.set_viewport_size({'width':width,'height':900})
+            rects=page.evaluate("""() => {const a=document.getElementById('draft').getBoundingClientRect(),b=document.getElementById('conversion-results').getBoundingClientRect();return {a:{x:a.x,y:a.y,bottom:a.bottom},b:{x:b.x,y:b.y},overflow:document.documentElement.scrollWidth>innerWidth,maxHeight:getComputedStyle(document.getElementById('article-preview')).maxHeight}}""")
+            assert not rects['overflow']
+            if width>850:assert rects['a']['x']<rects['b']['x'] and abs(rects['a']['y']-rects['b']['y'])<2
+            else:assert rects['a']['bottom']<=rects['b']['y'] and rects['maxHeight']=='none'
+        page.check('#reviewed');open_extra_exports(page)
+        assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
+        page.locator('#additional-exports > summary').click()
+        assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
+        page.select_option('#publishing-destination','other')
+        assert page.locator('#additional-exports').get_attribute('open') is not None and not page.locator('#reviewed').is_checked()
+        assert state['api']==[];context.close()
+    report['checks'].append('Focused converter layout: all three routes, bounded keyboard-scrollable full preview, editor/result alignment, 1440/850/390/320 reflow, extra-export toggles, exact writing and approval preservation, and other-editor reveal')
     # Native Word download is review-gated and keeps destination defaults across restore.
     page,context,state=open_page('/markdown-to-word/')
     expect(page.locator('#desk-status')).to_contain_text('Markdown to Word tool ready')
@@ -122,6 +153,8 @@ with sync_playwright() as p:
     expect(page.locator('h1')).to_have_text('Markdown to HTML converter')
     assert page.locator('#html-source-handoff').is_visible() and page.locator('#wordpress-handoff').is_hidden()
     assert page.locator('#copy-html-source').is_disabled() and page.locator('#html-source-preview').input_value()==''
+    assert page.locator('#html-source-code-panel').get_attribute('open') is None
+    page.locator('#html-source-code-panel > summary').click()
     html_body='## Fictional heading\n\nFirst line.\nSecond line.\n\n<script>fictional()</script>\n\n| Left | Right |\n| --- | ---: |\n| One | Two |'
     page.fill('#body',html_body); page.check('#reviewed')
     html_source=page.locator('#html-source-preview').input_value()
@@ -159,6 +192,7 @@ with sync_playwright() as p:
     page.locator('#body').press('Control+A'); page.locator('#body').press('Control+V')
     assert page.locator('#body').input_value()==long_body and not page.locator('#reviewed').is_checked()
     page.check('#reviewed')
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-html')
     assert 'KEEP THE ENTIRE ENDING' in Path(info.value.path()).read_text()
     page.locator('.recovery-box summary').click(); page.check('#backup-private-ok')
@@ -201,6 +235,7 @@ with sync_playwright() as p:
     page.check('#reviewed'); page.click('#wordpress-code-panel > summary')
     assert '<!-- wp:table' in page.locator('#wordpress-code-preview').input_value()
     assert 'data-align="right"' in page.locator('#wordpress-code-preview').input_value()
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-html')
     reading=Path(info.value.path()).read_text()
     assert '<thead>' in reading and 'Beta | Gamma' in reading
@@ -226,6 +261,7 @@ with sync_playwright() as p:
     code=page.locator('#wordpress-code-preview').input_value()
     assert '"start":4' in code and '"start":7' in code
     assert code.count('<!-- wp:list-item -->')==7
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-html')
     reading=Path(info.value.path()).read_text()
     assert '<ol start="4">' in reading and '<ol start="7">' in reading
@@ -292,10 +328,12 @@ with sync_playwright() as p:
     page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>{window.copiedFixture=text}}})")
     page.click('#copy-body')
     assert page.evaluate('window.copiedFixture')=='Body without page metadata.'
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-body')
     assert Path(info.value.path()).read_text()=='Body without page metadata.\n'
     page.fill('#title','A fictional reading page')
     page.check('#reviewed')
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-html')
     reading_text=Path(info.value.path()).read_text()
     assert '<h1>A fictional reading page</h1>' in reading_text
@@ -431,6 +469,7 @@ with sync_playwright() as p:
     assert not page.locator('#reviewed').is_checked()
     assert page.locator('#import-text').input_value()=='' and page.locator('#import-reading-preview').inner_html()==''
     # The existing formatted-copy action provides a real rich clipboard round trip.
+    open_extra_exports(page)
     page.check('#copy-title'); page.check('#reviewed'); page.click('#copy-formatted')
     expect(page.locator('#desk-status')).to_contain_text('copied')
     page.click('#start-formatted-import'); page.locator('#import-text').press('Control+V')
@@ -481,6 +520,7 @@ with sync_playwright() as p:
     links.click()
     assert page.evaluate('window.previewLinkClicked') is True
     page.check('#reviewed')
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-html')
     html=Path(info.value.path()).read_text()
     assert 'PRIVATE SOURCE CHECK SENTINEL' not in html and '<a href="https://example.test/a_(b)"' in html
@@ -539,6 +579,7 @@ with sync_playwright() as p:
     page.fill('#body',body); page.check('#reviewed')
     assert page.locator('#copy-formatted').is_enabled() and page.locator('#download-kit').is_disabled()
     page.evaluate("""Object.defineProperty(navigator,'clipboard',{configurable:true,value:{write:async items=>{const result={};for(const type of items[0].types)result[type]=await(await items[0].getType(type)).text();window.formattedFixture=result},writeText:async text=>{window.bodyCopyFixture=text}}})""")
+    open_extra_exports(page)
     page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('without its title')
     copied=page.evaluate('window.formattedFixture')
     assert set(copied)=={'text/html','text/plain'} and '<h1>' not in copied['text/html']
@@ -547,25 +588,31 @@ with sync_playwright() as p:
     reader=context.new_page(); reader.set_content(copied['text/html'])
     assert reader.locator('script,img').count()==0 and reader.locator('a').count()==1
     reader.close()
+    open_extra_exports(page)
     page.fill('#title','Fictional handoff'); page.check('#copy-title')
     assert not page.locator('#reviewed').is_checked() and page.locator('#copy-formatted').is_disabled()
+    open_extra_exports(page)
     page.check('#reviewed'); page.click('#copy-formatted')
     expect(page.locator('#desk-status')).to_contain_text('with its title')
     assert '<h1>Fictional handoff</h1>' in page.evaluate("window.formattedFixture['text/html']")
     page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{write:async()=>{throw new DOMException('Blocked','NotAllowedError')},writeText:async text=>{window.bodyCopyFixture=text}}})")
+    open_extra_exports(page)
     page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('Formatted copy unavailable')
     expect(page.locator('#body')).to_have_value(body)
     page.click('#copy-body'); assert page.evaluate('window.bodyCopyFixture')==body
     page.evaluate('window.savedClipboardItem=window.ClipboardItem; window.ClipboardItem=undefined')
+    open_extra_exports(page)
     page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('Formatted copy unavailable')
     page.evaluate('() => { window.ClipboardItem=window.savedClipboardItem; }')
     open_more(page); page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE KIT SENTINEL')
     page.locator('#review-panel > summary').click(); page.click('#add-question')
     page.fill('#review-question-0','PRIVATE QUESTION KIT SENTINEL')
+    open_extra_exports(page)
     page.locator('#publishing-kit-panel > summary').click()
     expect(page.locator('#kit-files li')).to_have_count(4)
     expect(page.locator('#kit-readiness')).to_contain_text('page.md is omitted')
     page.check('#reviewed')
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-kit')
     assert info.value.suggested_filename=='fictional-handoff-publishing-kit.zip'
     with zipfile.ZipFile(info.value.path()) as z:
@@ -579,12 +626,14 @@ with sync_playwright() as p:
     page.locator('#markdown-export-panel > summary').click(); page.select_option('#export-format','document')
     expect(page.locator('#kit-files li')).to_have_count(5)
     page.check('#reviewed')
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-kit')
     with zipfile.ZipFile(info.value.path()) as z:
         assert z.testzip() is None and '# Fictional handoff' in z.read('page.md').decode('utf-8')
     page.fill('#body','An updated fictional handoff.')
     assert not page.locator('#reviewed').is_checked() and page.locator('#download-kit').is_disabled()
     page.check('#reviewed')
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-kit')
     with zipfile.ZipFile(info.value.path()) as z: assert z.read('article-body.md').decode('utf-8')=='An updated fictional handoff.\n'
     open_more(page); page.click('#start-checks')
@@ -634,6 +683,7 @@ with sync_playwright() as p:
     state['accept']=False; page.click('#restore-checkpoint')
     expect(page.locator('#desk-status')).to_contain_text('cancelled')
     assert page.locator('#body').input_value()=='Replacement article text.'
+    open_extra_exports(page)
     state['accept']=True; page.check('#reviewed'); page.check('#copy-title'); page.check('#reviewed')
     page.click('#restore-checkpoint')
     expect(page.locator('#body')).to_have_value('Original article text.')
@@ -731,6 +781,7 @@ with sync_playwright() as p:
     assert page.locator('#notes').input_value()==source['notes'] and page.locator('#questions li').count()==1
     assert not page.locator('#reviewed').is_checked() and page.locator('#replace-examples li').count()==0
     page.check('#reviewed')
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-body')
     assert Path(info.value.path()).read_text()==applied+'\n'
     page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value(original_search_body+'!')
@@ -755,6 +806,7 @@ with sync_playwright() as p:
     assert page.locator('#start-find').is_disabled()
     page.fill('#body','Fictional fallback article.'); page.check('#reviewed')
     assert page.locator('#download-body').is_enabled()
+    open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-body')
     assert Path(info.value.path()).read_text()=='Fictional fallback article.\n'
     page.click('[data-format=bold]'); assert '**' in page.locator('#body').input_value()

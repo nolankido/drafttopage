@@ -8,9 +8,10 @@ import { installWordPressHandoff } from './wordpress-handoff-controls.js';
 import { installHTMLSource } from './html-source-controls.js';
 import { installWordDocument } from './word-controls.js';
 
-export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, defaultDestination = 'wordpress' }) {
+export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, defaultDestination = 'wordpress', compact = false }) {
   const $ = id => document.getElementById(id);
   $('publishing-destination').value = defaultDestination;
+  $('additional-exports').open = !compact;
   const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy });
   const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
   const word = installWordDocument({ getDraft, approved, changed, report, isBusy });
@@ -33,11 +34,11 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     word.update();
     $('copy-formatted').disabled = !reviewed || Object.keys(articleIssues(draft, $('copy-title').checked ? 'html' : 'body')).length > 0;
     let kit = null, error = '';
-    try { kit = publishingKitFiles(draft, options()); }
+    try { if ($('additional-exports').open) kit = publishingKitFiles(draft, options()); }
     catch (failure) { error = failure.message; }
     $('download-kit').disabled = !reviewed || !kit;
-    $('kit-readiness').textContent = kit ? 'Includes ' + kit.files.length + ' files. ' + (kit.notices.join(' ') || 'All page fields are complete.') : 'Add a valid title and article for a publishing kit. ' + error;
-    if ($('publishing-kit-panel').open) {
+    $('kit-readiness').textContent = !$('additional-exports').open ? '' : kit ? 'Includes ' + kit.files.length + ' files. ' + (kit.notices.join(' ') || 'All page fields are complete.') : 'Add a valid title and article for a publishing kit. ' + error;
+    if ($('additional-exports').open && $('publishing-kit-panel').open) {
       const snapshot = JSON.stringify([kit?.filename, kit?.files.map(file => [file.name, file.purpose]), kit?.notices, error]);
       if (snapshot !== kitSnapshot) {
         kitSnapshot = snapshot;
@@ -46,11 +47,12 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
           item.append(name, document.createTextNode(': ' + file.purpose)); return item;
         }));
       }
-    }
+    } else { kitSnapshot = null; $('kit-files').replaceChildren(); }
   }
   $('publishing-kit-panel').addEventListener('toggle', update);
+  $('additional-exports').addEventListener('toggle', update);
   $('wordpress-code-panel').addEventListener('toggle', update);
-  $('publishing-destination').addEventListener('change', changed);
+  $('publishing-destination').addEventListener('change', () => { if ($('publishing-destination').value === 'other') $('additional-exports').open = true; changed(); });
   $('copy-title').addEventListener('change', changed);
   $('copy-formatted').addEventListener('click', async () => {
     try {
@@ -66,6 +68,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     }
   });
   $('download-kit').addEventListener('click', () => {
+    if (!$('additional-exports').open || isBusy()) return;
     try {
       approved(); const kit = createPublishingKit(getDraft(), options());
       downloadText(kit.bytes, kit.filename, 'application/zip');
@@ -90,5 +93,5 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     try { approved(); const draft = getDraft(); if (articleIssues(draft, 'html').title) throw new Error('Add a valid title first.'); await navigator.clipboard.writeText(draft.title.trim()); report('Title copied separately. Paste into the WordPress title field. Nothing was published.'); }
     catch (error) { report('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
   });
-  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; word.reset(); $('wordpress-code-preview').value = ''; kitSnapshot = null; } };
+  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; word.reset(); $('wordpress-code-preview').value = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
 }
