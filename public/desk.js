@@ -22,7 +22,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -34,7 +34,7 @@ const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
-const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork()) || Boolean(sourceReview?.hasWork());
+const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork()) || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork());
 function updateExitWarning() {
   window.removeEventListener('beforeunload', warn);
   if (hasWork()) window.addEventListener('beforeunload', warn);
@@ -86,6 +86,7 @@ function update() {
   articleSearch?.refresh();
   draftCollection?.update();
   sourceReview?.refresh();
+  imageEditor?.refresh();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -99,6 +100,7 @@ function fill(value) {
   for (const id of DRAFT_FIELDS) $(id).value = value.draft?.[id] ?? '';
   questions = value.draft?.questions ? [...value.draft.questions] : [];
   sourceReview?.clear();
+  imageEditor?.clear();
   touched.clear(); renderQuestions(); setFocus(false);
   importer?.clear(); $('import-text').value = '';
   articleSearch?.clear();
@@ -110,7 +112,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -137,7 +139,7 @@ $('start-handoff').addEventListener('click', () => {
 function loadSample() {
   if (recovery.reading() || importer?.reading()) return;
   const existing = capture();
-  if ((DRAFT_FIELDS.some(id => existing.draft[id].length) || importer?.pending() || sourceReview?.hasWork()) && !confirm('Replace the current article with a fictional sample? A checkpoint keeps the current writing in this tab. Source notes and saved review questions are kept. Unsaved passage review preparation is discarded. Save a private backup to keep them after leaving.')) return;
+  if ((DRAFT_FIELDS.some(id => existing.draft[id].length) || importer?.pending() || sourceReview?.hasWork() || imageEditor?.hasWork()) && !confirm('Replace the current article with a fictional sample? A checkpoint keeps the current writing in this tab. Source notes and saved review questions are kept. Unsaved passage review and image preparation are discarded. Save a private backup to keep them after leaving.')) return;
   try { revisions?.captureBefore('Before fictional sample'); } catch (error) { report(error.message); return; }
   fill({ source: existing.source, draft: { ...QUICK_SAMPLE, questions: existing.draft.questions } });
   setFocus(true); $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
@@ -161,6 +163,7 @@ function followFragment() {
   else if (hash === '#notes') $('start-notes').click();
   else if (hash === '#draft') $('start-draft').click();
   else if (hash === '#sample') loadSample();
+  else if (hash === '#image-editor-panel') { $('image-editor-panel').open = true; $('image-editor-panel').querySelector('summary').focus(); }
   else if (hash === '#source-review-panel') { $('source-review-panel').open = true; $('source-review-panel').querySelector('summary').focus(); }
 }
 window.addEventListener('hashchange', followFragment);
@@ -209,7 +212,7 @@ $('copy-brief').addEventListener('click', () => {
 });
 $('clear').addEventListener('click', () => {
   if (recovery.reading() || importer?.reading()) return;
-  if (hasWork() && !confirm('Clear the notes, article, questions, unsaved passage review, publishing profile, private draft collection, collection undo, and ALL checkpoints in this tab? Download a private backup and collection first to keep saved writing. Unsaved passage reviews are not included in files. This cannot be undone in the workspace.')) return;
+  if (hasWork() && !confirm('Clear the notes, article, questions, unsaved passage review and image preparation, publishing profile, private draft collection, collection undo, and ALL checkpoints in this tab? Download a private backup and collection first to keep saved writing. Unsaved passage reviews and image preparation are not included in files. This cannot be undone in the workspace.')) return;
   revisions?.clear();
   draftCollection?.clear();
   fill({ source: { profile: 'personal', audience: '', purpose: '', notes: '' }, draft: null });
@@ -261,14 +264,15 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   focusPreview: wordImportTool,
-  hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()),
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report,
+  hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()),
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report,
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
     articleSearch?.clear();
     questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
     sourceReview?.clear();
+    imageEditor?.clear();
     wordPressImages?.reset();
     if (!publishingProfiles?.hasSetup()) $('export-format').value = 'page';
     if (wordImportTool) $('import-panel').open = false;
@@ -292,7 +296,7 @@ draftReview = installDraftReview({
 });
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
 loadEditingTool(() => import('./wordpress-image-controls.js'), ({ installWordPressImages }) => {
-  wordPressImages = installWordPressImages({ getDraft: () => capture().draft, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()) });
+  wordPressImages = installWordPressImages({ getDraft: () => capture().draft, changed, report, editImage: (start, end) => imageEditor?.editImage(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(importer?.reading()) });
 }, () => {
   $('wordpress-image-status').textContent = 'Image preparation could not load. Images remain literal text in WordPress blocks. Your writing and other exports are kept.';
 });
@@ -302,6 +306,14 @@ loadEditingTool(() => import('./publishing-profile-controls.js'), ({ installPubl
   $('publishing-profile-status').textContent = 'Publishing profiles could not load in this browser. Continue using the destination and title choices directly. Your writing is kept.';
 });
 revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
+loadEditingTool(() => import('./image-editor-controls.js'), ({ installImageEditor }) => {
+  imageEditor = installImageEditor({ getBody: () => $('body').value, apply: (plan, label) => {
+    revisions.captureBefore(label);
+    $('body').value = plan.body; touched.add('body'); changed();
+  }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+}, () => {
+  $('image-editor-status').textContent = 'Image editor could not load. Edit image Markdown directly in the article. Your writing and exports are kept.';
+});
 loadEditingTool(() => import('./source-review-controls.js'), ({ installSourceReview }) => {
   sourceReview = installSourceReview({ getWorkspace: capture, applyNotes: (notes, label) => { revisions.captureBefore(label); questions = [...notes]; renderQuestions(); changed(); }, showSource: () => { setFocus(false); $('notes-panel').open = true; $('notes').focus(); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
   $('start-source-review').disabled = false;
@@ -310,7 +322,7 @@ loadEditingTool(() => import('./source-review-controls.js'), ({ installSourceRev
   $('source-review-status').textContent = 'Passage review could not load. Use ordinary private review notes under Source notes & review. Your writing is kept.';
 });
 loadEditingTool(() => import('./draft-collection-controls.js'), ({ installDraftCollection }) => {
-  draftCollection = installDraftCollection({ capture, hasUnsavedPreparation: () => Boolean(sourceReview?.hasWork()), openWorkspace: value => { revisions.captureBefore('Before opening a saved article'); fill(value); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  draftCollection = installDraftCollection({ capture, hasUnsavedPreparation: () => Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()), openWorkspace: value => { revisions.captureBefore('Before opening a saved article'); fill(value); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
 }, () => {
   $('draft-collection-status').textContent = 'Draft collections could not load in this browser. Use single-workspace backups to keep writing. Your current work is unchanged.';
 });
