@@ -1,4 +1,4 @@
-// Read only selected XML parts of a bounded Word ZIP. Nothing is extracted to disk.
+// Read bounded selected parts of a Word ZIP. Ordinary import reads only XML.
 import { crc32 } from './zip.js';
 
 export const MAX_DOCX_BYTES = 8 * 1024 * 1024;
@@ -67,27 +67,7 @@ export function inspectDocxArchive(input) {
 export async function readDocxXML(input) {
   const { bytes, entries } = inspectDocxArchive(input), parts = new Map();
   for (const entry of entries.filter(e => DOCX_XML_PARTS.includes(e.name))) {
-    // Data descriptors belong to the archive, not the compressed payload.
-    const source = bytes.subarray(entry.start, entry.start + entry.compressed);
-    let content;
-    if (!entry.method) content = source;
-    else {
-      let stream;
-      try { stream = new Blob([source]).stream().pipeThrough(new DecompressionStream('deflate-raw')); }
-      catch { throw new Error('This browser cannot decompress Word files. Copy a formatted selection from Word instead.'); }
-      const reader = stream.getReader(), chunks = []; let total = 0;
-      try {
-        while (true) {
-          const { done, value } = await reader.read(); if (done) break;
-          total += value.byteLength;
-          if (total > entry.length || total > MAX_PART) { await reader.cancel(); throw invalid(); }
-          chunks.push(value);
-        }
-      } catch { await reader.cancel().catch(() => {}); throw invalid(); }
-      content = new Uint8Array(total); let at = 0;
-      for (const chunk of chunks) { content.set(chunk, at); at += chunk.byteLength; }
-    }
-    if (content.length !== entry.length || crc32(content) !== entry.crc) throw invalid();
+    const content = await readEntry(bytes, entry, MAX_PART);
     let text;
     try { text = new TextDecoder('utf-8', { fatal: true }).decode(content); }
     catch { throw new Error('The Word XML must use UTF-8. Save a new .docx or use formatted import.'); }
@@ -95,4 +75,41 @@ export async function readDocxXML(input) {
     parts.set(entry.name, text);
   }
   return parts;
+}
+
+async function readEntry(bytes, entry, limit) {
+  if (!entry || entry.length > limit) throw new Error('This Word part exceeds the supported recovery limit.');
+  // Data descriptors belong to the archive, not the compressed payload.
+  const source = bytes.subarray(entry.start, entry.start + entry.compressed);
+  let content;
+  if (!entry.method) content = source;
+  else {
+    let stream;
+    try { stream = new Blob([source]).stream().pipeThrough(new DecompressionStream('deflate-raw')); }
+    catch { throw new Error('This browser cannot decompress Word files. Copy a formatted selection from Word instead.'); }
+    const reader = stream.getReader(), chunks = []; let total = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read(); if (done) break;
+        total += value.byteLength;
+        if (total > entry.length || total > limit) { await reader.cancel(); throw invalid(); }
+        chunks.push(value);
+      }
+    } catch { await reader.cancel().catch(() => {}); throw invalid(); }
+    content = new Uint8Array(total); let at = 0;
+    for (const chunk of chunks) { content.set(chunk, at); at += chunk.byteLength; }
+  }
+  if (content.length !== entry.length || crc32(content) !== entry.crc) throw invalid();
+  return content;
+}
+
+export const MAX_WORD_IMAGE_BYTES = 4 * 1024 * 1024;
+export const wordImagePartName = name => typeof name === 'string' && /^word\/media\/[a-z0-9][a-z0-9._-]{0,120}\.(?:png|jpe?g)$/i.test(name) && !name.includes('..');
+// Called only by the explicit image-recovery action, never by ordinary import.
+export async function readDocxImagePart(input, name) {
+  if (!wordImagePartName(name)) throw new Error('Only embedded PNG and JPEG image parts can be recovered.');
+  const { bytes, entries } = inspectDocxArchive(input);
+  const entry = entries.find(item => item.name === name);
+  if (!entry) throw new Error('The referenced image file is missing from this Word document.');
+  return readEntry(bytes, entry, MAX_WORD_IMAGE_BYTES);
 }

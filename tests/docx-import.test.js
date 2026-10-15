@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import { inspectDocxArchive, readDocxXML, MAX_DOCX_BYTES } from '../public/docx-archive.js';
 import { parseWordXML, wordTreesToMarkdown, WORD_NS } from '../public/docx-import.js';
@@ -9,51 +8,9 @@ import { createWordPressArticle } from '../public/wordpress-export.js';
 import { parseArticleImport } from '../public/article-import.js';
 import { installArticleImport } from '../public/import-controls.js';
 import { crc32 } from '../public/zip.js';
+import { imageFixture } from './word-image-fixtures.js';
 
-const W = WORD_NS, R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
-const xml = body => '<w:document xmlns:w="' + W + '" xmlns:r="' + R + '"><w:body>' + body + '</w:body></w:document>';
-const run = (text, props = '') => '<w:r>' + (props ? '<w:rPr>' + props + '</w:rPr>' : '') + '<w:t>' + text + '</w:t></w:r>';
-const para = (text, props = '') => '<w:p>' + (props ? '<w:pPr>' + props + '</w:pPr>' : '') + run(text) + '</w:p>';
-const word = (tag, body) => '<w:' + tag + ' xmlns:w="' + W + '">' + body + '</w:' + tag + '>';
-function fixture(body = para('Fictional writing'), more = {}) {
-  const result = {
-    '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
-    '_rels/.rels': '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="main" Type="' + R + '/officeDocument" Target="word/document.xml"/></Relationships>',
-    'word/document.xml': xml(body), ...more
-  };
-  if (!Object.hasOwn(more, 'word/_rels/document.xml.rels') && ['styles', 'numbering'].some(n => Object.hasOwn(more, 'word/' + n + '.xml'))) result['word/_rels/document.xml.rels'] = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + ['styles', 'numbering'].filter(n => Object.hasOwn(more, 'word/' + n + '.xml')).map(n => '<Relationship Id="' + n + '" Type="' + R + '/' + n + '" Target="' + n + '.xml"/>').join('') + '</Relationships>';
-  return result;
-}
-function python(code, input) {
-  const result = spawnSync('python3', ['-c', code], { input: JSON.stringify(input), encoding: 'utf8', maxBuffer: 24 * 1024 * 1024 });
-  assert.equal(result.status, 0, result.stderr); return JSON.parse(result.stdout);
-}
-function zip(parts = fixture(), stored = false) {
-  return new Uint8Array(python('import sys,json,io,zipfile\nv=json.load(sys.stdin); b=io.BytesIO()\nwith zipfile.ZipFile(b,"w",compression=zipfile.ZIP_STORED if v["stored"] else zipfile.ZIP_DEFLATED) as z:\n for n,c in v["parts"].items(): z.writestr(n,c)\nprint(json.dumps(list(b.getvalue())))', { parts, stored }));
-}
-// Independent XML parser supplies namespace-aware trees for pure conversion tests.
-function trees(parts) {
-  const raw = python('import sys,json,xml.etree.ElementTree as E\ndef node(n):\n ns,name=n.tag[1:].split("}") if n.tag.startswith("{") else ("",n.tag)\n return {"ns":ns,"name":name,"attrs":n.attrib,"text":n.text or "","children":[{"node":node(c),"tail":c.tail or ""} for c in n]}\nprint(json.dumps({k:node(E.fromstring(v)) for k,v in json.load(sys.stdin).items()}))', parts);
-  const text = value => ({ nodeType: 3, nodeValue: value, get textContent() { return value; }, childNodes: [] });
-  function adapt(v) {
-    const childNodes = [text(v.text)];
-    for (const c of v.children) childNodes.push(adapt(c.node), text(c.tail));
-    return { nodeType: 1, namespaceURI: v.ns, localName: v.name, childNodes,
-      getAttribute: key => v.attrs[key] ?? null,
-      getAttributeNS: (ns, key) => v.attrs['{' + ns + '}' + key] ?? null,
-      get textContent() { return childNodes.map(n => n.textContent).join(''); } };
-  }
-  return new Map(Object.entries(raw).map(([key, value]) => [key, adapt(value)]));
-}
-function create(name) {
-  const attrs = {}, node = { nodeType: 1, localName: name, childNodes: [],
-    setAttribute: (key, value) => { attrs[key] = value; }, getAttribute: key => attrs[key] ?? null, hasAttribute: key => Object.hasOwn(attrs, key),
-    append(...nodes) { node.childNodes.push(...nodes.map(n => typeof n === 'string' ? { nodeType: 3, nodeValue: n, childNodes: [] } : n)); } };
-  return node;
-}
-const convert = (parts, options) => wordTreesToMarkdown(trees(parts), options, create);
-const numbering = (format = 'decimal', extra = '') => word('numbering', '<w:abstractNum w:abstractNumId="0">' + [0, 1, 2, 3, 4, 5].map(i => '<w:lvl w:ilvl="' + i + '"><w:start w:val="4"/><w:numFmt w:val="' + format + '"/><w:lvlText w:val="%' + (i + 1) + '."/>' + extra + '</w:lvl>').join('') + '</w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>');
-const item = (text, level = 0) => para(text, '<w:numPr><w:ilvl w:val="' + level + '"/><w:numId w:val="1"/></w:numPr>');
+import { W, R, xml, run, para, word, fixture, python, zip, trees, create, convert, numbering, item } from './docx-fixtures.js';
 
 test('Stored and deflated Word packages read only the exact known XML parts', async () => {
   const parts = fixture(undefined, { 'word/media/picture.png': 'NOT XML OR A RESOURCE REQUEST', 'docProps/core.xml': 'PRIVATE_METADATA_SENTINEL' });
@@ -148,7 +105,7 @@ test('Marked table headers work; unmarked headers require an explicit choice', (
 });
 test('Images become visible placeholders; critical unsupported content and tracked changes reject', () => {
   const result = convert(fixture('<w:p>' + run('Before ') + '<w:r><w:drawing/></w:r>' + run(' after') + '</w:p>'));
-  assert.match(result.markdown, /Image or object omitted/); assert.match(result.warnings.join(' '), /No image or external resource/);
+  assert.match(result.markdown, /Word image 1/); assert.match(result.warnings.join(' '), /No image or external resource/);
   for (const content of ['<w:ins>' + run('x') + '</w:ins>', '<w:r><w:rPr><w:rPrChange/></w:rPr><w:t>x</w:t></w:r>', '<w:r><w:footnoteReference w:id="2"/></w:r>', '<w:r><w:fldChar w:fldCharType="begin"/></w:r>', '<w:sdt/>', '<m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"/>']) assert.throws(() => convert(fixture('<w:p>' + content + '</w:p>')), /tracked changes|Fields|Unsupported|non-text/);
 });
 test('Main-part/type confusion, duplicate relationships and alternate linked parts reject', () => {
@@ -198,6 +155,47 @@ test('Word file selection stages only, acknowledgement gates apply, cancellation
   fail(false); await $('apply-import').fire(); assert.equal(applied.length, 1); assert.equal(applied[0].body, 'Fictional writing');
   assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal($('import-reading-preview').childNodes.length, 0);
 }));
+
+test('Explicit image preparation gates downloads, keeps import approval and purges files after apply', async () => {
+  const downloads=[]; let calls=0;
+  const prepared={bytes:new Uint8Array([1,2,3]),filename:'drafttopage-word-images.zip',images:[{name:'word-image-001.png',width:2,height:3,bytes:77,placeholders:['[Word image 1]']}],skipped:[]};
+  await withUI(async ({$,ui,file,confirm,applied})=>{
+    await file(imageFixture().bytes); assert.equal($('word-image-handoff').hidden,false); assert.equal(calls,0);
+    $('import-changes-ok').checked=true; await $('import-changes-ok').fire('change');
+    await $('download-word-images').fire(); assert.equal(downloads.length,0);
+    await $('prepare-word-images').fire(); assert.equal(calls,1); assert.equal($('word-image-kit-review').hidden,false);
+    assert.equal($('import-changes-ok').checked,true); assert.equal($('apply-import').disabled,false); assert.equal($('download-word-images').disabled,true);
+    await $('download-word-images').fire(); assert.equal(downloads.length,0);
+    $('word-image-private-ok').checked=true; await $('word-image-private-ok').fire('change');
+    await $('download-word-images').fire(); assert.equal(downloads.length,1); assert.equal(downloads[0][1],prepared.filename);
+    confirm(true); await $('apply-import').fire(); assert.equal(applied.length,1); assert.match(applied[0].body,/Word image 1/); assert.doesNotMatch(JSON.stringify(applied[0]),/image\/png|Uint8Array|wordImages|image-map/);
+    assert.equal(ui.pending(),false); assert.equal($('word-image-handoff').hidden,true); assert.equal($('word-image-kit-files').childNodes.length,0); assert.equal($('word-image-private-ok').checked,false);
+    await $('download-word-images').fire(); assert.equal(downloads.length,1);
+  },{prepareImages:async()=>{calls++;return prepared;},download:(...args)=>downloads.push(args)});
+});
+
+test('An image preparation failure or discard leaves the import usable and current writing unchanged', async () => {
+  let failing=true;
+  await withUI(async ({$,ui,file,applied,message})=>{
+    await file(imageFixture().bytes); const before=$('import-body-preview').value;
+    $('import-changes-ok').checked=true; await $('import-changes-ok').fire('change');
+    await $('prepare-word-images').fire(); assert.match(message(),/Image read failed/); assert.equal(ui.pending(),true); assert.equal(ui.reading(),false); assert.equal($('apply-import').disabled,false); assert.equal($('import-body-preview').value,before);
+    failing=false; await $('prepare-word-images').fire(); assert.equal($('word-image-kit-review').hidden,false); await $('discard-word-images').fire();
+    assert.equal($('word-image-kit-review').hidden,true); assert.equal($('word-image-kit-files').childNodes.length,0); assert.equal($('import-body-preview').value,before); assert.equal($('import-changes-ok').checked,true); assert.equal(applied.length,0);
+  },{prepareImages:async()=>{if(failing)throw new Error('Image read failed');return {bytes:new Uint8Array([1]),filename:'images.zip',images:[],skipped:[]};}});
+});
+
+test('Image preparation blocks conflicting operations and never installs a result for an obsolete preview', async () => {
+  let finish;
+  await withUI(async ({$,ui,file})=>{
+    await file(imageFixture().bytes);
+    const pending=$('prepare-word-images').fire(); assert.equal(ui.reading(),true); assert.equal($('apply-import').disabled,true); assert.equal($('cancel-import').disabled,true);
+    // A programmatic source replacement must also invalidate an in-flight result.
+    $('import-text').value='Replacement source'; await $('import-text').fire('input');
+    finish({bytes:new Uint8Array([1]),filename:'old.zip',images:[],skipped:[]}); await pending;
+    assert.equal(ui.reading(),false); assert.equal($('word-image-kit-review').hidden,true); assert.equal($('download-word-images').disabled,true); assert.equal($('import-body-preview').value,'');
+  },{prepareImages:()=>new Promise(resolve=>{finish=resolve;})});
+});
 test('Word insertion uses retained conversion and exact append preview while keeping its acknowledgement gate', async () => {
   const inserted = [];
   await withUI(async ({ $, file, applied, ui }) => {

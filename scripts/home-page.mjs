@@ -26,7 +26,7 @@ export const HOME_PAGE = `
     <p class="eyebrow">Start with what you have</p>
     <h2 id="start-heading">Where is your draft?</h2>
     <div class="draft-starts">${starts.map(([number, title, description, href, action]) => `<a href="${href}" class="draft-start"><span class="draft-start-number" aria-hidden="true">${number}</span><span><strong>${title}</strong><span>${description}</span><span class="draft-start-action">${action} <span aria-hidden="true">→</span></span></span></a>`).join('')}</div>
-    <p class="small">Word and Google Docs images become placeholders. Add them in WordPress, or prepare supported public image links.</p>
+    <p class="small">Word imports can recover embedded PNG and JPEG files with placement notes. Upload them in WordPress. Pasted Google Docs images remain placeholders.</p>
   </aside>
 </section>
 <section class="example-band" id="example"><div class="wrap section home-example">

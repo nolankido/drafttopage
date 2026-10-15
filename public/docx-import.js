@@ -2,6 +2,7 @@ import { readDocxXML } from './docx-archive.js';
 import { htmlTreeToMarkdown } from './html-import.js';
 import { parseArticleImport } from './article-import.js';
 import { safeWebLink } from './markdown-inline.js';
+import { wordImageReference } from './word-image-reference.js';
 
 export const WORD_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -61,6 +62,7 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     if (links.length > 1 || parts.has('word/' + name + '.xml') && links.length !== 1 || links.some(r => ![name + '.xml', '/word/' + name + '.xml'].includes(r.target) || r.mode && r.mode !== 'Internal' || !parts.has('word/' + name + '.xml'))) throw unsupported('This document uses unsupported ' + name + ' parts.');
   }
   const notices = new Set(['Only the main article is imported. Headers, footers, comments, document metadata, fonts, colors, page layout, and embedded files are not retained. Keep your original Word file.']);
+  const wordImages = []; let imageCount = 0;
   const warn = text => notices.add(text);
   const h = (name, content = [], attributes = {}) => {
     const node = create(name); for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, String(value));
@@ -118,7 +120,13 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     if (node.namespaceURI !== WORD_NS) throw unsupported('Equations or other non-text content cannot be preserved.');
     const name = node.localName;
     if (['pPr', 'rPr', 'bookmarkStart', 'bookmarkEnd', 'proofErr', 'lastRenderedPageBreak', 'commentRangeStart', 'commentRangeEnd', 'commentReference'].includes(name)) return [];
-    if (['drawing', 'pict', 'object'].includes(name)) { warn('Images and embedded objects became text placeholders. No image or external resource was loaded.'); return ['[Image or object omitted from Word document]']; }
+    if (['drawing', 'pict', 'object'].includes(name)) {
+      warn('Images and embedded objects became numbered text placeholders. No image or external resource was loaded. Recover supported Word images explicitly before applying the import.');
+      const image = wordImageReference(node, rels, types, ++imageCount);
+      if (wordImages.length < 200) wordImages.push(image);
+      else warn('Image recovery maps only the first 200 visible image or object positions. Inspect the remaining placeholders in Word.');
+      return [image.placeholder];
+    }
     if (['footnoteReference', 'endnoteReference', 'fldChar', 'instrText', 'fldSimple', 'altChunk', 'sym'].includes(name)) throw unsupported('Fields, footnotes, endnotes, and special symbols need review in Word first.');
     if (name === 't') return [node.textContent];
     if (name === 'tab') { warn('Tabs were simplified to spaces.'); return [' ']; }
@@ -206,7 +214,7 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     return result;
   }
   const converted = htmlTreeToMarkdown({ nodeType: 11, childNodes: blocks(body) }, options);
-  return { markdown: converted.markdown, warnings: [...notices, ...converted.warnings] };
+  return { markdown: converted.markdown, warnings: [...notices, ...converted.warnings], wordImages };
 }
 
 export async function parseDocxArticle(bytes, filename = '', options = {}) {
@@ -214,5 +222,5 @@ export async function parseDocxArticle(bytes, filename = '', options = {}) {
   for (const [name, text] of xml) parts.set(name, parseWordXML(text));
   const converted = wordTreesToMarkdown(parts, options);
   const result = parseArticleImport(converted.markdown, filename.replace(/\.docx$/i, ''), 'markdown');
-  return { ...result, kind: 'Word document', warnings: [...converted.warnings, ...result.warnings], requiresAck: true };
+  return { ...result, kind: 'Word document', warnings: [...converted.warnings, ...result.warnings], requiresAck: true, wordImages: converted.wordImages };
 }

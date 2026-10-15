@@ -34,6 +34,10 @@
 .editing-tools{border-top:1px solid var(--line);margin:1rem 0;padding-top:1rem;min-width:0}
 .editing-tools>summary{font-size:.9rem;color:var(--accent)}
 .editing-tools>.small{margin-top:1rem}
+.word-image-handoff{border:1px solid var(--line);border-radius:5px;background:var(--soft);padding:1rem;margin:1rem 0;min-width:0;overflow-wrap:anywhere}
+.word-image-handoff h3{margin-top:0}
+.word-image-kit-files{padding-left:1.3rem;font-size:.85rem;overflow-wrap:anywhere}
+.word-image-handoff .actions{flex-wrap:wrap}
 .editing-tools .checkpoint-panel,.editing-tools .draft-collection-panel{margin-block:1rem}
 .converter-main .desk-intro>p{max-width:75ch}
 .converter-main .desk-intro .jump-links{margin-block:1rem;font-size:.8rem}
