@@ -25,7 +25,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     $('import-unmapped-ok').checked = false;
     $('import-changes-ok').checked = false; $('import-changes-section').hidden = true;
     $('import-reading-preview').replaceChildren();
+    $('import-reading-panel').open = true; $('import-source-panel').open = false;
     $('import-body-preview').value = ''; $('import-summary').textContent = '';
+    $('import-review-summary').textContent = '';
+    $('import-review-notes').setAttribute('data-state', '');
     $('import-page-details').replaceChildren(); $('import-warnings').replaceChildren();
     $('import-unmapped').textContent = ''; $('import-unmapped-section').hidden = true;
     workChanged();
@@ -37,6 +40,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     catch (error) {
       copiedSource = source; copiedFailed = true; wordFile = null; sourceName = ''; $('import-text').value = '';
       $('import-changes-ok').checked = false;
+      if (candidate) {
+        $('import-review-notes').setAttribute('data-state', 'stale');
+        $('import-review-summary').textContent = 'This is an earlier preview. It cannot be applied because the latest copied selection did not convert. Change the source or table-header choice, then preview again. Current writing is kept.';
+      }
       $('import-file-status').textContent = 'Copied source kept for re-preview. Any earlier preview remains visible but cannot be applied until a selection converts successfully.';
       updateApply(); workChanged(); throw error;
     }
@@ -69,6 +76,9 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     $('import-warnings').replaceChildren(...candidate.warnings.map(text => {
       const li = document.createElement('li'); li.textContent = text; return li;
     }));
+    $('import-review-summary').textContent = (candidate.warnings.length ? candidate.warnings.length + ' conversion note' + (candidate.warnings.length === 1 ? '' : 's') + ' below.' : 'No conversion notes were reported.') +
+      (candidate.unmapped.length ? ' ' + candidate.unmapped.length + ' front-matter field' + (candidate.unmapped.length === 1 ? '' : 's') + ' need' + (candidate.unmapped.length === 1 ? 's' : '') + ' separate handling below.' : '') +
+      ' Current writing is unchanged until you apply.';
     $('import-unmapped').textContent = candidate.unmapped.map(item => item.key + ': ' + item.value).join('\n');
     $('import-unmapped-section').hidden = candidate.unmapped.length === 0;
     $('import-preview').hidden = false;

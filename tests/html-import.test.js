@@ -116,13 +116,13 @@ test('Decoded content, node count, depth, and expanded Markdown have explicit wh
 });
 
 class Control {
-  constructor(name = '') { this.nodeType = 1; this.localName = name; this.childNodes = []; this.value = ''; this.checked = false; this.disabled = false; this.hidden = false; this.selectionStart = 0; this.selectionEnd = 0; this.events = new Map(); }
+  constructor(name = '') { this.nodeType = 1; this.localName = name; this.childNodes = []; this.value = ''; this.checked = false; this.disabled = false; this.hidden = false; this.selectionStart = 0; this.selectionEnd = 0; this.events = new Map(); this.attributes = {}; }
   addEventListener(type, fn) { if (!this.events.has(type)) this.events.set(type, []); this.events.get(type).push(fn); }
   async fire(type = 'click', fields = {}) { const event = { type, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...fields }; for (const fn of this.events.get(type) || []) await fn(event); return event; }
   dispatchEvent(event) { for (const fn of this.events.get(event.type) || []) fn(event); return true; }
   append(...nodes) { this.childNodes.push(...nodes); }
   replaceChildren(...nodes) { this.childNodes = nodes; }
-  setAttribute() {}
+  setAttribute(name, value) { this.attributes[name] = value; }
   focus() { this.focused = true; }
   select() { this.selectionStart = 0; this.selectionEnd = this.value.length; }
 }
@@ -162,6 +162,40 @@ test('Staged HTML requires acknowledgement, cancellation retains it, and apply p
   confirm(false); await $('apply-import').fire(); assert.equal(applications.length, 0); assert.ok(ui.pending());
   confirm(true); await $('apply-import').fire(); assert.equal(applications.length, 1); assert.equal(applications[0].title, 'Fictional title.');
   assert.equal($('import-reading-preview').childNodes.length, 0); assert.equal($('import-body-preview').value, ''); assert.equal(ui.pending(), false); assert.equal($('import-changes-ok').checked, false);
+}));
+test('Import review counts every reported conversion note without replacing existing writing', () => withDOM(async ({ $, ui, applications, parse }) => {
+  $('body').value = 'Existing article stays here.';
+  parse(tree(element('h1', ['Fictional title']), element('p', ['Keep the body.']), element('img', [], { src: 'https://example.test/fictional.jpg', alt: 'Fictional image' })));
+  const expected = parseArticleImport('HTML fixture', '', 'html');
+  ui.openFormatted(); $('import-text').value = 'HTML fixture'; await $('preview-import').fire();
+  assert.ok(expected.warnings.length > 0);
+  assert.deepEqual($('import-warnings').childNodes.map(node => node.textContent), expected.warnings);
+  assert.match($('import-review-summary').textContent, new RegExp('^' + expected.warnings.length + ' conversion note'));
+  assert.match($('import-review-summary').textContent, /Current writing is unchanged/);
+  assert.equal($('body').value, 'Existing article stays here.'); assert.equal(applications.length, 0);
+  assert.equal($('import-changes-ok').checked, false); assert.equal($('apply-import').disabled, true);
+}));
+test('A new conversion reopens reading, closes optional source and resets acknowledgement; clearing purges its report', () => withDOM(async ({ $, ui }) => {
+  ui.openFormatted(); $('import-text').value = 'HTML fixture'; await $('preview-import').fire();
+  $('import-reading-panel').open = false; $('import-source-panel').open = true; $('import-changes-ok').checked = true;
+  await $('preview-import').fire();
+  assert.equal($('import-reading-panel').open, true); assert.equal($('import-source-panel').open, false);
+  assert.equal($('import-changes-ok').checked, false); assert.equal($('apply-import').disabled, true);
+  assert.ok($('import-body-preview').value); assert.ok($('import-review-summary').textContent);
+  await $('cancel-import').fire();
+  assert.equal($('import-review-summary').textContent, ''); assert.equal($('import-warnings').childNodes.length, 0);
+  assert.equal($('import-body-preview').value, ''); assert.equal($('import-preview').hidden, true);
+}));
+test('Quiet Markdown imports and unmapped front matter have accurate summaries and preserve their existing consent rules', () => withDOM(async ({ $, ui, applications }) => {
+  $('import-format').value = 'markdown'; $('import-text').value = 'Plain article body.'; await $('preview-import').fire();
+  assert.match($('import-review-summary').textContent, /^No conversion notes were reported/);
+  assert.equal($('import-warnings').childNodes.length, 0); assert.equal($('import-changes-section').hidden, true);
+  assert.equal($('apply-import').disabled, false);
+  $('import-text').value = '---\nlayout: article\n---\n\nAnother body.'; await $('preview-import').fire();
+  assert.match($('import-review-summary').textContent, /1 front-matter field needs separate handling/);
+  assert.equal($('apply-import').disabled, true); await $('apply-import').fire(); assert.equal(applications.length, 0);
+  $('import-unmapped-ok').checked = true; await $('import-unmapped-ok').fire('change'); assert.equal($('apply-import').disabled, false);
+  ui.clear(); assert.equal($('import-review-summary').textContent, '');
 }));
 test('Edits, format and header choices invalidate acknowledged candidates; busy or failed apply retains writing', () => withDOM(async ({ $, ui, applications, busy, fail, message }) => {
   ui.openFormatted(); $('import-text').value = 'HTML fixture'; await $('preview-import').fire(); $('import-changes-ok').checked = true;
@@ -216,7 +250,9 @@ test('A failed copied table retains bounded source for explicit header re-previe
   parse(tree(element('table', [element('tr', [element('td', ['Name'])]), element('tr', [element('td', ['One'])])])));
   await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/html' ? '<table><tr><td>Name</td></tr><tr><td>One</td></tr></table>' : '' } });
   assert.equal($('import-body-preview').value, previous); assert.match($('import-file-status').textContent, /cannot be applied/); $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, true); await $('apply-import').fire(); assert.equal(applications.length, 0);
+  assert.match($('import-review-summary').textContent, /earlier preview.*cannot be applied/); assert.equal($('import-review-notes').attributes['data-state'], 'stale');
   $('import-first-row-headers').checked = true; await $('import-first-row-headers').fire('change'); await $('preview-import').fire(); assert.match($('import-body-preview').value, /\| Name \|/); assert.equal($('import-changes-ok').checked, false);
+  assert.doesNotMatch($('import-review-summary').textContent, /earlier preview/); assert.equal($('import-review-notes').attributes['data-state'], '');
   $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, false);
 }));
 test('Typing, clearing or changing format discards retained clipboard source and busy pastes cannot read it', () => withDOM(async ({ $, ui, busy }) => {

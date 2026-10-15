@@ -57,6 +57,13 @@
 #copied-import-alternatives{border-block:1px solid var(--line);padding-block:.8rem;margin-block:1rem}#copied-import-alternatives>summary{cursor:pointer;font-weight:650}#copied-import-alternatives[open]>summary{margin-bottom:1rem}#import-preview-heading:focus-visible{outline:3px solid var(--accent);outline-offset:4px}
 
 .import-panel #import-paste-status[data-result=ready]{color:var(--muted)}
+.import-review-notes{background:var(--white);border-left:3px solid var(--accent);padding:.85rem 1rem;margin:1rem 0;overflow-wrap:anywhere}
+.import-review-notes h3{margin-top:0}.import-review-notes p:last-child{margin-bottom:0}
+.import-review-notes[data-state=stale]{border-left-color:#953a29}.import-review-notes[data-state=stale] #import-review-summary{color:#953a29;font-weight:600}
+.import-panel #import-reading-panel>summary,.import-panel #import-source-panel>summary{cursor:pointer;font-weight:600}
+.import-panel #import-reading-preview{max-height:28rem;overflow:auto;scrollbar-gutter:stable;padding-right:.35rem}
+.import-panel #import-body-preview{width:100%;min-width:0;font:.85rem/1.5 ui-monospace,monospace}
+@media(max-width:850px){.import-panel #import-reading-preview{max-height:none;overflow:visible;padding-right:0}}
 
 /* The document converters start with reading. Source editing stays available on demand. */
 .article-progress{font-size:.85rem;font-weight:650;color:var(--accent);margin:.7rem 0}
