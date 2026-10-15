@@ -1179,6 +1179,25 @@ with sync_playwright() as p:
     context.close()
     report['checks'].append('Guided table optional-module failure keeps article editing and ordinary exports available')
 
+    page,context,state=open_page('/markdown-to-wordpress/')
+    page.fill('#title','Existing fictional title');page.fill('#body','Existing opening.');page.check('#reviewed')
+    page.click('#start-insert-import');page.fill('#import-text','# Additional section\n\nNew **details**.');page.click('#preview-import')
+    expect(page.locator('#apply-import')).to_be_disabled();page.click('#preview-insertion')
+    assert page.locator('#body').input_value()=='Existing opening.' and page.locator('#reviewed').is_checked()
+    page.fill('#body','Current opening.');expect(page.locator('#apply-import')).to_be_disabled()
+    assert page.locator('#import-insertion-after').input_value()=='' and page.locator('#import-body-preview').input_value()=='New **details**.'
+    page.check('#import-include-title');page.click('#preview-insertion');page.click('#apply-import')
+    assert page.locator('#body').input_value()=='Current opening.\n\n## Additional section\n\nNew **details**.'
+    assert page.locator('#title').input_value()=='Existing fictional title' and not page.locator('#reviewed').is_checked()
+    assert page.locator('#checkpoint-select option').count()==1
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    combined_blocks=Path(info.value.path()).read_text()
+    assert 'Current opening.' in combined_blocks and '<h2 class="wp-block-heading">Additional section</h2>' in combined_blocks and '<strong>details</strong>' in combined_blocks
+    page.click('#start-insert-import');page.fill('#import-text','Another section.');page.click('#preview-import');page.click('#preview-insertion')
+    assert state['api']==[];layout(page,'article-import-insertion');context.close()
+    report['checks'].append('Article insertion: exact append preview, stale location recovery retaining conversion, optional section title, existing title preservation, checkpointed apply, WordPress download, and contained layout')
+
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()

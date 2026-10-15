@@ -140,3 +140,7 @@ All five writing workspaces offer Add or edit link and an article-wide inline li
 ## Guided table editing
 
 All five workspaces offer a bounded table editor: choose an article table or append a new one, edit headers/cells/alignment, and insert or remove rows and columns in a paged grid. Exact source and reading previews precede checkpointed application. Surrounding prose is preserved. Explicit location rechecks retain pending cells after article edits without guessing between repeated tables. Pending preparation stays out of unchanged v1 private formats. No service, dependency, upload, persistence, or Actions job is added. See [the table editor release](docs/GUIDED_TABLE_EDITOR_RELEASE.md).
+
+## Combine article imports
+
+All five workspaces support previewed insertion of Word, formatted/HTML, Markdown, and article JSON imports at a complete-block selection or article end. Existing article fields and private notes stay in place. Changes require a checkpoint, exact source preview, explicit location refresh after article changes, and existing conversion acknowledgements. No private file schema or export format changes. See [the insertion release note](docs/ARTICLE_IMPORT_INSERTION_RELEASE.md).
