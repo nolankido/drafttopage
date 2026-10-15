@@ -147,7 +147,7 @@ All five workspaces support previewed insertion of Word, formatted/HTML, Markdow
 
 ## Paste a Google Docs selection
 
-The free `/google-docs-to-wordpress/` entry page opens the shared importer around copied writing. A user-initiated formatted paste previews immediately, while plain-only clipboard data gets a clear acknowledgement warning. Bounded clipboard source remains in tab memory for explicit re-preview and is excluded from private files and exports. No Google account connection or background clipboard read is introduced. See [the release note](docs/GOOGLE_DOCS_PASTE_RELEASE.md).
+The free `/google-docs-to-wordpress/` entry page opens the shared importer around copied writing. A user-initiated formatted paste previews immediately, while plain-only clipboard data gets a clear acknowledgement warning and preserves punctuation literally without interpreting Markdown or extracting page details. Intentional Markdown import remains available separately. Bounded clipboard source remains in tab memory for explicit re-preview and is excluded from private files and exports. No Google account connection or background clipboard read is introduced. See [the release note](docs/GOOGLE_DOCS_PASTE_RELEASE.md).
 
 ## Alpha preparation
 
