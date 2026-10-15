@@ -136,3 +136,7 @@ All five writing workspaces offer Add or edit image: choose an omitted Word imag
 ## Guided hyperlink editing
 
 All five writing workspaces offer Add or edit link and an article-wide inline link inventory. Choose selected plain text, a cursor, or a complete existing link; enter a descriptive label and HTTP(S) URL; inspect an exact change or unlink preview; then apply with a checkpoint. Source outside the selected range stays exact. Stale targets, partial formatting, code/table contexts, malformed URLs, and overflow are rejected. Pending preparation stays out of unchanged private formats; no-op/discard keeps approval. No URL is fetched or verified. See [the link editor release](docs/GUIDED_LINK_EDITOR_RELEASE.md).
+
+## Guided table editing
+
+All five workspaces offer a bounded table editor: choose an article table or append a new one, edit headers/cells/alignment, and insert or remove rows and columns in a paged grid. Exact source and reading previews precede checkpointed application. Surrounding prose is preserved. Explicit location rechecks retain pending cells after article edits without guessing between repeated tables. Pending preparation stays out of unchanged v1 private formats. No service, dependency, upload, persistence, or Actions job is added. See [the table editor release](docs/GUIDED_TABLE_EDITOR_RELEASE.md).

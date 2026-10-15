@@ -1149,6 +1149,36 @@ with sync_playwright() as p:
     context.close()
     report['checks'].append('Guided link optional-module failure keeps article editing and ordinary exports available')
 
+    page,context,state=open_page('/word-to-wordpress/')
+    table_source='| Step | Plan |\n| :--- | ---: |\n| Welcome | Share an introduction |\n| Read | Take turns |'
+    table_article='Opening.\n\n'+table_source+'\n\nEnding.'
+    page.fill('#body',table_article);page.fill('#title','Fictional table edit');page.check('#reviewed')
+    page.click('#start-table-editor');page.click('#table-open-selected')
+    page.fill('#table-cell-1-1','Read together | quietly');page.select_option('#table-align-1','center');page.click('#table-preview-change')
+    assert page.locator('#table-before').input_value()==table_source
+    assert page.locator('#table-reading-preview table').count()==1 and page.locator('#body').input_value()==table_article and page.locator('#reviewed').is_checked()
+    page.fill('#body','New intro.\n\n'+table_article)
+    expect(page.locator('#table-apply')).to_be_disabled();assert page.locator('#table-after').input_value()==''
+    page.click('#table-recheck');assert page.locator('#table-cell-1-1').input_value()=='Read together | quietly'
+    page.click('#table-preview-change');page.click('#table-apply')
+    assert page.locator('#body').input_value().startswith('New intro.\n\nOpening.') and page.locator('#body').input_value().endswith('\n\nEnding.')
+    assert not page.locator('#reviewed').is_checked();page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    table_blocks=Path(info.value.path()).read_text()
+    assert table_blocks.count('<th ')==2 and table_blocks.count('<tr>')==3 and 'Read together | quietly' in table_blocks and 'has-text-align-center' in table_blocks
+    page.click('#table-open-selected');page.click('#table-preview-change');page.click('#table-apply');assert page.locator('#reviewed').is_checked()
+    page.click('#table-create');page.fill('#table-head-0','Name');page.fill('#table-head-1','Notes');page.fill('#table-cell-0-0','Fictional group');page.fill('#table-cell-0-1','Preparation only');page.click('#table-preview-change');page.click('#table-discard')
+    assert page.locator('#reviewed').is_checked();assert 'Preparation only' not in page.locator('#body').input_value()
+    page.click('#table-open-selected')
+    for _ in range(10):page.click('#table-add-column')
+    assert state['api']==[];layout(page,'guided-table-editor');context.close()
+    report['checks'].append('Guided table editor: cell/alignment editing, exact source/reading preview, stale-target recheck retaining cells, checkpointed apply, WordPress table download, no-op and discard approval preservation, and contained grid layout')
+    page,context,state=open_page('/write/',blocked_modules=('/table-editor-controls.js',))
+    expect(page.locator('#table-editor-status')).to_contain_text('could not load')
+    page.fill('#body','Fictional table fallback.');page.check('#reviewed');page.click('#copy-body');assert page.locator('#body').input_value()=='Fictional table fallback.' and state['api']==[]
+    context.close()
+    report['checks'].append('Guided table optional-module failure keeps article editing and ordinary exports available')
+
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
             relative=path.relative_to(root/'public').as_posix()
