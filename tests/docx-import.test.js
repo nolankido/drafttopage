@@ -215,6 +215,12 @@ test('Busy and oversized Word reads cannot replace writing; changing text purges
   await file(zip()); $('import-text').value = 'Other article'; await $('import-text').fire('input');
   assert.equal($('import-file-status').textContent, ''); await $('preview-import').fire(); assert.match($('import-summary').textContent, /Markdown article/);
 }));
+test('Rejected Word bytes can be explicitly cleared without applying or replacing writing', () => withUI(async ({ $, ui, applied, file, message }) => {
+  await file(zip(fixture('<w:ins>' + para('Unresolved change') + '</w:ins>')));
+  assert.match(message(), /tracked changes/); assert.equal(ui.pending(), true); assert.equal($('import-preview').hidden, true);
+  assert.equal($('cancel-import').disabled, false); await $('cancel-import').fire();
+  assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal(applied.length, 0);
+}));
 test('All shared desks offer local Word import with explicit acknowledgement and unchanged private formats', async () => {
   for (const route of ['write', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word']) {
     const page = await readFile('public/' + route + '/index.html', 'utf8');

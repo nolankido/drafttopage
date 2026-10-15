@@ -5,6 +5,7 @@ the automated browser's temporary directory, not a user's device.
 Run npm run build first. --desk-only restricts testing to the new local writing desk.
 """
 import argparse
+import io
 import json
 import zipfile
 import xml.etree.ElementTree as ET
@@ -387,6 +388,17 @@ with sync_playwright() as p:
     assert 'Parent' in page.locator('#body').input_value() and page.locator('#notes').input_value()=='Keep fictional source notes.'
     assert not page.locator('#reviewed').is_checked() and page.locator('#import-file-status').inner_text()==''
     assert page.locator('#import-reading-preview').inner_html()==''
+    imported_body=page.locator('#body').input_value()
+    with zipfile.ZipFile(io.BytesIO(word_import_bytes)) as z: word_parts={n:z.read(n) for n in z.namelist()}
+    rejected=io.BytesIO()
+    with zipfile.ZipFile(rejected,'w',compression=zipfile.ZIP_DEFLATED) as z:
+        for name,content in word_parts.items():
+            if name=='word/document.xml': content=content.replace(b'<w:body>',b'<w:body><w:ins><w:p><w:r><w:t>Unresolved change</w:t></w:r></w:p></w:ins>')
+            z.writestr(name,content)
+    page.locator('#import-file').set_input_files({'name':'unresolved.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':rejected.getvalue()})
+    expect(page.locator('#desk-status')).to_contain_text('tracked changes')
+    expect(page.locator('#cancel-import')).to_be_visible(); page.click('#cancel-import')
+    assert page.locator('#import-file-status').inner_text()=='' and page.locator('#body').input_value()==imported_body
     layout(page,'word-import'); assert state['api']==[]; context.close()
     report['checks'].append('Word import: actual exported DOCX bytes, native XML parsing, nested numbering, table headers, inert literal markup, staged acknowledgement, cancelled replacement preservation, apply/source retention/approval reset, preview purge, and layout')
     # A distinct HTML tool provides reviewed source and keeps its destination after restore.
