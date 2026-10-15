@@ -8,11 +8,11 @@ import { installWordPressHandoff } from './wordpress-handoff-controls.js';
 import { installHTMLSource } from './html-source-controls.js';
 import { installWordDocument } from './word-controls.js';
 
-export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, defaultDestination = 'wordpress', compact = false }) {
+export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), defaultDestination = 'wordpress', compact = false }) {
   const $ = id => document.getElementById(id);
   $('publishing-destination').value = defaultDestination;
   $('additional-exports').open = !compact;
-  const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy });
+  const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy, getWordPressOptions });
   const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
   const word = installWordDocument({ getDraft, approved, changed, report, isBusy });
   let kitSnapshot = null;
@@ -22,13 +22,13 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     const wordpress = $('publishing-destination').value === 'wordpress';
     $('wordpress-handoff').hidden = !wordpress;
     let article = null;
-    try { if (wordpress) article = createWordPressArticle(draft); } catch { /* Readiness below explains missing article. */ }
-    for (const id of ['copy-wordpress', 'download-wordpress']) $(id).disabled = !reviewed || !article || !wordpress;
+    try { if (wordpress) article = createWordPressArticle(draft, getWordPressOptions()); } catch { /* Readiness below explains missing article. */ }
+    for (const id of ['copy-wordpress', 'download-wordpress']) $(id).disabled = isBusy() || !reviewed || !article || !wordpress;
     $('copy-wordpress-title').disabled = !reviewed || !wordpress || Boolean(articleIssues(draft, 'html').title);
     $('wordpress-readiness').textContent = !article ? 'Paste an article first. Page metadata is optional.' : article.blockCount + ' top-level blocks prepared locally. ' + (reviewed ? 'Copy or download, then inspect them in WordPress.' : 'Review your reading preview, then check the approval box to copy or download.') + (articleIssues(draft, 'html').title ? ' Add a title separately in WordPress.' : ' Your title stays separate from the body.');
     $('wordpress-notices').replaceChildren(...(article?.notices || []).map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
     // Clear hidden or unapproved output immediately after edits, restore, or clear.
-    $('wordpress-code-preview').value = wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
+    $('wordpress-code-preview').value = !isBusy() && wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
     handoff.update();
     html.update();
     word.update();
@@ -76,17 +76,19 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     } catch (error) { report(error.message); }
   });
   $('copy-wordpress').addEventListener('click', async () => {
+    if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
     try {
-      approved(); const article = createWordPressArticle(getDraft());
+      approved(); const article = createWordPressArticle(getDraft(), getWordPressOptions());
       await navigator.clipboard.writeText(article.html);
-      report('WordPress blocks copied without a title or page fields. Paste into the Code editor of a new WordPress draft, return to Visual editor, and inspect the result. Nothing was published.');
+      report('WordPress blocks copied without a title or page fields. Paste into the Code editor of a new WordPress draft, return to Visual editor, and inspect the result.' + (article.imageCount ? ' Linked image URLs can load there.' : '') + ' Nothing was published.');
     } catch (error) { report('WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks. ' + error.message); }
   });
   $('download-wordpress').addEventListener('click', () => {
+    if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
     try {
-      approved(); const draft = getDraft(), article = createWordPressArticle(draft);
+      approved(); const draft = getDraft(), article = createWordPressArticle(draft, getWordPressOptions());
       downloadText(article.html, suggestFilename(draft.title) + '-wordpress.html', 'text/html;charset=utf-8');
-      report('WordPress blocks download requested. Open the file in a text editor and paste its contents into the WordPress Code editor. Opening it in a browser only shows its reading view. Nothing was published.');
+      report('WordPress blocks download requested. Open the file in a text editor and paste its contents into the WordPress Code editor. Opening it in a browser shows its reading view' + (article.imageCount ? ' and can load linked images' : '') + '. Nothing was published.');
     } catch (error) { report(error.message); }
   });
   $('copy-wordpress-title').addEventListener('click', async () => {

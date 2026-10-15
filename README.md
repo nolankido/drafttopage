@@ -116,3 +116,7 @@ The writer and three converters can explicitly save up to eight complete workspa
 ## Source passage reviews
 
 Select a short claim, compare it with source notes, and record a source reference, evidence, and your own decision. Saved reviews are bounded existing private review notes, so v1 backups, checkpoints, and collection entries retain them without a format change. They are excluded from article exports. Stale preparation, ambiguous passage navigation, checkpoint failures, and edited-note identity changes are guarded; no verification score or automated fact-checking is claimed. No account, persistence, upload, AI call, dependency, or Actions job is added. See [the passage review release](docs/SOURCE_PASSAGE_REVIEW_RELEASE.md).
+
+## Linked images for WordPress
+
+Images for WordPress offers an explicit option for standalone HTTPS Markdown image references to become native linked Image blocks in copies, downloads, and the six-file WordPress kit. The image list and complete text handoff plan help inspect alternative text and unsupported placement without fetching images. WordPress and browsers can request selected URLs when opening those blocks; this does not upload files to a Media Library. Local reading/HTML/Word/rich-text exports remain inert. Body edits, destination changes, restore/import/sample/clear, and profile apply/clear reset the choice. Existing v1 private formats are unchanged, and source/review fields stay out of image handoff notes and article files. See [the linked images release](docs/WORDPRESS_LINKED_IMAGES_RELEASE.md).

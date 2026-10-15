@@ -2,7 +2,7 @@ import { MAX_PROFILE_BYTES, PROFILE_DESTINATIONS, checklistFromText, validatePub
 import { downloadText } from './download.js';
 import { suggestFilename } from './preview.js';
 
-export function installPublishingProfiles({ getWorkspace, changed, workChanged, isBusy = () => false, report, download = downloadText }) {
+export function installPublishingProfiles({ getWorkspace, changed, workChanged, resetLinkedImages = () => {}, isBusy = () => false, report, download = downloadText }) {
   const $ = id => document.getElementById(id);
   let pending = null, reading = false, generation = 0, signature = null, checklist = [], ticks = [];
   const preferences = () => ({ destination: $('publishing-destination').value, formattedTitle: $('copy-title').checked, htmlTitle: $('html-include-title').checked, wordTitle: $('word-include-title').checked, markdownTitle: $('export-format').value });
@@ -32,7 +32,7 @@ export function installPublishingProfiles({ getWorkspace, changed, workChanged, 
     try { next = checklistFromText($('publishing-profile-checks').value); } catch (failure) { error = failure.message; }
     $('publishing-profile-error').textContent = error;
     if (error) $('publishing-profile-checks').setAttribute('aria-invalid', 'true'); else $('publishing-profile-checks').removeAttribute('aria-invalid');
-    const current = JSON.stringify([getWorkspace(), preferences(), $('publishing-profile-checks').value]);
+    const current = JSON.stringify([getWorkspace(), preferences(), $('publishing-profile-checks').value, Boolean($('wordpress-linked-images')?.checked)]);
     if (current !== signature) { signature = current; checklist = next; ticks = []; renderChecklist(); }
     else {
       for (const input of $('publishing-checklist-items').querySelectorAll('input')) input.disabled = isBusy();
@@ -73,11 +73,12 @@ export function installPublishingProfiles({ getWorkspace, changed, workChanged, 
     $('copy-title').checked = p.formattedTitle; $('html-include-title').checked = p.htmlTitle; $('word-include-title').checked = p.wordTitle; $('export-format').value = p.markdownTitle;
     if (p.destination === 'other') $('additional-exports').open = true;
     $('publishing-profile-name').value = value.name; $('publishing-profile-checks').value = value.checklist.join('\n');
-    signature = null; clearPreview(); changed(); workChanged();
+    resetLinkedImages(); signature = null; clearPreview(); changed(); workChanged();
     status('Applied ' + value.name + '. Reminders start unchecked and approval is cleared. Current writing is kept.'); report('Publishing profile applied. Review your checklist and article before approving an export. Nothing was uploaded or published.');
   });
   $('cancel-publishing-profile').addEventListener('click', () => { clearPreview(); update(); workChanged(); status('Profile preview cancelled. Current writing and export choices are unchanged.'); });
   function reset() {
+    resetLinkedImages();
     ++generation; reading = false; clearPreview(); $('load-publishing-profile').value = '';
     $('publishing-profile-name').value = ''; $('publishing-profile-checks').value = ''; signature = null; checklist = []; ticks = []; update();
     status('No profile name or checklist is loaded. Export choices remain in the destination controls. Download a profile explicitly to reuse them after leaving.');

@@ -90,6 +90,60 @@ with sync_playwright() as p:
     def restore(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+    # Linked WordPress images are explicit; no image requests occur in this app.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    image_body='## A fictional workshop\n\n![Participants at the workshop](https://example.test/photo.jpg?a=1&b=2)\n\nInline ![Inline example](https://example.test/inline.jpg) stays text.'
+    image_backup={'format':'drafttopage-workspace','version':1,'source':source,'draft':{**draft,'body':image_body}}
+    restore(page,image_backup)
+    expect(page.locator('#desk-status')).to_contain_text('Workspace restored')
+    page.locator('#wordpress-image-panel > summary').click()
+    expect(page.locator('#wordpress-linked-images')).to_be_enabled()
+    expect(page.locator('#wordpress-image-status')).to_contain_text('2 image reference')
+    assert not page.locator('#wordpress-linked-images').is_checked()
+    page.check('#reviewed')
+    page.locator('#wordpress-code-panel > summary').click()
+    assert '<img ' not in page.locator('#wordpress-code-preview').input_value()
+    page.check('#wordpress-linked-images')
+    assert not page.locator('#reviewed').is_checked()
+    expect(page.locator('#wordpress-code-preview')).to_have_value('')
+    page.check('#reviewed')
+    selected_html=page.locator('#wordpress-code-preview').input_value()
+    assert selected_html.count('<!-- wp:image -->')==1 and selected_html.count('<img ')==1
+    assert 'alt="Participants at the workshop"' in selected_html and 'a=1&amp;b=2' in selected_html
+    assert '![Inline example]' in selected_html
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert Path(info.value.path()).read_text()==selected_html
+    with page.expect_download() as info:page.click('#download-image-plan')
+    image_plan=Path(info.value.path()).read_text()
+    assert image_plan.count('Reference:')==2 and '1 linked Image block(s) selected' in image_plan
+    page.locator('#wordpress-kit-panel > summary').click()
+    with page.expect_download() as info:page.click('#download-wordpress-kit')
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None and len(z.namelist())==6
+        assert z.read('wordpress-blocks.html').decode()==selected_html
+        assert z.read('article-body.md').decode()==image_body
+        assert b'<img ' not in z.read('reading-page.html')
+        assert '1 linked Image block(s) selected' in z.read('REVIEW.txt').decode()
+        assert all(source['notes'] not in z.read(name).decode() and draft['questions'][0] not in z.read(name).decode() for name in z.namelist())
+    layout(page,'wordpress-linked-images')
+    page.fill('#body',image_body+'\n\nEdited context.')
+    assert not page.locator('#reviewed').is_checked() and not page.locator('#wordpress-linked-images').is_checked()
+    expect(page.locator('#wordpress-code-preview')).to_have_value('')
+    page.check('#wordpress-linked-images')
+    page.select_option('#publishing-destination','word')
+    page.select_option('#publishing-destination','wordpress')
+    assert not page.locator('#wordpress-linked-images').is_checked()
+    restore(page,image_backup)
+    assert not page.locator('#wordpress-linked-images').is_checked()
+    assert state['api']==[];context.close()
+    page,context,state=open_page('/markdown-to-wordpress/',blocked_modules=('/wordpress-image-controls.js',))
+    expect(page.locator('#wordpress-image-status')).to_contain_text('could not load')
+    page.fill('#body',image_body);page.check('#reviewed')
+    page.locator('#wordpress-code-panel > summary').click()
+    assert '<img ' not in page.locator('#wordpress-code-preview').input_value()
+    expect(page.locator('#copy-wordpress')).to_be_enabled()
+    context.close()
+    report['checks'].append('Linked WordPress images: explicit mode, native block source and exact actual download, full image plan, six-file ZIP privacy, literal other exports, stale/reset/destination guards, 1440/390/320 reflow, optional-controls fallback, and zero image network requests')
     # Guided source reviews use existing private notes and preserve v1 files.
     page,context,state=open_page('/write/')
     review_passage='The fictional workshop had 18 participants.'
