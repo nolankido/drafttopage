@@ -32,7 +32,7 @@ export function installRecovery({ capture, restore, hasWork, isBusy, busyChanged
       // Validate before confirming or changing any visible field. Never merge arbitrary keys.
       const value = parseWorkspaceBackup(await file.text());
       if (isBusy()) throw new Error('Finish the current operation before restoring. Current work is unchanged.');
-      if (hasWork() && !confirm('Replace the current notes, article, and any unsaved preparation with this backup? Download saved writing you want to keep first. Unsaved passage reviews and image preparation are excluded from files; save the review note or apply the image first to keep it.')) {
+      if (hasWork() && !confirm('Replace the current notes, article, and any unsaved preparation with this backup? Download saved writing you want to keep first. Unsaved passage reviews, image preparation, and link preparation are excluded from files; save the review note or apply the image or link change first to keep it.')) {
         report('Restore cancelled. Current writing is unchanged.'); return;
       }
       restore(value);

@@ -123,7 +123,7 @@ export function installArticleImport({ hasArticle, apply, isBusy, busyChanged, r
   });
   $('apply-import').addEventListener('click', () => {
     if (!allowed()) return;
-    if (hasArticle() && !confirm('Replace the article, page details, review questions, and any unsaved passage review or image preparation with this import? Save a private backup to keep saved writing first. Unsaved preparation is excluded from files. Source notes are kept.')) {
+    if (hasArticle() && !confirm('Replace the article, page details, review questions, and any unsaved passage review, image preparation, or link preparation with this import? Save a private backup to keep saved writing first. Unsaved preparation is excluded from files. Source notes are kept.')) {
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
     try {
