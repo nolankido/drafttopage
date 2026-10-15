@@ -347,6 +347,7 @@ with sync_playwright() as p:
     open_more(page); page.click('#start-notes'); page.fill('#notes','Fictional source excluded from the Word article.')
     page.check('#reviewed')
     with page.expect_download() as info: page.click('#download-word')
+    word_import_bytes=Path(info.value.path()).read_bytes()
     with zipfile.ZipFile(info.value.path()) as z:
         assert z.testzip() is None and len(z.namelist())==6
         document=ET.fromstring(z.read('word/document.xml')); ns={'w':'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
@@ -366,6 +367,28 @@ with sync_playwright() as p:
     assert not page.locator('#reviewed').is_checked() and not page.locator('#word-include-title').is_checked()
     layout(page,'word-tool'); assert state['api']==[]; context.close()
     report['checks'].append('Word: actual DOCX download and XML/header/list reading, body-only readiness, source exclusion, title approval reset, destination switching, exact backup restore, and layout')
+    # Import actual DOCX download bytes through native XML parsing and staged replacement.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    page.fill('#title','Keep the current title'); page.fill('#body','Keep the current article.')
+    open_more(page); page.click('#start-notes'); page.fill('#notes','Keep fictional source notes.')
+    page.check('#reviewed'); page.click('#start-formatted-import')
+    page.locator('#import-file').set_input_files({'name':'fictional-article.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':word_import_bytes})
+    expect(page.locator('#import-summary')).to_contain_text('Word document')
+    assert page.locator('#import-reading-preview h2').count()==1
+    assert page.locator('#import-reading-preview ol[start="4"] ol[start="7"]').count()==1
+    assert page.locator('#import-reading-preview th').count()==2
+    assert page.locator('#import-reading-preview img, #import-reading-preview script').count()==0
+    assert page.locator('#reviewed').is_checked() and page.locator('#apply-import').is_disabled()
+    page.check('#import-changes-ok'); state['accept']=False; page.click('#apply-import')
+    expect(page.locator('#body')).to_have_value('Keep the current article.')
+    assert page.locator('#reviewed').is_checked()
+    state['accept']=True; page.click('#apply-import')
+    expect(page.locator('#desk-status')).to_contain_text('imported locally')
+    assert 'Parent' in page.locator('#body').input_value() and page.locator('#notes').input_value()=='Keep fictional source notes.'
+    assert not page.locator('#reviewed').is_checked() and page.locator('#import-file-status').inner_text()==''
+    assert page.locator('#import-reading-preview').inner_html()==''
+    layout(page,'word-import'); assert state['api']==[]; context.close()
+    report['checks'].append('Word import: actual exported DOCX bytes, native XML parsing, nested numbering, table headers, inert literal markup, staged acknowledgement, cancelled replacement preservation, apply/source retention/approval reset, preview purge, and layout')
     # A distinct HTML tool provides reviewed source and keeps its destination after restore.
     page,context,state=open_page('/markdown-to-html/#sample')
     expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
