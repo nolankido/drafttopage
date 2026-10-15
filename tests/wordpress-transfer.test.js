@@ -130,6 +130,15 @@ test('Exact expected text is optional and purged on closing inspection, panel cl
   }
 }));
 
+test('Invalidating a comparison replaces the global match announcement once, including on input, close and destination changes', () => withControls(async ({ $, ui, open, fill, compare, draft, edit, messages }) => {
+  const prepare = () => { $('publishing-destination').value = 'wordpress'; open(); fill(wordPressArticleText(draft()).text); compare(); assert.match(messages.at(-1), /^Text matches/); };
+  prepare(); edit({ body: 'Changed body.' }); assert.match(messages.at(-1), /changed.*Compare again/);
+  const after = messages.length; edit({ body: 'Changed body again.' }); assert.equal(messages.length, after);
+  prepare(); fill('Changed supplied text.'); assert.match(messages.at(-1), /^Comparison text changed/);
+  prepare(); $('wordpress-transfer-panel').open = false; $('wordpress-transfer-panel').fire('toggle'); assert.match(messages.at(-1), /panel closed.*cleared/);
+  prepare(); $('publishing-destination').value = 'html'; ui.update(); assert.match(messages.at(-1), /cleared after changing destination/);
+}));
+
 test('Busy or hidden controls cannot compare or clear writing and release without losing supplied text', () => withControls(async ({ $, open, fill, compare, draft, busy, ui, messages }) => {
   open(); fill(wordPressArticleText(draft()).text); busy(true); const count = messages.length;
   compare(); $('clear-wordpress-text').fire(); assert.equal(messages.length, count); assert.notEqual($('wordpress-transfer-input').value, ''); assert.equal($('wordpress-transfer-controls').disabled, true);

@@ -5,10 +5,11 @@ export function installWordPressTransfer({ getDraft, getWordPressOptions, report
   const $ = id => document.getElementById(id), panel = $('wordpress-transfer-panel');
   // Some embedded export-control callers do not include the optional public tool.
   if (!panel) return { update() {}, reset() {} };
-  let signature = '';
+  let signature = '', hasResult = false;
   const state = () => JSON.stringify([getDraft().body, getWordPressOptions(), $('publishing-destination').value]);
   const say = message => { $('wordpress-transfer-status').textContent = message; if (message) report(message); };
   function clearResult() {
+    hasResult = false;
     $('wordpress-transfer-status').textContent = ''; $('wordpress-transfer-difference').hidden = true;
     $('wordpress-transfer-expected-excerpt').textContent = ''; $('wordpress-transfer-received-excerpt').textContent = '';
     $('wordpress-transfer-expected').value = ''; $('wordpress-transfer-inspection').open = false; $('wordpress-transfer-inspection').hidden = true;
@@ -17,17 +18,27 @@ export function installWordPressTransfer({ getDraft, getWordPressOptions, report
   function update() {
     const next = state(), visible = $('publishing-destination').value === 'wordpress';
     if (next !== signature) {
-      const hadResult = Boolean($('wordpress-transfer-status').textContent); clearResult(); signature = next;
-      if (!visible) { $('wordpress-transfer-input').value = ''; panel.open = false; }
-      else if (hadResult && $('wordpress-transfer-input').value) $('wordpress-transfer-status').textContent = 'The article or image choice changed. Compare again with the current article.';
+      const hadResult = Boolean($('wordpress-transfer-status').textContent), compared = hasResult, hadText = Boolean($('wordpress-transfer-input').value); clearResult(); signature = next;
+      if (!visible) { $('wordpress-transfer-input').value = ''; panel.open = false; if (hadText || compared) report('Comparison text and results cleared after changing destination.'); }
+      else if (hadResult && hadText) {
+        const message = 'The article or image choice changed. Compare again with the current article.';
+        $('wordpress-transfer-status').textContent = message;
+        if (compared) report(message);
+      }
     }
     $('wordpress-transfer-controls').disabled = isBusy() || !visible;
     $('compare-wordpress-text').disabled = isBusy() || !visible || !panel.open || !getDraft().body?.trim() || !$('wordpress-transfer-input').value.trim();
-    if (!panel.open) { clearResult(); $('wordpress-transfer-input').value = ''; }
+    if (!panel.open) {
+      const hadText = Boolean($('wordpress-transfer-input').value); clearResult(); $('wordpress-transfer-input').value = '';
+      if (hadText) report('Comparison panel closed. Supplied text and results cleared.');
+    }
   }
   panel.addEventListener('toggle', update);
   installPasteGuard({ element: $('wordpress-transfer-input'), limit: TRANSFER_TEXT_LIMIT, label: 'The comparison text', report: message => { if (message) { clearResult(); say(message); } } });
-  $('wordpress-transfer-input').addEventListener('input', () => { clearResult(); update(); });
+  $('wordpress-transfer-input').addEventListener('input', () => {
+    const compared = hasResult; clearResult(); update();
+    if (compared) say('Comparison text changed. Compare again with the current article.');
+  });
   $('wordpress-transfer-inspection').addEventListener('toggle', () => {
     if (!$('wordpress-transfer-inspection').open) $('wordpress-transfer-expected').value = '';
     else if (!isBusy() && panel.open && $('publishing-destination').value === 'wordpress' && $('wordpress-transfer-status').textContent) {
@@ -40,6 +51,7 @@ export function installWordPressTransfer({ getDraft, getWordPressOptions, report
     clearResult(); signature = state();
     try {
       const result = compareWordPressText(getDraft(), $('wordpress-transfer-input').value, getWordPressOptions());
+      hasResult = true;
       $('wordpress-transfer-inspection').hidden = false;
       if (!result.matches) {
         $('wordpress-transfer-difference').hidden = false;
