@@ -38,7 +38,7 @@ export function articleStructure(body) {
 export function articleWordCount(body) {
   return articleStructure(body).reduce((count, block) => count + (block.kind === 'code' ? 0 : wordsIn(visibleText(inlineTokens(block.text)))), 0);
 }
-export function analyzeDraft(draft) {
+export function analyzeDraft(draft, { imageFindings = true } = {}) {
   const body = draft?.body, title = draft?.title || '';
   if (typeof title !== 'string' || title.length > 160) throw new Error('Check the article title before reviewing.');
   const blocks = articleStructure(body), headings = [], links = [], findings = [], seen = new Map();
@@ -81,7 +81,8 @@ export function analyzeDraft(draft) {
       if (token.type === 'link' || token.type === 'image') {
         const start = block.contentStart + token.start, end = block.contentStart + token.end;
         links.push({ ...token, start, end, line: block.line + (block.text.slice(0, token.start).match(/\n/g) || []).length });
-        if (token.type === 'image') add(block, 'image', 'Images remain text in the reading page. Add and inspect the image in your destination.', start, end);
+        if (token.type === 'image' && imageFindings) add(block, 'image', 'Images remain text in the reading page. Add and inspect the image in your destination.', start, end);
+        else if (token.type === 'image') continue;
         else if (!token.href) add(block, 'link', 'This link stays text in the reading page. Use a non-empty label and an absolute http:// or https:// URL without credentials.', start, end);
         else if (/^(?:click here|here|read more|link)$/i.test(token.text.trim())) add(block, 'link-label', 'Give this link a descriptive label so readers know where it leads.', start, end);
       }

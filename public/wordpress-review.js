@@ -3,18 +3,25 @@ import { analyzeDraft, articleStructure, REVIEW_LIMIT } from './draft-review.js'
 import { inlineTokens } from './markdown-inline.js';
 import { markdownTableRanges } from './markdown-table.js';
 import { markdownListRanges } from './markdown-list.js';
+import { analyzeWordPressImages } from './wordpress-images.js';
 
 export const WORDPRESS_REVIEW_LIMIT = REVIEW_LIMIT;
-export function reviewWordPress(draft) {
+export function reviewWordPress(draft, { includeLinkedImages = false } = {}) {
+  if (typeof includeLinkedImages !== 'boolean') throw new Error('Choose whether to prepare linked images.');
   const issues = articleIssues(draft, 'body');
   if (issues.body) throw new Error(issues.body);
   const body = draft.body;
-  const basic = analyzeDraft({ body, title: typeof draft.title === 'string' && draft.title.length <= 160 ? draft.title : '' });
+  const basic = analyzeDraft({ body, title: typeof draft.title === 'string' && draft.title.length <= 160 ? draft.title : '' }, { imageFindings: false });
   const findings = basic.findings.map(item => ({ ...item,
-    message: item.kind === 'image' ? 'Add this image in WordPress. Its Markdown stays text in copied blocks.' : item.kind === 'link' ? 'This link stays text. Use a non-empty label and a safe absolute http:// or https:// address, then inspect the destination.' : item.message
+    message: item.kind === 'link' ? 'This link stays text. Use a non-empty label and a safe absolute http:// or https:// address, then inspect the destination.' : item.message
   }));
   let totalFindings = basic.totalFindings;
   const add = (kind, message, start, end, line) => { totalFindings++; findings.push({ kind, message, start, end, line }); };
+  for (const image of analyzeWordPressImages(body)) {
+    const prepared = includeLinkedImages && image.eligible;
+    if (!prepared) add('image', 'This image stays text in copied blocks. ' + (image.reason || 'Open Images for WordPress and select Include supported linked images to prepare this reference, or add it in WordPress.'), image.start, image.end, image.line);
+    else if (!image.alt.trim()) add('image-alt', 'This linked image has empty alternative text. Add a meaningful description, or deliberately mark it decorative in WordPress.', image.start, image.end, image.line);
+  }
   const lists = markdownListRanges(body);
   let listIndex = 0;
   for (const list of lists) if (!list.supported) add('list', 'This list group stays text. ' + list.reason + ' Edit its Markdown or rebuild it in WordPress.', list.start, list.headerEnd, list.line);

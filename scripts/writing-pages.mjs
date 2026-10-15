@@ -13,6 +13,7 @@ const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), '
   .replace('<!--SOURCE_REVIEW-->', readFileSync(new URL('./source-review.html.inc', import.meta.url), 'utf8'))
   .replace('<!--ARTICLE_IMPORT-->', readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8'))
   .replace('<!--WORD_HANDOFF-->', readFileSync(new URL('./word-handoff.html.inc', import.meta.url), 'utf8'))
+  .replace('<!--WORDPRESS_IMAGES-->', readFileSync(new URL('./wordpress-images.html.inc', import.meta.url), 'utf8'))
   .replace('<!--PUBLISHING_CHECKLIST-->', readFileSync(new URL('./publishing-profile.html.inc', import.meta.url), 'utf8'))
   .replace('<!--PUBLISHING_PROFILE-->', readFileSync(new URL('./publishing-profile-editor.html.inc', import.meta.url), 'utf8'))
   .replace('<!--TEMPLATE_OPTIONS-->', TEMPLATES.map(t => '<option value="' + t.id + '">' + escapeHTML(t.title) + '</option>').join(''))
@@ -31,7 +32,7 @@ const wordBody = readFileSync(new URL('./word-tool-intro.html.inc', import.meta.
   compactBody + WORD_TOOL_GUIDE;
 export const writingPages = [
   { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody, script: '/desk.js', wide: true, desk: true },
-  { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown to editable WordPress blocks. Preview, inspect handoff findings, and download a publishing kit. Free, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true, converter: true },
+  { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown, tables, lists, and selected linked images to editable WordPress blocks. Free local preparation, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-html/', title: 'Free Markdown to HTML Converter', description: 'Convert simple Markdown to article HTML. Preview, copy reviewed HTML source, or download a fragment. Free, local, and no account needed.', body: htmlBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-word/', title: 'Free Markdown to Word Converter', description: 'Convert simple Markdown to an editable Word document. Preview your article and download .docx locally, free, with no account or API credits.', body: wordBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/help/local-workspace/', title: 'Save and restore your writing', description: 'Use the public writing workspace, load note outlines, and keep unfinished work in explicit private backup files.',

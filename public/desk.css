@@ -42,3 +42,4 @@
 #draft-collection-select { max-width: 100%; }
 #draft-collection-file-preview { overflow-wrap: anywhere; margin-top: 1rem; }
 #draft-collection-saved-preview { font: .8rem/1.5 ui-monospace, monospace; }
+.wordpress-image-list{padding-left:1.2rem;overflow-wrap:anywhere}.wordpress-image-list li{border-bottom:1px solid var(--line);padding:.6rem 0}.wordpress-image-list p{margin:.4rem 0}.wordpress-image-list button{font-size:.8rem}#wordpress-image-panel>summary{font-weight:650;cursor:pointer}

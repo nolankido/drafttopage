@@ -4,15 +4,15 @@ import { wordPressKitFiles, wordPressKitSummary, createWordPressKit } from './wo
 import { revealArticleSelection } from './editing.js';
 import { downloadText } from './download.js';
 
-export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, reveal = revealArticleSelection }) {
+export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection }) {
   const $ = id => document.getElementById(id);
   let signature = '', review = null, rendered = '', kitRendered = '';
   const draftSignature = draft => JSON.stringify([draft.title, draft.body]);
   const fieldValid = (draft, key) => typeof draft[key] === 'string' && Boolean(draft[key].trim()) && draft[key].length <= ARTICLE_LIMITS[key] && !draft[key].includes('\u0000') && (key !== 'slug' || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft[key]));
   function update() {
     const draft = getDraft(), visible = $('publishing-destination').value === 'wordpress';
-    const next = draftSignature(draft);
-    if (next !== signature) { signature = next; try { review = reviewWordPress(draft); } catch { review = null; } }
+    const options = getWordPressOptions(), next = JSON.stringify([draftSignature(draft), options]);
+    if (next !== signature) { signature = next; try { review = reviewWordPress(draft, options); } catch { review = null; } }
     $('wordpress-review-status').textContent = !review ? 'Add an article to inspect the handoff.' : review.totalFindings ? review.totalFindings + ' item(s) to inspect before publishing.' + (review.truncated ? ' Showing the first ' + review.findings.length + '; inspect the complete article.' : '') : 'No items found by these limited checks. Review the actual post and your source before publishing.';
     if (!visible || !$('wordpress-review-panel').open || !review) {
       $('wordpress-findings').replaceChildren(); rendered = '';
@@ -26,7 +26,7 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
         const original = signature;
         button.addEventListener('click', () => {
           if (isBusy()) return;
-          if ($('publishing-destination').value !== 'wordpress' || draftSignature(getDraft()) !== original) { update(); report('The article changed. Use its current handoff findings.'); return; }
+          if ($('publishing-destination').value !== 'wordpress' || JSON.stringify([draftSignature(getDraft()), getWordPressOptions()]) !== original) { update(); report('The article changed. Use its current handoff findings.'); return; }
           const body = $('body'); body.focus(); body.setSelectionRange(item.start, item.end);
           try { reveal(body); } catch { /* Selection still works if geometry is unavailable. */ }
           report('Selected article text on line ' + item.line + '. Inspect or edit it; nothing was changed automatically.');
@@ -38,14 +38,14 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
     const available = ['excerpt', 'slug', 'description'].filter(key => fieldValid(draft, key));
     $('wordpress-fields-status').textContent = available.length ? 'Optional fields available: ' + available.join(', ') + '. Copy each into its separate destination field after review.' : 'Optional post fields are empty or need editing. They are not required for copying blocks.';
     let kit = null, error = '';
-    try { kit = wordPressKitSummary(draft); } catch (failure) { error = failure.message; }
-    $('download-wordpress-kit').disabled = !visible || !$('reviewed').checked || !kit;
+    try { kit = wordPressKitSummary(draft, options); } catch (failure) { error = failure.message; }
+    $('download-wordpress-kit').disabled = isBusy() || !visible || !$('reviewed').checked || !kit;
     $('wordpress-kit-status').textContent = kit ? 'Six files for a complete manual WordPress handoff. ' + kit.notices.join(' ') : 'Add a valid title and article for a WordPress kit. ' + error;
     if (visible && $('wordpress-kit-panel').open && kit) {
-      const nextKit = JSON.stringify([draft.title, draft.body, draft.excerpt, draft.slug, draft.description]);
+      const nextKit = JSON.stringify([draft.title, draft.body, draft.excerpt, draft.slug, draft.description, options]);
       if (kitRendered !== nextKit) {
         kitRendered = nextKit;
-        $('wordpress-kit-files').replaceChildren(...wordPressKitFiles(draft).files.map(file => { const li = document.createElement('li'); li.textContent = file.name + ': ' + file.purpose; return li; }));
+        $('wordpress-kit-files').replaceChildren(...wordPressKitFiles(draft, options).files.map(file => { const li = document.createElement('li'); li.textContent = file.name + ': ' + file.purpose; return li; }));
       }
     } else { $('wordpress-kit-files').replaceChildren(); kitRendered = ''; }
   }
@@ -61,7 +61,8 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
     } catch (error) { report('Field copy unavailable. Select the field under Page details and copy it manually. ' + error.message); }
   });
   $('download-wordpress-kit').addEventListener('click', () => {
-    try { approved(); const kit = createWordPressKit(getDraft()); downloadText(kit.bytes, kit.filename, 'application/zip'); report('WordPress kit download requested with six article files, current handoff findings, and destination instructions. Inspect the files before sharing. Private source and review notes are excluded. Nothing was published.'); }
+    if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
+    try { approved(); const kit = createWordPressKit(getDraft(), getWordPressOptions()); downloadText(kit.bytes, kit.filename, 'application/zip'); report('WordPress kit download requested with six article files, current handoff findings, image handoff notes, and destination instructions. Inspect the files before sharing. Private source and review notes are excluded. Nothing was published.'); }
     catch (error) { report(error.message); }
   });
   return { update, reset: () => { signature = ''; review = null; rendered = ''; kitRendered = ''; $('wordpress-findings').replaceChildren(); $('wordpress-kit-files').replaceChildren(); } };

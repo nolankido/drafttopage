@@ -21,7 +21,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, previewSnapshot = null;
+let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -78,6 +78,7 @@ function update() {
     }
   }
   draftReview?.refresh();
+  wordPressImages?.refresh();
   publishingExports?.update();
   publishingProfiles?.update();
   revisions?.update();
@@ -103,11 +104,12 @@ function fill(value) {
   $('article-preview').replaceChildren(); previewSnapshot = null;
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
+  wordPressImages?.reset();
   publishingExports?.reset();
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -258,13 +260,14 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()),
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report,
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
     articleSearch?.clear();
     questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
     sourceReview?.clear();
+    wordPressImages?.reset();
     if (!publishingProfiles?.hasSetup()) $('export-format').value = 'page';
     changed(); $('body').focus();
   }
@@ -283,9 +286,14 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
+loadEditingTool(() => import('./wordpress-image-controls.js'), ({ installWordPressImages }) => {
+  wordPressImages = installWordPressImages({ getDraft: () => capture().draft, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()) });
+}, () => {
+  $('wordpress-image-status').textContent = 'Image preparation could not load. Images remain literal text in WordPress blocks. Your writing and other exports are kept.';
+});
 loadEditingTool(() => import('./publishing-profile-controls.js'), ({ installPublishingProfiles }) => {
-  publishingProfiles = installPublishingProfiles({ getWorkspace: capture, changed, workChanged: updateExitWarning, isBusy: () => recovery.reading() || Boolean(importer?.reading()), report });
+  publishingProfiles = installPublishingProfiles({ getWorkspace: capture, resetLinkedImages: () => wordPressImages?.reset(), changed, workChanged: updateExitWarning, isBusy: () => recovery.reading() || Boolean(importer?.reading()), report });
 }, () => {
   $('publishing-profile-status').textContent = 'Publishing profiles could not load in this browser. Continue using the destination and title choices directly. Your writing is kept.';
 });

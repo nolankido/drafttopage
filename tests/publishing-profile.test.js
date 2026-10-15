@@ -55,10 +55,10 @@ async function controls(run) {
   globalThis.document = { getElementById: $, createElement: tag => new Control(tag) };
   const workspace = { source: { profile: 'personal', notes: 'PRIVATE source', audience: 'PRIVATE audience', purpose: 'PRIVATE purpose' }, draft: { title: 'PRIVATE title', body: 'PRIVATE body', excerpt: 'PRIVATE excerpt', description: 'PRIVATE description', slug: 'private-slug', questions: ['PRIVATE question'] } };
   $('publishing-destination').value = 'word'; $('export-format').value = 'page';
-  let busy = false, changedCalls = 0, downloaded = null, lastReport = '';
-  const ui = installPublishingProfiles({ getWorkspace: () => workspace, changed: () => { changedCalls++; $('reviewed').checked = false; ui.update(); }, workChanged: () => {}, isBusy: () => busy, report: text => { lastReport = text; }, download: (...args) => { downloaded = args; } });
+  let busy = false, resetImageCalls = 0, changedCalls = 0, downloaded = null, lastReport = '';
+  const ui = installPublishingProfiles({ getWorkspace: () => workspace, resetLinkedImages: () => { resetImageCalls++; $('wordpress-linked-images').checked = false; }, changed: () => { changedCalls++; $('reviewed').checked = false; ui.update(); }, workChanged: () => {}, isBusy: () => busy, report: text => { lastReport = text; }, download: (...args) => { downloaded = args; } });
   const load = async (content = createPublishingProfile(fixture()), size = new TextEncoder().encode(content).byteLength) => { $('load-publishing-profile').files = [{ size, text: async () => content }]; await $('load-publishing-profile').fire('change'); };
-  try { await run({ $, ui, workspace, load, busy: value => { busy = value; ui.update(); }, changes: () => changedCalls, downloaded: () => downloaded, report: () => lastReport }); }
+  try { await run({ $, ui, workspace, load, busy: value => { busy = value; ui.update(); }, imageResets: () => resetImageCalls, changes: () => changedCalls, downloaded: () => downloaded, report: () => lastReport }); }
   finally { globalThis.document = prior; }
 }
 test('Profile preview and cancellation leave all writing, choices, and approval untouched', () => controls(async ({ $, workspace, load, changes }) => {
@@ -109,4 +109,12 @@ test('Other-editor profiles reveal their actions and invalid edited reminders ca
   const value = fixture(); value.preferences.destination = 'other'; await load(createPublishingProfile(value)); await $('apply-publishing-profile').fire('click'); assert.equal($('additional-exports').open, true);
   $('publishing-profile-checks').value = 'Duplicate\nDuplicate'; await $('publishing-profile-checks').fire('input'); assert.equal($('publishing-checklist').hidden, true); assert.equal($('download-publishing-profile').disabled, true); assert.match($('publishing-profile-error').textContent, /distinct/);
   $('publishing-profile-checks').value = 'A fresh reminder'; await $('publishing-profile-checks').fire('input'); assert.equal($('publishing-checklist-items').querySelectorAll('input').length, 1); assert.equal($('publishing-checklist-items').querySelectorAll('input')[0].checked, false);
+}));
+
+test('Applying or clearing profiles resets image selection and temporary ticks track image choice without adding file keys', () => controls(async ({ $, ui, load, imageResets, downloaded }) => {
+  $('wordpress-linked-images').checked = true; await load(); await $('apply-publishing-profile').fire('click'); assert.equal($('wordpress-linked-images').checked, false); assert.equal(imageResets(), 1);
+  const tick = $('publishing-checklist-items').querySelectorAll('input')[0]; tick.checked = true; await tick.fire('change');
+  $('wordpress-linked-images').checked = true; ui.update(); assert.ok($('publishing-checklist-items').querySelectorAll('input').every(x => !x.checked));
+  await $('download-publishing-profile').fire('click'); assert.deepEqual(Object.keys(parsePublishingProfile(downloaded()[0]).preferences), ['destination','formattedTitle','htmlTitle','wordTitle','markdownTitle']);
+  await $('clear-publishing-profile').fire('click'); assert.equal($('wordpress-linked-images').checked, false); assert.equal(imageResets(), 2);
 }));
