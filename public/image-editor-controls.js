@@ -1,3 +1,4 @@
+import { revealDetails } from './disclosure.js';
 import { imageEditTarget, planImageEdit, wordImagePlaceholders, IMAGE_ALT_LIMIT, IMAGE_URL_LIMIT } from './image-editing.js';
 import { standaloneWordPressImage } from './wordpress-images.js';
 import { revealArticleSelection } from './editing.js';
@@ -46,7 +47,7 @@ export function installImageEditor({ getBody, apply, workChanged, report, isBusy
       if (existing && hasWork() && (fields().url !== existing.target || fields().alt !== existing.alt) && !confirmAction('Replace the pending image details with this selected image? The article is kept.')) return false;
       if (existing) { $('image-url').value = existing.target; $('image-alt').value = existing.alt; $('image-decorative').checked = false; }
       target = next; purgePreview(); status(existing ? 'Selected image loaded. Review its URL and alternative text. Empty alternative text requires an explicit decorative choice.' : 'Location selected. Enter image details and preview the exact change.');
-      $('image-editor-panel').open = true; refresh(); workChanged(); $('image-url').focus(); return true;
+      revealDetails($('image-editor-panel')); refresh(); workChanged(); $('image-url').focus(); return true;
     } catch (error) { status(error.message); report(error.message); return false; }
   }
   const guards = [['image-url', IMAGE_URL_LIMIT], ['image-alt', IMAGE_ALT_LIMIT]].map(([id, limit]) => installPasteGuard({ element: $(id), limit, label: id === 'image-url' ? 'The image URL' : 'Alternative text', report: text => { if (text) { status(text); report(text); } } }));
@@ -55,7 +56,7 @@ export function installImageEditor({ getBody, apply, workChanged, report, isBusy
   $('image-at-end').addEventListener('click', () => choose(getBody().length, getBody().length, { edit: false }));
   $('start-image-editor').addEventListener('click', () => {
     if (isBusy()) return;
-    $('image-editor-panel').open = true;
+    revealDetails($('image-editor-panel'));
     if (!hasWork()) choose($('body').selectionStart, $('body').selectionEnd);
     else { refresh(); $('image-url').focus(); }
   });

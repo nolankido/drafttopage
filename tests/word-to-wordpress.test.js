@@ -52,8 +52,9 @@ test('Existing tools keep their original import layout and the new task is linke
     assert.match(page, /<details id="import-panel" class="import-panel">/);
   }
   const home = await readFile('public/index.html', 'utf8');
-  assert.match(home, /href="\/word-to-wordpress\/" class="button">Open a Word draft/);
-  assert.match(home, /href="\/markdown-to-wordpress\/#draft"[^>]*>Paste text or Markdown/);
+  assert.match(home, /href="\/word-to-wordpress\/" class="draft-start"/);
+  assert.match(home, /href="\/markdown-to-wordpress\/#draft" class="draft-start"/);
+  assert.match(home, /Open a Word draft/); assert.match(home, /Paste text or Markdown/);
   for (const route of ['markdown-to-wordpress', 'markdown-to-word', 'help/article-import']) {
     const page = await readFile('public/' + route + '/index.html', 'utf8');
     assert.ok(page.includes('href="/word-to-wordpress/">Word to WordPress converter</a>'));

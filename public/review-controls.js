@@ -1,3 +1,4 @@
+import { revealDetails } from './disclosure.js';
 import { analyzeDraft, REVIEW_LIMIT } from './draft-review.js';
 import { articleSections, moveArticleSection } from './article-sections.js';
 import { revealArticleSelection } from './editing.js';
@@ -68,7 +69,7 @@ export function installDraftReview({ getDraft, applySectionMove, editLink = () =
   }
   $('draft-check-panel').addEventListener('toggle', refresh);
   $('start-checks').addEventListener('click', () => {
-    $('draft-check-panel').open = true; $('run-checks').click();
+    revealDetails($('draft-check-panel')); $('run-checks').click();
     $('run-checks').focus(); $('draft-check-panel').scrollIntoView({ block: 'start' });
   });
   $('run-checks').addEventListener('click', () => {

@@ -107,7 +107,7 @@ test('Shared public build keeps stable URLs, template handoffs, and release outp
     run();
     const second = await Promise.all(paths.map(path => readFile(join(root, path), 'utf8')));
     assert.deepEqual(first, second);
-    assert.match(first[0], /Paste a draft/);
+    assert.match(first[0], /Where is your draft/);
     assert.match(first[1], /aria-current="page"/);
     assert.match(first[1], /id="template-progress"/);
     assert.match(first[2], /href="\/write\/#template-progress"/);

@@ -1,3 +1,4 @@
+import { revealDetails } from './disclosure.js';
 import { articleLinks, articleLinkNotes, linkEditTarget, planLinkEdit, LINK_LABEL_LIMIT, LINK_URL_LIMIT, LINK_REVIEW_LIMIT } from './link-editing.js';
 import { revealArticleSelection } from './editing.js';
 import { installPasteGuard } from './paste-guard.js';
@@ -60,7 +61,7 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy 
       const nextFields = next.existing ? { label: next.label, url: next.url } : { ...fields(), ...(next.before ? { label: next.label } : {}) };
       if ((fields().label || fields().url) && JSON.stringify(nextFields) !== JSON.stringify(fields()) && !confirmAction('Replace the pending link details with this article selection? The article is kept.')) return false;
       target = next; $('link-label').value = nextFields.label; $('link-url').value = nextFields.url; purgePreview();
-      $('link-editor-panel').open = true; status(next.existing ? 'Complete link selected. Preview a correction or remove the link while keeping its original text.' : 'Location selected. Review the link text and destination before previewing.'); refresh(); workChanged();
+      revealDetails($('link-editor-panel')); status(next.existing ? 'Complete link selected. Preview a correction or remove the link while keeping its original text.' : 'Location selected. Review the link text and destination before previewing.'); refresh(); workChanged();
       $(next.existing || next.before ? 'link-url' : 'link-label').focus(); return true;
     } catch (failure) { status(failure.message); report(failure.message); return false; }
   }
@@ -69,7 +70,7 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy 
   $('link-use-selection').addEventListener('click', () => choose($('body').selectionStart, $('body').selectionEnd));
   $('start-link-editor').addEventListener('click', () => {
     if (isBusy()) return;
-    $('link-editor-panel').open = true;
+    revealDetails($('link-editor-panel'));
     if (!hasWork()) choose($('body').selectionStart, $('body').selectionEnd);
     else { refresh(); $('link-label').focus(); }
   });
