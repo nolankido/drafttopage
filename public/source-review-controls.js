@@ -1,5 +1,5 @@
 import { createSourceReviewNote, parseSourceReviewNote, locateReviewedPassage, planSourceReviewNote } from './source-review.js';
-import { revealArticleSelection } from './editing.js';
+import { revealArticleSelection, revealEditorFor } from './editing.js';
 import { installPasteGuard } from './paste-guard.js';
 
 export function installSourceReview({ getWorkspace, applyNotes, showSource = () => {}, isBusy = () => false, workChanged, report, reveal = revealArticleSelection, confirmAction = message => confirm(message) }) {
@@ -87,7 +87,7 @@ export function installSourceReview({ getWorkspace, applyNotes, showSource = () 
   });
   $('source-review-panel').addEventListener('toggle', refresh);
   $('edit-review-source').addEventListener('click', () => { if (!isBusy()) showSource(); });
-  $('return-source-review').addEventListener('click', () => { $('source-review-panel').open = true; $('review-passage').focus(); });
+  $('return-source-review').addEventListener('click', () => { revealEditorFor($('review-passage')); $('source-review-panel').open = true; $('review-passage').focus(); });
   $('pin-review-passage').addEventListener('click', () => {
     if (isBusy()) return;
     const body = $('body'), passage = body.value.slice(body.selectionStart, body.selectionEnd);

@@ -35,7 +35,7 @@ print(json.dumps({'pasteFirst':True,'closedFileAlternatives':True,'headersAndPre
 });
 test('The acquisition page explains clipboard limits, plain fallback, omissions, source retention and manual handoff', async () => {
   const page = await readFile('public/google-docs-to-wordpress/index.html', 'utf8');
-  for (const pattern of [/Ctrl\+V/, /Command\+V/, /512 KiB/, /60,000/, /Plain text only/, /Images become/, /no autosave/, /no Google account connection/i, /cannot be applied until a selection converts successfully/, /Code editor/, /Return to Visual editor/, /No partnership is claimed/]) assert.match(page, pattern);
+  for (const pattern of [/Ctrl\+V/, /Command\+V/, /512 KiB/, /60,000/, /Plain text only/, /Images become/, /[Bb]rowser recovery/, /no Google account connection/i, /cannot be applied until a selection converts successfully/, /Code editor/, /Return to Visual editor/, /No partnership is claimed/]) assert.match(page, pattern);
   assert.match(page, /support.google.com\/docs\/answer\/161768/); assert.match(page, /support.google.com\/docs\/answer\/49114/); assert.doesNotMatch(page, /\u2014|<img\b|contenteditable=/);
   const home = await readFile('public/index.html', 'utf8'); assert.match(home, /href="\/google-docs-to-wordpress\/"[^>]*>Paste from Google Docs/); assert.match(home, /Open the copied-writing tool/);
 });

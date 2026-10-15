@@ -28,9 +28,10 @@ def inside(node,parent):
 out={}
 for route,html in json.load(sys.stdin).items():
  p=Parser();p.feed(html);assert len(p.stack)==1
- d=p.ids['draft'];r=p.ids['conversion-results'];notes=next(n for n in d['parent']['children'] if 'source-editor' in n['attrs'].get('class',''))
- assert d['parent'] is r['parent'] is notes['parent']
- assert d['parent']['children'].index(d)<d['parent']['children'].index(r)<d['parent']['children'].index(notes)
+ d=p.ids['draft'];r=p.ids['conversion-results'];wrapper=p.ids.get('article-edit-panel',d);container=wrapper['parent'];notes=next(n for n in container['children'] if 'source-editor' in n['attrs'].get('class',''))
+ assert container is r['parent'] is notes['parent']
+ if wrapper is d:assert container['children'].index(d)<container['children'].index(r)<container['children'].index(notes)
+ else:assert container['children'].index(r)<container['children'].index(wrapper)<container['children'].index(notes) and 'open' not in wrapper['attrs']
  assert inside(p.ids['body'],d) and inside(p.ids['page-details'],d)
  assert inside(p.ids['article-preview'],r) and inside(p.ids['exports'],r) and not inside(p.ids['exports'],d)
  extra=p.ids['additional-exports'];assert all(inside(p.ids[key],extra) for key in ['copy-formatted','copy-body','download-body','download-html','download-kit'])
@@ -38,7 +39,7 @@ for route,html in json.load(sys.stdin).items():
  assert p.ids['article-preview']['attrs']['tabindex']=='0' and p.ids['article-preview']['attrs']['role']=='region'
  assert bool('open' in extra['attrs'])==(route=='write')
  assert bool('open' in p.ids['html-source-code-panel']['attrs'])==(route=='write')
- assert 'open' not in p.ids['wordpress-instructions']['attrs']
+ assert ('open' in p.ids['wordpress-instructions']['attrs'])==(route=='word-to-wordpress')
  assert p.ids['preview-empty']['tag']=='p'
  out[route]={'balanced':True,'sourceOrder':['article','result','notes'],'compact':route!='write'}
 print(json.dumps(out))
@@ -92,3 +93,16 @@ test('Hidden or busy general kit actions cannot start a stale download', () => w
 test('The general writing workspace keeps its additional exports expanded', () => withControls(({ $, ui }) => {
   assert.equal($('additional-exports').open, true); $('additional-exports').open = false; ui.reset(); assert.equal($('additional-exports').open, true);
 }, false));
+test('Guided WordPress groups follow the selected format while approval remains available for other exports', () => withControls(({ $, ui }) => {
+  $('publishing-destination').value = 'wordpress'; $('publishing-destination').fire('change');
+  assert.equal($('wordpress-primary-review').hidden, false); assert.equal($('wordpress-primary-actions').hidden, false);
+  assert.equal($('copy-wordpress').disabled, true);
+  $('reviewed').checked = true; ui.update(); assert.equal($('copy-wordpress').disabled, false);
+  $('publishing-destination').value = 'html'; $('publishing-destination').fire('change');
+  assert.equal($('wordpress-primary-review').hidden, true); assert.equal($('wordpress-primary-actions').hidden, true);
+  assert.equal($('reviewed').hidden, false); assert.equal($('reviewed').checked, false);
+  assert.equal($('html-source-handoff').hidden, false);
+  $('reviewed').checked = true; ui.update(); assert.equal($('copy-html-source').disabled, false);
+  $('other-export-formats').open = true; ui.reset(); ui.update();
+  assert.equal($('other-export-formats').open, false); assert.equal($('publishing-destination').value, 'word');
+}));

@@ -1,5 +1,5 @@
 import { ARTICLE_BODY_LIMIT, MAX_IMPORT_BYTES } from './writing-limits.js';
-import { safeWebLink } from './markdown-inline.js';
+import { safeWebLink, escapeMarkdownText as escapeText } from './markdown-inline.js';
 
 const MAX_NODES = 12000, MAX_DEPTH = 32, MAX_TAGS = 6000;
 const controls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
@@ -8,7 +8,6 @@ const blocks = new Set('html body div section article main header footer nav asi
 const tag = node => node.nodeType === 1 ? node.localName.toLowerCase() : '';
 const children = node => Array.from(node.childNodes || []);
 const attr = (node, name) => node.nodeType === 1 ? node.getAttribute(name) : null;
-const escapeText = text => text.replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, '\\$&');
 const whitespace = text => text.replace(/[\s\u00a0]+/gu, ' ');
 function styles(node) {
   const result = new Map();

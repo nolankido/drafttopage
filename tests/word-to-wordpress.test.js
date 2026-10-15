@@ -61,7 +61,7 @@ test('Existing tools keep their original import layout and the new task is linke
 });
 test('The Word-specific guide explains the real conversion and manual publishing limits', async () => {
   const guide = await readFile('scripts/word-to-wordpress-guide.html.inc', 'utf8');
-  for (const pattern of [/8 MiB/, /60,000/, /six levels/, /twelve columns/, /100 data rows/, /Images and embedded objects/, /text placeholders/, /Tracked changes/, /No document upload/, /no autosave/, /Code editor/, /Return to Visual editor/, /before publishing yourself/, /previews stay temporarily/, /not a complete Word layout conversion/]) assert.match(guide, pattern);
+  for (const pattern of [/8 MiB/, /60,000/, /six levels/, /twelve columns/, /100 data rows/, /Images and embedded objects/, /text placeholders/, /Tracked changes/, /No document upload/, /[Bb]rowser recovery/, /Code editor/, /Return to Visual editor/, /before publishing yourself/, /previews stay temporarily/, /not a complete Word layout conversion/]) assert.match(guide, pattern);
   assert.doesNotMatch(guide, /\u2014|<img\b|<script\b/);
   const intro = await readFile('scripts/word-to-wordpress-intro.html.inc', 'utf8');
   assert.match(intro, /sample is prewritten, not a Word-file import/);

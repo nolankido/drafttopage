@@ -50,9 +50,10 @@ assert.ok(!config.previews.vars, 'No activation secrets in preview configuration
 assert.ok(!config.vars, 'No secrets or deployment activation flags in source');
 for (const path of sourceFiles.filter(p => p.startsWith('public/') && p.endsWith('.js'))) {
   const ui = await readFile(path, 'utf8');
-  const guarded = path === 'public/html-import.js' ? ui.replace('template.innerHTML = source;', '') : ui;
+  const guarded = path === 'public/html-import.js' ? ui.replace('template.innerHTML = source;', '') : path === 'public/browser-recovery.js' ? ui.replace('window.localStorage', '') : ui;
+  if (path === 'public/browser-recovery.js') assert.equal(ui.split('window.localStorage').length, 2, 'One audited optional recovery storage access');
   if (path === 'public/html-import.js') assert.equal(ui.split('template.innerHTML = source;').length, 2, 'One detached-template parsing assignment only');
-  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|indexedDB|eval\(/.test(guarded), `No persistent browser storage or executable HTML insertion: ${path}`);
+  assert.ok(!/innerHTML|outerHTML|insertAdjacentHTML|localStorage|sessionStorage|indexedDB|eval\(/.test(guarded), `No unaudited browser storage or executable HTML insertion: ${path}`);
   for (const [, dependency] of ui.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
     assert.ok(dependency.startsWith('./'), `Local browser import required: ${dependency}`);
     const target = resolve(dirname(path), dependency);

@@ -1,5 +1,5 @@
 import { analyzeWordPressImages, wordPressImagePlan, IMAGE_REVIEW_LIMIT } from './wordpress-images.js';
-import { revealArticleSelection } from './editing.js';
+import { revealArticleSelection, revealEditorFor } from './editing.js';
 import { downloadText } from './download.js';
 
 export function installWordPressImages({ getDraft, changed, report, editImage = () => false, isBusy = () => false, reveal = revealArticleSelection, download = downloadText }) {
@@ -36,7 +36,7 @@ export function installWordPressImages({ getDraft, changed, report, editImage = 
         button.addEventListener('click', () => {
           if (isBusy()) return;
           if ($('publishing-destination').value !== 'wordpress' || getDraft().body !== original) { refresh(); report('The article changed. Choose an image from its current list.'); return; }
-          if (editImage(image.start, image.end)) return;
+          revealEditorFor($('body')); if (editImage(image.start, image.end)) return;
           const body = $('body'); body.focus(); body.setSelectionRange(image.start, image.end);
           try { reveal(body); } catch { /* Exact selection remains available. */ }
           report('Selected the image reference on line ' + image.line + '. Edit its alt text, URL, or paragraph placement. No image was loaded.');

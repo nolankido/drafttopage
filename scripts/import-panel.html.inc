@@ -11,6 +11,7 @@
 </fieldset>
 <section id="import-preview" hidden aria-labelledby="import-preview-heading">
 <h2 id="import-preview-heading">Check the import</h2><p id="import-summary"></p>
+<section id="import-review-notes" class="import-review-notes" aria-labelledby="import-review-heading"><h3 id="import-review-heading">Changes and limits to review</h3><p id="import-review-summary" class="small"></p><ul id="import-warnings"></ul><p class="small">Compare the converted article with your original, including its ending, tables, links, and image placeholders. These notes do not prove that everything was preserved. Keep your original document; pending import notes are not saved in workspace backups.</p></section>
 <label for="import-destination">How should this import join your article?</label><select id="import-destination" aria-describedby="import-destination-help"><option value="replace">Replace the article and its page details</option><option value="selection">Insert at article cursor or replace selected blocks</option><option value="append">Add to the end of the article</option></select>
 <p id="import-destination-help" class="small">Insertion keeps your existing title, excerpt, description, filename, source notes, and review notes. Only the imported body is used; imported page details and questions are not added. You can include its title as a section heading below. Replacement keeps the existing import behavior.</p>
 <section id="import-insertion-controls" hidden aria-labelledby="import-insertion-heading"><h3 id="import-insertion-heading">Preview where this writing will go</h3>
@@ -20,11 +21,10 @@
 <p id="import-insertion-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
 <div id="import-insertion-preview" hidden><p id="import-insertion-summary" class="small"></p><label for="import-insertion-before">Selected article source to replace</label><textarea id="import-insertion-before" rows="3" readonly></textarea><label for="import-insertion-after">Exact Markdown to insert, including paragraph separation</label><textarea id="import-insertion-after" rows="5" readonly></textarea></div>
 </section>
-<section aria-labelledby="import-reading-heading"><h3 id="import-reading-heading">Reading preview of the conversion</h3><div id="import-reading-preview" class="article-preview"></div></section>
-<label for="import-body-preview">Article body to import</label><textarea id="import-body-preview" rows="6" readonly></textarea>
+<section aria-labelledby="import-reading-heading"><h3 id="import-reading-heading">Reading preview of the conversion</h3><details id="import-reading-panel" open><summary>Show converted reading preview</summary><div id="import-reading-preview" class="article-preview" role="region" aria-label="Reading preview of the pending import" tabindex="0"></div></details></section>
+<details id="import-source-panel"><summary>Inspect exact Markdown</summary><label for="import-body-preview">Article body to import</label><textarea id="import-body-preview" rows="6" readonly></textarea></details>
 <details><summary>Page details to import</summary><dl id="import-page-details"></dl></details>
-<ul id="import-warnings"></ul>
-<label id="import-changes-section" class="check" hidden><input id="import-changes-ok" type="checkbox"><span>I reviewed the converted article and the formatting changes or omissions listed above.</span></label>
+<label id="import-changes-section" class="check" hidden><input id="import-changes-ok" type="checkbox" aria-describedby="import-review-summary"><span>I reviewed the converted article and the formatting changes or omissions listed above.</span></label>
 <section id="import-unmapped-section" hidden><h3>Unmapped front matter</h3><pre id="import-unmapped" class="code-sample"></pre><p class="small">These fields will not be imported. Keep any values your destination needs in your original file or private notes.</p><label class="check"><input id="import-unmapped-ok" type="checkbox"><span>I will handle these unmapped fields separately.</span></label></section>
 <div class="actions"><button id="apply-import" type="button" class="button" disabled>Import into editor</button></div>
 </section>

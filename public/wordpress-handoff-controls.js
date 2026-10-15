@@ -1,12 +1,12 @@
 import { articleIssues, ARTICLE_LIMITS } from './authoring.js';
 import { reviewWordPress } from './wordpress-review.js';
 import { wordPressKitFiles, wordPressKitSummary, createWordPressKit } from './wordpress-kit.js';
-import { revealArticleSelection } from './editing.js';
+import { revealArticleSelection, revealEditorFor } from './editing.js';
 import { downloadText } from './download.js';
 
-export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection }) {
+export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection, clipboardBusy = () => false, clipboardChanged = () => {}, reportCopy = report }) {
   const $ = id => document.getElementById(id);
-  let signature = '', review = null, rendered = '', kitRendered = '';
+  let signature = '', review = null, rendered = '', kitRendered = '', fieldCopying = false;
   const draftSignature = draft => JSON.stringify([draft.title, draft.body]);
   const fieldValid = (draft, key) => typeof draft[key] === 'string' && Boolean(draft[key].trim()) && draft[key].length <= ARTICLE_LIMITS[key] && !draft[key].includes('\u0000') && (key !== 'slug' || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft[key]));
   function update() {
@@ -34,7 +34,8 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
         li.append(text, button); return li;
       }));
     }
-    for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).disabled = !visible || !$('reviewed').checked || !fieldValid(draft, key);
+    for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).disabled = isBusy() || fieldCopying || clipboardBusy() || !visible || !$('reviewed').checked || !fieldValid(draft, key);
+    if ($('wordpress-field-actions')) $('wordpress-field-actions').setAttribute('aria-busy', String(fieldCopying || clipboardBusy()));
     const available = ['excerpt', 'slug', 'description'].filter(key => fieldValid(draft, key));
     $('wordpress-fields-status').textContent = available.length ? 'Optional fields available: ' + available.join(', ') + '. Copy each into its separate destination field after review.' : 'Optional post fields are empty or need editing. They are not required for copying blocks.';
     let kit = null, error = '';
@@ -51,14 +52,23 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
   }
   $('wordpress-review-panel').addEventListener('toggle', update);
   $('wordpress-kit-panel').addEventListener('toggle', update);
-  $('wordpress-edit-fields').addEventListener('click', () => { $('page-details').open = true; $('excerpt').focus(); report('Edit optional post fields here, then review again. WordPress uses its own title, excerpt, and slug fields; an SEO description depends on your SEO tool.'); });
+  $('wordpress-edit-fields').addEventListener('click', () => { revealEditorFor($('page-details')); $('page-details').open = true; $('excerpt').focus(); report('Edit optional post fields here, then review again. WordPress uses its own title, excerpt, and slug fields; an SEO description depends on your SEO tool.'); });
   for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).addEventListener('click', async () => {
+    if (isBusy() || fieldCopying || clipboardBusy() || $('publishing-destination').value !== 'wordpress') return;
     try {
+      const copyState = () => JSON.stringify([getDraft()[key], $('publishing-destination').value]), original = copyState();
       approved(); const draft = getDraft();
       if (!fieldValid(draft, key)) throw new Error('Add a valid ' + key + ' first.');
-      await navigator.clipboard.writeText(draft[key].trim());
-      report(key[0].toUpperCase() + key.slice(1) + ' copied separately. Paste into ' + ({ excerpt: 'the WordPress Excerpt setting', slug: 'the WordPress Slug/permalink setting when available', description: 'your SEO description field only if your SEO tool offers it' })[key] + '. Nothing was published.');
-    } catch (error) { report('Field copy unavailable. Select the field under Page details and copy it manually. ' + error.message); }
+      fieldCopying = true; clipboardChanged(true);
+      const request = navigator.clipboard.writeText(draft[key].trim());
+      update(); reportCopy('Copying the ' + key + '. Wait for confirmation before pasting.');
+      await request;
+      if (copyState() !== original || !$('reviewed').checked) {
+        reportCopy('An earlier ' + key + ' was copied. The field, destination, or review changed while copying. Review and copy the current value again before continuing in WordPress.'); return;
+      }
+      reportCopy(key[0].toUpperCase() + key.slice(1) + ' copied separately. Paste into ' + ({ excerpt: 'the WordPress Excerpt setting', slug: 'the WordPress Slug/permalink setting when available', description: 'your SEO description field only if your SEO tool offers it' })[key] + '. Nothing was published.');
+    } catch (error) { reportCopy('Field copy unavailable. Select the field under Page details and copy it manually. ' + error.message); }
+    finally { if (fieldCopying) { fieldCopying = false; clipboardChanged(false); } update(); }
   });
   $('download-wordpress-kit').addEventListener('click', () => {
     if (isBusy() || $('publishing-destination').value !== 'wordpress') return;

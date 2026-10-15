@@ -36,8 +36,16 @@ export async function loadEditingTool(load, install, unavailable) {
   catch { unavailable(); return false; }
 }
 
+// Guided converters keep source editing optional. Reveal it before focusing a field.
+export function revealEditorFor(element) {
+  for (let parent = element?.parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+    if (parent.id === 'article-edit-panel') parent.hidden = false;
+  }
+}
 // Measure the actual wrapped text rather than estimating from newline counts.
 export function revealArticleSelection(body) {
+  revealEditorFor(body); body.focus?.();
   const style = getComputedStyle(body), mirror = document.createElement('div'), marker = document.createElement('span');
   mirror.setAttribute('aria-hidden', 'true');
   mirror.style.cssText = 'position:absolute;left:-100000px;top:0;visibility:hidden;pointer-events:none;box-sizing:border-box;white-space:pre-wrap;overflow-wrap:break-word;';
