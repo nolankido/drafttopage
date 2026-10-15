@@ -28,9 +28,10 @@ def inside(node,parent):
 out={}
 for route,html in json.load(sys.stdin).items():
  p=Parser();p.feed(html);assert len(p.stack)==1
- d=p.ids['draft'];r=p.ids['conversion-results'];notes=next(n for n in d['parent']['children'] if 'source-editor' in n['attrs'].get('class',''))
- assert d['parent'] is r['parent'] is notes['parent']
- assert d['parent']['children'].index(d)<d['parent']['children'].index(r)<d['parent']['children'].index(notes)
+ d=p.ids['draft'];r=p.ids['conversion-results'];wrapper=p.ids.get('article-edit-panel',d);container=wrapper['parent'];notes=next(n for n in container['children'] if 'source-editor' in n['attrs'].get('class',''))
+ assert container is r['parent'] is notes['parent']
+ if wrapper is d:assert container['children'].index(d)<container['children'].index(r)<container['children'].index(notes)
+ else:assert container['children'].index(r)<container['children'].index(wrapper)<container['children'].index(notes) and 'open' not in wrapper['attrs']
  assert inside(p.ids['body'],d) and inside(p.ids['page-details'],d)
  assert inside(p.ids['article-preview'],r) and inside(p.ids['exports'],r) and not inside(p.ids['exports'],d)
  extra=p.ids['additional-exports'];assert all(inside(p.ids[key],extra) for key in ['copy-formatted','copy-body','download-body','download-html','download-kit'])

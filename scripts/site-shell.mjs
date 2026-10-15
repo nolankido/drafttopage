@@ -1,9 +1,10 @@
-export const RELEASE = 'google-docs-paste-feedback-20261014';
+export const RELEASE = 'alpha-first-article-20261015';
 export const escapeHTML = value => String(value).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-const navigation = [['/write/', 'Write'], ['/word-to-wordpress/', 'Word to WordPress'], ['/google-docs-to-wordpress/', 'Google Docs tool'], ['/markdown-to-wordpress/', 'Markdown to WordPress'], ['/markdown-to-html/', 'HTML tool'], ['/markdown-to-word/', 'Word tool'], ['/examples/', 'Examples'], ['/templates/', 'Templates'], ['/help/', 'Help']];
+const navigation = [['/word-to-wordpress/', 'Word to WordPress'], ['/google-docs-to-wordpress/', 'Google Docs tool'], ['/write/', 'Write'], ['/#publishing-tools', 'All tools'], ['/help/', 'Help']];
 export function renderPage({ route, title, description, body, script = '', wide = false, desk = false, converter = false }) {
   const current = navigation.map(([href, label]) => '<a href="' + href + '"' + (route === href ? ' aria-current="page"' : '') + '>' + label + '</a>').join('');
   const canonical = 'https://drafttopage.com' + route;
+  const extraTools = [['/markdown-to-wordpress/', 'Markdown to WordPress'], ['/markdown-to-html/', 'HTML tool'], ['/markdown-to-word/', 'Word tool']].map(([href, label]) => '<a href="' + href + '"' + (route === href ? ' aria-current="page"' : '') + '>' + label + '</a>').join('');
   return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
     '<title>' + escapeHTML(title) + ' | Draft to Page</title><meta name="description" content="' + escapeHTML(description) + '">' +
     '<meta name="theme-color" content="#244b40"><link rel="canonical" href="' + canonical + '">' +
@@ -18,6 +19,6 @@ export function renderPage({ route, title, description, body, script = '', wide 
     (route === '/' ? '' : 'wrap content-main' + (wide ? ' wide' : '') + (desk ? ' desk-main' : '') + (converter ? ' converter-main' : '')) +
     '" data-release="' + RELEASE + '">' + body + '</main>' +
     '<footer class="site-footer wrap"><div><a class="brand" href="/">Draft to Page.</a><p>Your ideas. Your voice. Your approval.</p></div>' +
-    '<nav aria-label="Footer navigation"><a href="/getting-started/">Getting started</a><a href="/about/">About &amp; support</a><a href="/access/">Access &amp; status</a><a href="/privacy/">Data use</a><a href="/pilot">Private pilot</a></nav><span class="badge">In development</span></footer>' +
+    '<nav aria-label="More writing tools">' + extraTools + '</nav><nav aria-label="Footer navigation"><a href="/getting-started/">Getting started</a><a href="/about/">About &amp; support</a><a href="/access/">Access &amp; status</a><a href="/privacy/">Data use</a><a href="/pilot">Private pilot</a></nav><span class="badge">In development</span></footer>' +
     (script ? '<script type="module" src="' + script + '"></script>' : '') + '</body></html>\n';
 }

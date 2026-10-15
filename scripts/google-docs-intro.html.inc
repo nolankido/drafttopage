@@ -1,10 +1,10 @@
 <header class="desk-intro" data-workspace="google-docs">
-<p class="eyebrow">Free copied-draft preparation</p><h1>Google Docs to WordPress converter</h1>
+<p class="eyebrow">Free article preparation · Alpha</p><h1>Google Docs to WordPress converter</h1>
 <p>Copy your draft in Google Docs. Paste it below, inspect the conversion, then take editable blocks into a new WordPress post.</p>
 <nav class="desk-start" aria-label="Convert copied writing to WordPress"><button id="start-copied-paste" type="button" class="button">1. Paste copied writing</button><button id="start-review" type="button" class="secondary">2. Review the article</button><button id="start-handoff" type="button" class="secondary">3. Take WordPress blocks</button></nav>
-<p class="small">No Google sign-in, document URL, upload, plugin, or API credits. Only a selection you paste here is read. Common headings, emphasis, lists, safe links, and simple tables can be converted. Images become placeholders. This does not reproduce the document layout.</p>
+<p class="small">No account or upload. Images become placeholders. <a href="#copied-writing-limits">See conversion limits</a>.</p>
 <p id="sample" class="small">Want to explore first? <button id="start-sample" type="button" class="secondary">Try a fictional sample</button> This sample is prewritten, not a Google Docs import.</p>
-<nav class="jump-links" aria-label="Copied writing guide"><a href="#google-docs-guide">Copy and paste steps</a><a href="#copied-writing-limits">What converts</a><a href="#copied-writing-questions">Common questions</a></nav>
-<details id="desk-more" class="desk-more"><summary>Use a file, plain text, source notes, or more tools</summary><div class="desk-start"><button id="start-draft" type="button" class="secondary">Paste text or Markdown</button><button id="start-formatted-import" type="button" class="secondary">Open formatted import</button><button id="start-import" type="button" class="secondary">Open article import</button><button id="start-notes" type="button" class="secondary">Start with notes</button><button id="toggle-focus" type="button" class="secondary" aria-pressed="false">Focus on article</button><button id="start-checks" type="button" class="secondary">Check draft</button></div></details>
-<p class="small">Your writing stays in this tab. Save a private backup before refreshing or leaving; there is no autosave. Exporting does not connect to WordPress or publish anything.</p>
+<p id="article-progress" class="article-progress" role="status" aria-live="polite">1. Bring your article</p>
+
+
 </header>

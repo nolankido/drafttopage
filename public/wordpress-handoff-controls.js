@@ -1,7 +1,7 @@
 import { articleIssues, ARTICLE_LIMITS } from './authoring.js';
 import { reviewWordPress } from './wordpress-review.js';
 import { wordPressKitFiles, wordPressKitSummary, createWordPressKit } from './wordpress-kit.js';
-import { revealArticleSelection } from './editing.js';
+import { revealArticleSelection, revealEditorFor } from './editing.js';
 import { downloadText } from './download.js';
 
 export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection }) {
@@ -51,7 +51,7 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
   }
   $('wordpress-review-panel').addEventListener('toggle', update);
   $('wordpress-kit-panel').addEventListener('toggle', update);
-  $('wordpress-edit-fields').addEventListener('click', () => { $('page-details').open = true; $('excerpt').focus(); report('Edit optional post fields here, then review again. WordPress uses its own title, excerpt, and slug fields; an SEO description depends on your SEO tool.'); });
+  $('wordpress-edit-fields').addEventListener('click', () => { revealEditorFor($('page-details')); $('page-details').open = true; $('excerpt').focus(); report('Edit optional post fields here, then review again. WordPress uses its own title, excerpt, and slug fields; an SEO description depends on your SEO tool.'); });
   for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).addEventListener('click', async () => {
     try {
       approved(); const draft = getDraft();

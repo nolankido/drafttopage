@@ -56,7 +56,12 @@ test('WordPress controls require approval, clear stale output, and provide a cli
     await nodes['copy-wordpress'].fire('click'); assert.equal(copied, '');
     nodes.reviewed.checked = true; control.update();
     assert.equal(nodes['copy-wordpress'].disabled, false); assert.ok(nodes['wordpress-code-preview'].value.startsWith('<!-- wp:paragraph -->'));
+    nodes['wordpress-instructions'] = element();
     await nodes['copy-wordpress'].fire('click'); assert.equal(copied, createWordPressArticle(draft).html); assert.match(message, /Nothing was published/);
+    assert.equal(nodes['wordpress-instructions'].open, true);
+    navigator.clipboard.writeText = async text => { copied = text; draft = { ...draft, body: '' }; nodes.reviewed.checked = false; };
+    await nodes['copy-wordpress'].fire('click'); assert.match(message, /earlier article version/); assert.equal(nodes.reviewed.checked, false);
+    navigator.clipboard.writeText = async text => { copied = text; }; nodes.reviewed.checked = true;
     await nodes['copy-wordpress-title'].fire('click'); assert.equal(copied, draft.title);
     draft = { body: 'A changed article.', title: '' }; nodes.reviewed.checked = false; control.update();
     assert.equal(nodes['wordpress-code-preview'].value, ''); assert.equal(nodes['copy-wordpress-title'].disabled, true);

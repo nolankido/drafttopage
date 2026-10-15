@@ -78,8 +78,14 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
   $('copy-wordpress').addEventListener('click', async () => {
     if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
     try {
+      const copyState = () => JSON.stringify([getDraft().title, getDraft().body, getWordPressOptions(), $('publishing-destination').value]);
+      const original = copyState();
       approved(); const article = createWordPressArticle(getDraft(), getWordPressOptions());
       await navigator.clipboard.writeText(article.html);
+      $('wordpress-instructions').open = true;
+      if (copyState() !== original || !$('reviewed').checked) {
+        report('An earlier article version was copied. The article changed while copying. Review and copy the current version again before continuing in WordPress.'); return;
+      }
       report('WordPress blocks copied without a title or page fields. Paste into the Code editor of a new WordPress draft, return to Visual editor, and inspect the result.' + (article.imageCount ? ' Linked image URLs can load there.' : '') + ' Nothing was published.');
     } catch (error) { report('WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks. ' + error.message); }
   });

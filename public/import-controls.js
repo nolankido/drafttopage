@@ -4,6 +4,7 @@ import { renderPreview } from './preview.js';
 import { MAX_DOCX_BYTES } from './docx-archive.js';
 import { installImportInsertion } from './import-insertion-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from './copied-writing.js';
+import { revealEditorFor } from './editing.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
@@ -182,11 +183,11 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   }, openInsertion: () => {
     if (reading || isBusy()) return;
     $('import-panel').open = true; insertion.chooseMode('append');
-    if (candidate) $('import-destination').focus(); else $('import-file').focus();
+    if (candidate) $('import-destination').focus(); else { revealEditorFor($('import-file')); $('import-file').focus(); }
     report('Insert more writing: choose a file or preview pasted writing. Then preview adding it to the article end, or choose a complete-block selection. Current writing is kept.');
   }, openWordFile: () => {
     if (reading || isBusy()) { report('Finish the current file operation before choosing another document. Current writing is unchanged.'); return; }
-    $('import-panel').open = true;
+    $('import-panel').open = true; revealEditorFor($('import-file'));
     try { $('import-file').click(); }
     catch { $('import-file').focus(); report('Choose a Word document using the file control in the import panel. Current writing is unchanged.'); }
   }, openFormatted: () => {

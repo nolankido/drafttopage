@@ -37,7 +37,7 @@ The archive writer emits deterministic stored UTF-8 text with fixed safe filenam
 
 Editor and review word counts now share the same limited Markdown-aware estimate. Stale link-inventory status clears alongside other findings. The default export panel presents editor copying and individual files, with complete Markdown and kit choices in purpose-specific details panels.
 
-## Explicit files, not autosave
+## Explicit files and optional browser recovery
 
 Find & replace in the article provides bounded literal substring search with optional exact-case matching, previous/next selection, and Enter/Shift+Enter navigation. Replace selected match changes only the selected occurrence; Preview replace all reports actual changes, the resulting length, and at most five inert examples before confirmation. Both paths checkpoint current writing before mutation and clear approval. No-op and rejected replacements keep approval. Article/query/case/replacement edits invalidate bulk previews. Search/replacement settings and snippets are temporary, excluded from backups and exports, and purged on import, restore, or clear. See [the search release](docs/ARTICLE_SEARCH_RELEASE.md). The private pilot keeps its existing editor.
 
@@ -51,7 +51,7 @@ The local desk and private pilot share a versioned JSON workspace-backup format.
 
 A restore reads only the selected file, validates the entire content and a 512 KiB limit before replacement, asks before overwriting existing writing, and clears approval and pilot consent. It does not call AI. Article Markdown exports continue to omit notes and review questions.
 
-There is no browser autosave, persistent browser storage, account history, or server recovery. A download request cannot establish that the device saved the file. Check the actual file before leaving. See `/help/local-workspace/` and [the local desk release](docs/LOCAL_DESK_RELEASE.md).
+Public workspaces start in tab memory. Optional browser recovery can retain one unencrypted workspace on this browser only after explicit consent; restore and saving require a deliberate choice after reopening. Other tabs cannot overwrite an active writer. Storage errors stop saving and keep the open article. The private AI pilot has no browser recovery. There is no account history, cross-device sync, or server recovery. A download request cannot establish that the device saved the file. Check the actual file before leaving. See `/help/local-workspace/` and [the local desk release](docs/LOCAL_DESK_RELEASE.md).
 
 ## Owner activation remains deferred
 
@@ -148,3 +148,7 @@ All five workspaces support previewed insertion of Word, formatted/HTML, Markdow
 ## Paste a Google Docs selection
 
 The free `/google-docs-to-wordpress/` entry page opens the shared importer around copied writing. A user-initiated formatted paste previews immediately, while plain-only clipboard data gets a clear acknowledgement warning. Bounded clipboard source remains in tab memory for explicit re-preview and is excluded from private files and exports. No Google account connection or background clipboard read is introduced. See [the release note](docs/GOOGLE_DOCS_PASTE_RELEASE.md).
+
+## Alpha preparation
+
+Word and Google Docs converters now lead with the converted reading view. Source editing stays available in a native disclosure; imports still require acknowledgement and exports still require review. The entry pages use shorter copy, backups and revisions share one disclosure, and onboarding follows the same import, review, WordPress handoff task. See [alpha readiness](docs/ALPHA_READINESS.md) for verified checks and remaining real-user acceptance.
