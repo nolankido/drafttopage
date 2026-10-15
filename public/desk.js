@@ -16,6 +16,7 @@ import { QUICK_SAMPLE } from './quick-sample.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
 import { revealDetails } from './disclosure.js';
+import { installWorkflowNavigation, focusWorkflowTarget } from './workflow-navigation.js';
 const wordImportTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
 const copiedPasteTool = document.querySelector('.desk-intro')?.dataset.workspace === 'google-docs';
 const wordpressTool = wordImportTool || copiedPasteTool || document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
@@ -24,7 +25,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewSnapshot = null;
+let questions = [], workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewSnapshot = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -92,6 +93,7 @@ function update() {
   linkEditor?.refresh();
   tableEditor?.refresh();
   importer?.updateBusy();
+  workflow?.update();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -119,7 +121,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); workflow?.update(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -128,20 +130,16 @@ $('preview-panel').addEventListener('toggle', update);
 $('template-select').addEventListener('change', update);
 $('export-format').addEventListener('change', changed);
 $('start-notes').addEventListener('click', () => {
+  if (recovery.reading() || importer?.reading()) return;
+  workflow?.select('bring');
   setFocus(false); $('notes-panel').open = true; $('template-select').focus();
   report('Choose an outline or enter your own notes. No text is generated automatically.');
 });
 $('start-draft').addEventListener('click', () => {
-  setFocus(true); $('notes-panel').open = false; $('body').focus();
+  if (recovery.reading() || importer?.reading()) return;
+  workflow?.select('bring');
+  setFocus(true); $('notes-panel').open = false; focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
   report(wordTool ? 'Paste simple Markdown into the article body. Review the preview, then download Word. The title is optional unless you include it.' : htmlTool ? 'Paste simple Markdown into the article body. Review the preview, then copy HTML source. The title is optional unless you include it.' : wordpressTool ? 'Paste simple Markdown into the article body. Keep the post title separate. The reading preview updates as you edit.' : 'Paste or write your article. Page details can wait until you need a full Markdown export.');
-});
-$('start-review').addEventListener('click', () => {
-  $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
-  report('Read the preview and compare it with your source. Use Outline & draft checks for writing-pattern suggestions, then choose your export.');
-});
-$('start-handoff').addEventListener('click', () => {
-  $('publishing-destination').focus();
-  report('Choose Word, HTML source, WordPress blocks, or another export. Review the article and check the approval box before copying or downloading.');
 });
 function loadSample() {
   if (recovery.reading() || importer?.reading()) return;
@@ -149,7 +147,7 @@ function loadSample() {
   if ((DRAFT_FIELDS.some(id => existing.draft[id].length) || importer?.pending() || sourceReview?.hasWork() || imageEditor?.hasWork() || linkEditor?.hasWork() || tableEditor?.hasWork()) && !confirm('Replace the current article with a fictional sample? A checkpoint keeps the current writing in this tab. Source notes and saved review questions are kept. Unsaved passage review, image preparation, link preparation, and table preparation are discarded. Save a private backup to keep them after leaving.')) return;
   try { revisions?.captureBefore('Before fictional sample'); } catch (error) { report(error.message); return; }
   fill({ source: existing.source, draft: { ...QUICK_SAMPLE, questions: existing.draft.questions } });
-  setFocus(true); $('preview-panel').open = true; update(); $('preview-panel').querySelector('summary').focus();
+  setFocus(true); $('preview-panel').open = true; update(); workflow?.review();
   report('Fictional sample loaded. Try the reading preview, review the article, then ' + (wordTool ? 'download Word' : htmlTool ? 'copy HTML source' : 'copy WordPress blocks or choose another export') + '. Replace this sample before publishing.');
 }
 $('start-sample').addEventListener('click', loadSample);
@@ -169,6 +167,8 @@ function followFragment() {
   if (hash.startsWith('#template-')) loadOutline(hash.slice('#template-'.length));
   else if (hash === '#notes') $('start-notes').click();
   else if (hash === '#draft') $('start-draft').click();
+  else if (['#exports', '#export-heading'].includes(hash)) workflow?.handoff();
+  else if (['#conversion-results', '#conversion-heading', '#preview-panel', '#article-preview'].includes(hash)) workflow?.review();
   else if (hash === '#sample') loadSample();
   else if (hash === '#table-editor-panel') { revealDetails($('table-editor-panel')); $('table-editor-panel').querySelector('summary').focus(); }
   else if (hash === '#link-editor-panel') { revealDetails($('link-editor-panel')); $('link-editor-panel').querySelector('summary').focus(); }
@@ -273,9 +273,10 @@ $('add-question').addEventListener('click', () => {
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
   focusPreview: wordImportTool || copiedPasteTool, pasteFirst: copiedPasteTool,
-  workChanged: updateExitWarning,
+  focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
+  workChanged: () => { updateExitWarning(); workflow?.update(); },
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); workflow?.update(); }, report,
   applyInsertion: plan => {
     revisions.captureBefore('Before article insertion');
     $('body').value = plan.body; touched.add('body'); changed();
@@ -293,14 +294,14 @@ importer = installArticleImport({
     wordPressImages?.reset();
     if (!publishingProfiles?.hasSetup()) $('export-format').value = 'page';
     if (wordImportTool || copiedPasteTool) $('import-panel').open = false;
-    changed(); $('body').focus();
+    changed(); focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
   }
 });
-$('start-import').addEventListener('click', () => { $('import-panel').open = true; $('import-file').focus(); });
-$('start-insert-import').addEventListener('click', () => importer.openInsertion());
-$('start-formatted-import').addEventListener('click', () => importer.openFormatted());
-$('start-word-file')?.addEventListener('click', () => importer.openWordFile());
-$('start-copied-paste')?.addEventListener('click', () => importer.openCopied());
+$('start-import').addEventListener('click', () => { if (recovery.reading() || importer?.reading()) return; workflow?.select('bring'); $('import-panel').open = true; $('import-file').focus(); });
+$('start-insert-import').addEventListener('click', () => { workflow?.select('bring'); importer.openInsertion(); });
+$('start-formatted-import').addEventListener('click', () => { workflow?.select('bring'); importer.openFormatted(); });
+$('start-word-file')?.addEventListener('click', () => { workflow?.select('bring'); importer.openWordFile(); });
+$('start-copied-paste')?.addEventListener('click', () => { workflow?.select('bring'); importer.openCopied(); });
 $('import-text').addEventListener('input', () => {
   updateExitWarning();
 });
@@ -383,6 +384,11 @@ loadEditingTool(() => import('./search-controls.js'), ({ installArticleSearch })
 });
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
+});
+workflow = installWorkflowNavigation({
+  getDraft: () => capture().draft,
+  getImportState: () => ({ pending: Boolean(importer?.pending()), staged: Boolean(importer?.staged()) }),
+  isBusy: () => recovery.reading() || Boolean(importer?.reading()), refreshPreview: update, report
 });
 setFocus(true); update();
 report(copiedPasteTool ? 'Copied-writing tool ready. Paste a Google Docs selection into the import box to preview before applying. Save explicitly before leaving.' : wordImportTool ? 'Word to WordPress tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
