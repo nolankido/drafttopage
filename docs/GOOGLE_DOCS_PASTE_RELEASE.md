@@ -2,6 +2,8 @@
 
 Release: `google-docs-paste-20261014`.
 
+Visual follow-up: `google-docs-paste-feedback-20261014` renders successful HTML-paste feedback in the normal muted text color, while plain-only warnings and rejected pastes retain caution/error feedback. Live messages still use the existing status region.
+
 ## Product decision
 
 The site already converts supported formatted writing, but users starting from Google Docs must discover a format selector and raw HTML import box. This release makes copied writing a clear entry path with an immediate conversion preview and a dedicated, indexed Google Docs to WordPress page. It is an acquisition and usability hypothesis. Demand, traffic, retention and willingness to pay remain unmeasured.
