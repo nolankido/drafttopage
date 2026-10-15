@@ -34,7 +34,7 @@ test('Unsupported front-matter fields stay visible for a deliberate destination 
 });
 test('Malformed, oversized, structured YAML, and prototype-shaped inputs are rejected before use', () => {
   const bad = [
-    '', 'x'.repeat(MAX_IMPORT_BYTES + 1), 'x'.repeat(12001), 'Hidden\u0000text',
+    '', 'x'.repeat(MAX_IMPORT_BYTES + 1), 'x'.repeat(60001), 'Hidden\u0000text',
     '---\ntitle: "Bad"\n', '---\ntitle: A\ntitle: B\n---\nBody',
     '---\ntitle: !!js/function bad\n---\nBody', '---\ntitle: |\n  multline\n---\nBody',
     '---\n__proto__: bad\n---\nBody', '{broken', JSON.stringify({ ...EXAMPLES[0].draft, extra: true }),
@@ -51,7 +51,7 @@ test('Formatting preserves text outside the selection and respects the editor li
   assert.equal(formatMarkdown('One\nTwo', 0, 7, 'numbered').body, '1. One\n2. Two');
   assert.equal(formatMarkdown('Paragraph', 0, 0, 'heading').body, '## Paragraph');
   assert.equal(formatMarkdown('', 0, 0, 'italic').body, '*italic text*');
-  assert.throws(() => formatMarkdown('x'.repeat(12000), 0, 1, 'bold'));
+  assert.throws(() => formatMarkdown('x'.repeat(60000), 0, 1, 'bold'));
   assert.throws(() => formatMarkdown('text', -1, 2, 'bold'));
   assert.throws(() => formatMarkdown('text', 0, 2, 'unknown'));
 });

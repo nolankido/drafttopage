@@ -66,7 +66,7 @@ export function installArticleSearch({ apply, isBusy, report, reveal = revealArt
     try {
       const plan = previewArticleReplacements(body.value, $('find-text').value, $('replace-text').value, options());
       candidate = { plan, signature: signature() };
-      $('replace-summary').textContent = plan.changedCount ? 'Will change ' + plan.changedCount + ' of ' + plan.matchCount + ' matches. Result: ' + plan.body.length.toLocaleString() + ' / 12,000 characters. Showing the first ' + plan.examples.length + ' changed passage(s).' : 'All matches already equal the replacement. No writing would change.';
+      $('replace-summary').textContent = plan.changedCount ? 'Will change ' + plan.changedCount + ' of ' + plan.matchCount + ' matches. Result: ' + plan.body.length.toLocaleString() + ' / 60,000 characters. Showing the first ' + plan.examples.length + ' changed passage(s).' : 'All matches already equal the replacement. No writing would change.';
       $('replace-examples').replaceChildren(...plan.examples.map(example => {
         const li = document.createElement('li');
         for (const [label, text] of [['Before', example.before], ['After', example.after]]) {

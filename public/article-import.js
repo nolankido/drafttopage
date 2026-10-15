@@ -1,9 +1,10 @@
 import { DRAFT_FIELDS, validateDraft } from './workspace.js';
 import { suggestFilename } from './preview.js';
 
-export const MAX_IMPORT_BYTES = 48 * 1024;
+import { ARTICLE_LIMITS, MAX_IMPORT_BYTES } from './writing-limits.js';
+export { MAX_IMPORT_BYTES };
 const controls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
-const limits = { title: 160, excerpt: 300, description: 160, slug: 80, body: 12000 };
+const limits = ARTICLE_LIMITS;
 function checkDraft(value) {
   const draft = validateDraft(value);
   for (const key of [...DRAFT_FIELDS, 'questions']) {
@@ -35,7 +36,7 @@ function firstHeading(body) {
   return { title, length: match[0].length };
 }
 export function parseArticleImport(raw, filename = '', format = 'auto') {
-  if (typeof raw !== 'string' || new TextEncoder().encode(raw).byteLength > MAX_IMPORT_BYTES) throw new Error('Choose text no larger than 48 KiB.');
+  if (typeof raw !== 'string' || new TextEncoder().encode(raw).byteLength > MAX_IMPORT_BYTES) throw new Error('Choose text no larger than 512 KiB.');
   if (controls.test(raw)) throw new Error('The import contains unsupported control characters.');
   if (!['auto', 'markdown', 'json'].includes(format)) throw new Error('Choose a supported import format.');
   let text = raw.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');

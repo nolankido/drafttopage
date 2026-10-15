@@ -58,7 +58,7 @@ test('Reading estimate excludes code, image syntax, and addresses and explains a
 test('Findings are bounded with a visible total instead of silently truncating', () => {
   const result = analyzeDraft({ body: 'TODO\n\n'.repeat(90) });
   assert.equal(result.findings.length, REVIEW_LIMIT); assert.equal(result.totalFindings, 90); assert.equal(result.truncated, true);
-  assert.throws(() => analyzeDraft({ body: 'a'.repeat(12001) }));
+  assert.throws(() => analyzeDraft({ body: 'a'.repeat(60001) }));
   assert.throws(() => analyzeDraft({ body: null }));
   assert.throws(() => analyzeDraft({ title: 'a'.repeat(161), body: 'Valid' }));
 });
@@ -74,7 +74,7 @@ test('Link scanner supports balanced parentheses and keeps images, escaped synta
   assert.equal(parts[0].href, 'https://example.test/a_(b)');
   assert.ok(parts.some(p => p.type === 'text' && p.text.startsWith('![')));
   for (const value of ['[x](javascript:alert(1))', '[](https://example.test/)', '[x](https://u:p@example.test/)', '[x](<https://example.test/>)']) assert.deepEqual(inlineParts(value), [{ type: 'text', text: value }]);
-  assert.throws(() => inlineTokens('a'.repeat(12001)));
+  assert.throws(() => inlineTokens('a'.repeat(60001)));
 });
 test('HTML export escapes hostile labels, shares protected URLs, and preserves heading hierarchy', () => {
   const html = createReadingPage({ title: 'An update', body: '## Section\n### Detail\n[<img onerror=bad()>](https://example.test/?a=1&b=2)\n\n[unsafe](javascript:bad())\n\n![image](https://example.test/a.png)' });

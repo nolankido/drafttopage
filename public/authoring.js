@@ -1,6 +1,7 @@
 import { ARTICLE_TYPES, TEMPLATES } from './content-data.js';
 
-export const ARTICLE_LIMITS = { title: 160, excerpt: 300, description: 160, slug: 80, body: 12000 };
+import { ARTICLE_LIMITS } from './writing-limits.js';
+export { ARTICLE_LIMITS };
 export function articleIssues(draft, mode = 'page') {
   const needed = mode === 'body' ? ['body'] : mode === 'html' ? ['title', 'body'] : Object.keys(ARTICLE_LIMITS);
   const labels = { title: 'Article title', excerpt: 'Short excerpt', description: 'Page description', slug: 'Filename', body: 'Article body' };
@@ -32,7 +33,7 @@ export function makeDraftingBrief(source) {
     'Preserve uncertainty. Put missing facts in review questions. Do not claim research or fact-checking occurred.',
     'Write in plain English, without em dashes. Aim for a short article; do not pad sparse notes.',
     'Return only one JSON object with exactly these fields: title, excerpt, description, slug, body, questions. No code fences or surrounding prose.',
-    'Use title up to 160 characters, excerpt up to 300, description up to 160, a lowercase ASCII filename slug up to 80 using letters/digits/hyphens, and a Markdown body up to 12,000 characters without a duplicate title heading.',
+    'Use title up to 160 characters, excerpt up to 300, description up to 160, a lowercase ASCII filename slug up to 80 using letters/digits/hyphens, and a Markdown body up to 60,000 characters without a duplicate title heading.',
     'Put unresolved editorial questions in the questions array, up to 12 strings of 500 characters each. Do not put review notes in the article body. The author can preview and import this JSON in Draft to Page.',
     'The author will edit and review the result. Nothing should be published automatically.',
     '',

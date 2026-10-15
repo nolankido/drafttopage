@@ -1,3 +1,4 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { inlineTokens } from './markdown-inline.js';
 
 export const REVIEW_LIMIT = 40;
@@ -6,7 +7,7 @@ const wordsIn = text => (text.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu)
 const visibleText = tokens => tokens.filter(p => p.type !== 'image' && p.type !== 'code').map(p => p.text).join('');
 // Character positions use the unchanged editor string, including CRLF and Unicode.
 export function articleStructure(body) {
-  if (typeof body !== 'string' || body.length > 12000) throw new Error('Draft checks support at most 12,000 article characters.');
+  if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Draft checks support at most 60,000 article characters.');
   const lines = body.split('\n'), blocks = [];
   let position = 0, paragraph = null, fence = null;
   const flush = () => { if (paragraph) blocks.push(paragraph); paragraph = null; };
@@ -72,7 +73,7 @@ export function analyzeDraft(draft) {
     }
     // Ignore inline code when identifying editorial placeholders.
     for (const token of tokens.filter(p => p.type !== 'code')) {
-      for (const match of token.text.matchAll(/\b(?:TODO|TBD|TK)\b|\[(?:insert|add|check|verify|source|citation needed|placeholder)\b[^\]\n]*\]|\{\{[^}\n]+\}\}|\bLorem ipsum\b/gi)) {
+      for (const match of token.text.matchAll(/\b(?:TODO|TBD|TK)\b|\[(?:insert|add|check|verify|source|citation needed|placeholder)\b[^\]\n]*\]|\{\{[^{}\n]+\}\}|\bLorem ipsum\b/gi)) {
         // Text tokens have exact offsets; formatted labels use the whole block.
         const exact = token.type === 'text', start = exact ? block.contentStart + token.start + match.index : block.start;
         add(block, 'placeholder', 'Possible unfinished text: ' + match[0].slice(0, 100) + '. Resolve it before publishing.', start, exact ? start + match[0].length : block.end);

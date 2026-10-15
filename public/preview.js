@@ -1,9 +1,10 @@
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { inlineTokens } from './markdown-inline.js';
 import { readMarkdownTable } from './markdown-table.js';
 import { readMarkdownList } from './markdown-list.js';
 // A bounded reading aid. Only explicit web links become navigation; no resources load.
 export function previewBlocks(body) {
-  if (typeof body !== 'string' || body.length > 12000) throw new Error('Preview supports at most 12,000 body characters.');
+  if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Preview supports at most 60,000 body characters.');
   const lines = body.replaceAll('\r', '').split('\n');
   const result = [];
   let paragraph = [];

@@ -12,7 +12,7 @@ test('An article body can leave the workspace without a filename or page metadat
   assert.deepEqual(articleIssues(partial, 'body'), {});
   assert.ok(articleIssues(partial).slug);
   assert.ok(articleIssues(partial, 'html').title);
-  for (const body of ['', ' ', null, 'x'.repeat(12001), 'hidden\u0000text']) assert.throws(() => articleBody({ body }));
+  for (const body of ['', ' ', null, 'x'.repeat(60001), 'hidden\u0000text']) assert.throws(() => articleBody({ body }));
 });
 test('A reading page needs only the title and article and emits one inert document', () => {
   const html = createReadingPage({ title: 'Fictional article', body: '## A detail\n**Supported** and *uncertain*.\n\n- First\n- Second' });

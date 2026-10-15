@@ -52,12 +52,12 @@ test('Code headings stay within their section and unfinished fences block all mo
 test('Stale positions, invalid directions, and oversized inputs reject before producing writing', () => {
   const body = '## A\nOne.\n## B\nTwo.';
   for (const [start, direction] of [[-1, 'up'], [2, 'down'], [0.5, 'down'], [0, 'sideways']]) assert.throws(() => moveArticleSection(body, start, direction));
-  assert.throws(() => moveArticleSection('a'.repeat(12001), 0, 'down'));
+  assert.throws(() => moveArticleSection('a'.repeat(60001), 0, 'down'));
   assert.throws(() => articleSections(null));
   assert.equal(articleSections('No headings.').sections.length, 0);
-  const maximum = '## A\n' + 'x'.repeat(11985) + '\n## B\nEnd.';
-  assert.equal(maximum.length, 12000);
-  assert.equal(moveArticleSection(maximum, 0, 'down').body.length, 12000);
+  const maximum = '## A\n' + 'x'.repeat(59985) + '\n## B\nEnd.';
+  assert.equal(maximum.length, 60000);
+  assert.equal(moveArticleSection(maximum, 0, 'down').body.length, 60000);
 });
 test('Every eligible move reverses without losing arbitrary bounded section writing', () => {
   for (let count = 2; count <= 12; count++) {

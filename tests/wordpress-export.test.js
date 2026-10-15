@@ -17,8 +17,8 @@ test('WordPress handoff creates editable blocks and keeps all other fields separ
 });
 test('Body-only handoff does not require a title or page fields and rejects invalid bodies', () => {
   assert.match(createWordPressArticle({ body: 'Only the body.' }).html, /<p>Only the body\.<\/p>/);
-  for (const draft of [null, {}, { body: null }, { body: '' }, { body: ' \n ' }, { body: 'x'.repeat(12001) }, { body: 'hidden\u0000text' }]) assert.throws(() => createWordPressArticle(draft));
-  assert.ok(createWordPressArticle({ body: '界'.repeat(12000) }).html.includes('界'.repeat(12000)));
+  for (const draft of [null, {}, { body: null }, { body: '' }, { body: ' \n ' }, { body: 'x'.repeat(60001) }, { body: 'hidden\u0000text' }]) assert.throws(() => createWordPressArticle(draft));
+  assert.ok(createWordPressArticle({ body: '界'.repeat(60000) }).html.includes('界'.repeat(60000)));
 });
 test('Heading levels, code, line breaks and safe links survive without executable source HTML', () => {
   const body = '# Body H1\n\n### Third level\n\n###### Sixth level\n\nOne\nTwo **bold** *italic* `inline`.\n\n[link](https://example.test/?a=1&b=2)\n\n~~~js\n<script>literal & code</script>\n~~~';

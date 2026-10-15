@@ -15,7 +15,7 @@ export function createWordPressArticle(draft) {
   const blocks = previewBlocks(draft.body);
   const notices = [];
   if (blocks.some(item => item.level === 1)) notices.push('Body H1 headings become H2. Put the post title in the separate WordPress title field.');
-  if (blocks.some(item => item.type !== 'pre' && /!\[|<[^>]+>|\|.*\||^\s*\[[^\]]+\]:|~~|^\s*(?:---+|\*\*\*+)\s*$/m.test(item.type === 'table' ? [item.head, ...item.rows].flat().join('\n').replaceAll('|', '') : item.items ? listText(item, text => text) : item.text))) notices.push('Some syntax may remain literal text: images, source HTML, malformed tables or lists, reference links, strike-through, or separators. Inspect it and rebuild those parts in WordPress.');
+  if (blocks.some(item => item.type !== 'pre' && /!\[|<[^<>]+>|\|.*\||^\s*\[[^\]]+\]:|~~|^\s*(?:---+|\*\*\*+)\s*$/m.test(item.type === 'table' ? [item.head, ...item.rows].flat().join('\n').replaceAll('|', '') : item.items ? listText(item, text => text) : item.text))) notices.push('Some syntax may remain literal text: images, source HTML, malformed tables or lists, reference links, strike-through, or separators. Inspect it and rebuild those parts in WordPress.');
   const html = blocks.map(item => {
     if (item.type === 'table') return block('table', tableHTML(item, inline, { wordpress: true }), ' {"hasFixedLayout":true}');
     if (item.items) return listHTML(item, inline, { wordpress: true });

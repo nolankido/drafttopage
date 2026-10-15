@@ -34,7 +34,7 @@ const badChanges = {
   profile: x => { x.source.profile = '__proto__'; },
   notes: x => { x.source.notes = 'x'.repeat(8001); },
   title: x => { x.draft.title = 'x'.repeat(161); },
-  body: x => { x.draft.body = 'x'.repeat(12001); },
+  body: x => { x.draft.body = 'x'.repeat(60001); },
   questions: x => { x.draft.questions = Array(13).fill('q'); },
   questionType: x => { x.draft.questions = [false]; },
   nul: x => { x.source.notes = '\u0000'; }
@@ -68,7 +68,7 @@ test('Basic preview represents only inert paragraph/heading/list blocks', () => 
     { type: 'ul', items: ['One', 'Two'] }, { type: 'ol', items: ['Step'] }
   ]);
   for (const value of ['<script>bad()</script>', '![img](https://example.com/a.png)', '[click](javascript:bad())']) assert.deepEqual(previewBlocks(value), [{ type: 'p', text: value }]);
-  assert.throws(() => previewBlocks('x'.repeat(12001))); assert.throws(() => previewBlocks({}));
+  assert.throws(() => previewBlocks('x'.repeat(60001))); assert.throws(() => previewBlocks({}));
 });
 test('Filename helper produces safe bounded names, including empty and non-ASCII input', () => {
   for (const name of ['Café project', '../Outside', '日本語', '', 'a'.repeat(200), '<script>x</script>']) {

@@ -33,7 +33,7 @@ export function reviewWordPress(draft) {
       }
       masked += text.slice(offset);
       const flag = (kind, message) => add(kind, message, start, end, line);
-      if (/(^|[^\\])<[^>\n]+>/.test(masked)) flag('html', 'Source HTML and angle-bracket links stay literal text. Rebuild the intended content in WordPress.');
+      if (/(^|[^\\])<[^<>\n]+>/.test(masked)) flag('html', 'Source HTML and angle-bracket links stay literal text. Rebuild the intended content in WordPress.');
       while (listIndex < lists.length && start >= lists[listIndex].end) listIndex++;
       const inList = Boolean(lists[listIndex] && start >= lists[listIndex].start && start < lists[listIndex].end);
       if (!inList && /^\s+([-*+]\s+|\d+[.)]\s+)/.test(masked)) flag('nested-list', 'This indented list has no supported parent. Start at the left edge, or nest under a parent item with two or four more spaces.');
@@ -44,7 +44,7 @@ export function reviewWordPress(draft) {
       if (/^ {0,3}={3,}[ \t]*$/.test(masked)) flag('setext', 'This setext heading marker stays text. Use a Markdown # heading for the intended heading.');
       if (/^> ?(?:>|[-*+] +|\d+[.)] +|#{1,6} +)/.test(masked)) flag('quote-format', 'Nested formatting in this quote stays text. Rebuild the intended list, heading, or nested quote in WordPress.');
       if (/(^|[^\\])~~[^~]+~~/.test(masked)) flag('strike', 'Strike-through is outside this converter. Apply it in WordPress if needed.');
-      if (/^ {0,3}\[[^\]]+\]:|(^|[^\\])\[[^\]]+\]\[[^\]]*\]/.test(masked)) flag('reference', 'Reference links or footnotes stay text. Replace with inline links or rebuild them in WordPress.');
+      if (/^ {0,3}\[[^\]\n]+\]:|(^|[^\\])\[[^\[\]\n]+\]\[[^\[\]\n]*\]/.test(masked)) flag('reference', 'Reference links or footnotes stay text. Replace with inline links or rebuild them in WordPress.');
       start += original.length + 1;
     }
   }

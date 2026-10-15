@@ -1,7 +1,8 @@
 import { createWorkspaceBackup, parseWorkspaceBackup, DRAFT_FIELDS } from './workspace.js';
 
 export const MAX_CHECKPOINTS = 5;
-export const MAX_CHECKPOINT_BYTES = 384 * 1024;
+import { MAX_CHECKPOINT_BYTES } from './writing-limits.js';
+export { MAX_CHECKPOINT_BYTES };
 const fields = [
   ['source', 'profile', 'Article type'], ['source', 'audience', 'Audience'],
   ['source', 'purpose', 'Purpose'], ['source', 'notes', 'Source notes'],

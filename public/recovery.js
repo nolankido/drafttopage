@@ -28,7 +28,7 @@ export function installRecovery({ capture, restore, hasWork, isBusy, busyChanged
     if (!file || reading || isBusy()) { fileInput.value = ''; return; }
     reading = true; update(); busyChanged();
     try {
-      if (file.size > MAX_BACKUP_BYTES) throw new Error('Choose a workspace backup no larger than 128 KiB. Current work is unchanged.');
+      if (file.size > MAX_BACKUP_BYTES) throw new Error('Choose a workspace backup no larger than 512 KiB. Current work is unchanged.');
       // Validate before confirming or changing any visible field. Never merge arbitrary keys.
       const value = parseWorkspaceBackup(await file.text());
       if (isBusy()) throw new Error('Finish the current operation before restoring. Current work is unchanged.');
