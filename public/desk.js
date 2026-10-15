@@ -41,7 +41,7 @@ const articleFlow = installArticleFlow({ getDraft: () => capture().draft, report
 function focusBody() { revealEditorFor($('body')); $('body').focus(); }
 function updateExitWarning() {
   window.removeEventListener('beforeunload', warn);
-  if (hasWork()) window.addEventListener('beforeunload', warn);
+  if (hasWork() || recovery.pending()) window.addEventListener('beforeunload', warn);
 }
 const filename = () => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test($('slug').value) && $('slug').value.length <= 80 ? $('slug').value : suggestFilename($('title').value);
 function update() {
@@ -104,6 +104,7 @@ function changed(event) {
   browserRecovery?.schedule();
 }
 function fill(value) {
+  recovery.clear();
   bodyPaste.clear();
   for (const id of sourceFields) $(id).value = value.source[id];
   for (const id of DRAFT_FIELDS) $(id).value = value.draft?.[id] ?? '';
@@ -123,7 +124,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); if (!articleFlow.reading()) focusBody();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()) || Boolean(browserRecovery?.busy()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()) || Boolean(browserRecovery?.busy()), workChanged: updateExitWarning, busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); }, report });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -227,7 +228,7 @@ $('copy-brief').addEventListener('click', () => {
 });
 $('clear').addEventListener('click', async () => {
   if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
-  if ((hasWork() || browserRecovery?.state().available) && !confirm('Clear the notes, article, questions, unsaved passage review, image preparation, link preparation, and table preparation, publishing profile, private draft collection, collection undo, ALL checkpoints in this tab, and the recovery copy stored in this browser? Download a private backup and collection first to keep saved writing. Unsaved preparation is excluded from files. This cannot be undone in the workspace.')) return;
+  if ((hasWork() || recovery.pending() || browserRecovery?.state().available) && !confirm('Clear the notes, article, questions, pending backup preview, unsaved passage review, image preparation, link preparation, and table preparation, publishing profile, private draft collection, collection undo, ALL checkpoints in this tab, and the recovery copy stored in this browser? Download a private backup and collection first to keep saved writing. Unsaved preparation is excluded from files. This cannot be undone in the workspace.')) return;
   const beforeClear = JSON.stringify(capture());
   if (browserRecovery && !await browserRecovery.removeForClear()) { report('Clear was cancelled because browser recovery could not be removed safely. Current writing is kept. Check its recovery status.'); return; }
   if (JSON.stringify(capture()) !== beforeClear) { report('Writing changed while clearing was being prepared. The open workspace was kept; browser recovery is off.'); return; }

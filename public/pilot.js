@@ -87,6 +87,7 @@ $('#draft-form').addEventListener('submit', async event => {
     validateDraft(data.draft);
     createMarkdown(data.draft);
     if (!Array.isArray(data.draft.questions) || data.draft.questions.some(q => typeof q !== 'string')) throw new Error('The response was incomplete. Your previous article is unchanged.');
+    recovery.clear();
     for (const id of fields) $(`#${id}`).value = data.draft[id];
     $('#questions').replaceChildren();
     const questions = data.draft.questions.length ? data.draft.questions : ['No specific questions were returned. Independently review every factual claim and the writing.'];
@@ -117,15 +118,16 @@ $('#download').addEventListener('click', () => {
 $('#copy').addEventListener('click', () => { try { copyText(getExport(), 'Markdown copied. Nothing was published. Follow the export guide before importing it.'); } catch (error) { status(error.message); } });
 $('#copy-body').addEventListener('click', () => { try { if (!$('#reviewed').checked) throw new Error('Review the draft first.'); copyText(articleBody({ body: $('#body').value }), 'Article body copied as Markdown, without the title or metadata. Add those separately in your publishing editor. Nothing was published.'); } catch (error) { status(error.message); } });
 function clearWorkspace() {
+  recovery.clear();
   bodyPaste.clear();
   $('#draft-form').reset(); fields.forEach(id => { $(`#${id}`).value = ''; }); $('#questions').replaceChildren();
   $('#editor').hidden = true; $('#empty-state').hidden = false; $('#reviewed').checked = false;
   $('#note-count').textContent = '0 / 8,000'; dirty = false; updateProfile(); updateExports();
   $('#backup-private-ok').checked = false; recovery.update();
 }
-$('#clear').addEventListener('click', () => { if (recovery.reading()) return; if (dirty && !confirm('Discard these notes and the editable draft? There is no saved history.')) return; clearWorkspace(); status('Workspace cleared.'); });
-$('#logout').addEventListener('click', async () => { if (recovery.reading()) return; if (dirty && !confirm('Sign out and discard unsaved notes and edits?')) return; try { await api('logout', {}); clearWorkspace(); location.replace('/pilot'); } catch (error) { status(error.message); } });
-window.addEventListener('beforeunload', event => { if (dirty || busy) { event.preventDefault(); event.returnValue = ''; } });
+$('#clear').addEventListener('click', () => { if (recovery.reading()) return; if ((dirty || recovery.pending()) && !confirm('Discard these notes, the editable draft, and any pending backup preview? There is no saved history.')) return; clearWorkspace(); status('Workspace cleared.'); });
+$('#logout').addEventListener('click', async () => { if (recovery.reading()) return; if ((dirty || recovery.pending()) && !confirm('Sign out and discard unsaved notes, edits, and any pending backup preview?')) return; try { await api('logout', {}); clearWorkspace(); location.replace('/pilot'); } catch (error) { status(error.message); } });
+window.addEventListener('beforeunload', event => { if (dirty || busy || recovery.pending()) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('pageshow', event => { if (event.persisted) { clearWorkspace(); location.reload(); } });
 const recovery = installRecovery({
   isBusy: () => busy,
@@ -139,6 +141,7 @@ const recovery = installRecovery({
     }
   }),
   restore: value => {
+    recovery.clear();
     bodyPaste.clear();
     for (const id of ['profile', 'notes', 'audience', 'purpose']) $(`#${id}`).value = value.source[id];
     for (const id of fields) $(`#${id}`).value = value.draft?.[id] ?? '';
