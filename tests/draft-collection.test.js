@@ -71,11 +71,11 @@ class Control {
 async function controls(run) {
   const prior = globalThis.document, elements = new Map(), $ = id => { if (!elements.has(id)) elements.set(id, new Control()); return elements.get(id); };
   globalThis.document = { getElementById: $, createElement: () => new Control() };
-  let current = workspace('Current editor'), busy = false, accepted = true, openFailure = false, opens = 0, downloaded = null;
+  let current = workspace('Current editor'), busy = false, accepted = true, openFailure = false, pendingPreparation = false, opens = 0, downloaded = null;
   const previousWriting = [];
-  const ui = installDraftCollection({ capture: () => current, isBusy: () => busy, workChanged: () => {}, report: () => {}, confirmAction: () => accepted, download: (...args) => { downloaded = args; }, openWorkspace: value => { if (openFailure) throw new Error('Checkpoint unavailable. Writing kept.'); previousWriting.push(current); current = value; $('reviewed').checked = false; opens++; } });
+  const ui = installDraftCollection({ capture: () => current, hasUnsavedPreparation: () => pendingPreparation, isBusy: () => busy, workChanged: () => {}, report: () => {}, confirmAction: () => accepted, download: (...args) => { downloaded = args; }, openWorkspace: value => { if (openFailure) throw new Error('Checkpoint unavailable. Writing kept.'); previousWriting.push(current); current = value; $('reviewed').checked = false; opens++; } });
   const load = async (value = file(), size) => { const content = typeof value === 'string' ? value : JSON.stringify(value); $('load-draft-collection').files = [{ size: size ?? new TextEncoder().encode(content).byteLength, text: async () => content }]; await $('load-draft-collection').fire('change'); };
-  try { await run({ $, ui, load, current: () => current, setCurrent: value => { current = value; ui.update(); }, accepted: value => { accepted = value; }, busy: value => { busy = value; ui.update(); }, failOpen: value => { openFailure = value; }, opens: () => opens, previousWriting, downloaded: () => downloaded }); }
+  try { await run({ $, ui, load, current: () => current, setCurrent: value => { current = value; ui.update(); }, accepted: value => { accepted = value; }, busy: value => { busy = value; ui.update(); }, failOpen: value => { openFailure = value; }, pendingPreparation: value => { pendingPreparation = value; }, opens: () => opens, previousWriting, downloaded: () => downloaded }); }
   finally { globalThis.document = prior; }
 }
 test('Adding and updating entries preserves current writing and approval, and only explicit updates reach downloads', () => controls(async ({ $, ui, current, setCurrent, downloaded }) => {
@@ -130,4 +130,11 @@ test('Busy guards preserve state and clear invalidates late file reads and all c
   assert.match($('draft-collection-count').textContent, /^2 \/ 8/); assert.equal(opens(), 0); assert.equal(downloaded(), null); busy(false);
   let resolve; $('load-draft-collection').files = [{ size: 100, text: () => new Promise(done => { resolve = done; }) }]; const pending = $('load-draft-collection').fire('change'); ui.clear(); resolve(JSON.stringify(file())); await pending;
   assert.equal(ui.hasWork(), false); assert.equal($('draft-collection-file-preview').hidden, true); assert.equal($('draft-collection-saved-preview').value, ''); assert.equal($('undo-draft-collection').disabled, true); assert.match($('draft-collection-count').textContent, /^0 \/ 8/);
+}));
+
+test('Opening a collection article asks before discarding unsaved review preparation even in an empty editor', () => controls(async ({ $, load, accepted, setCurrent, pendingPreparation, opens }) => {
+  await load(); await $('apply-draft-collection').fire('click');
+  setCurrent({ source: { profile: 'personal', notes: '', audience: '', purpose: '' }, draft: null });
+  pendingPreparation(true); accepted(false); await $('open-draft-collection-entry').fire('click'); assert.equal(opens(), 0); assert.match($('draft-collection-status').textContent, /cancelled/);
+  accepted(true); await $('open-draft-collection-entry').fire('click'); assert.equal(opens(), 1);
 }));

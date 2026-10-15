@@ -2,7 +2,7 @@ import { MAX_COLLECTION_BYTES, MAX_COLLECTION_ENTRIES, createDraftCollectionStat
 import { createWorkspaceBackup } from './workspace.js';
 import { downloadText } from './download.js';
 
-export function installDraftCollection({ capture, openWorkspace, isBusy = () => false, workChanged, report, confirmAction = message => confirm(message), download = downloadText }) {
+export function installDraftCollection({ capture, openWorkspace, hasUnsavedPreparation = () => false, isBusy = () => false, workChanged, report, confirmAction = message => confirm(message), download = downloadText }) {
   const $ = id => document.getElementById(id), collection = createDraftCollectionState();
   let generation = 0, reading = false, pending = null, viewRevision = -1, selectedIndex = 0;
   const status = message => { $('draft-collection-status').textContent = message; };
@@ -60,7 +60,7 @@ export function installDraftCollection({ capture, openWorkspace, isBusy = () => 
     try {
       const target = collection.read(selectedIndex), current = collectionWorkspace(capture());
       if (collection.matches(selectedIndex, current)) return;
-      if (workspaceContainsWriting(current) && !confirmAction('Open this saved article, replacing the current editor writing and notes? Current edits are not added to the collection automatically. Valid current writing is kept as a checkpoint in this tab. Save a private backup or update the collection to keep it after leaving.')) { status('Opening cancelled. The editor and collection are unchanged.'); return; }
+      if ((workspaceContainsWriting(current) || hasUnsavedPreparation()) && !confirmAction('Open this saved article, replacing the current editor writing, notes, and any unsaved passage review? Current edits are not added to the collection automatically. Valid saved writing is kept as a checkpoint in this tab. Unsaved passage reviews are excluded from files and checkpoints; save the review note first to keep it. Save a private backup or update the collection to keep writing after leaving.')) { status('Opening cancelled. The editor and collection are unchanged.'); return; }
       openWorkspace(target); update(); workChanged(); status('Saved article opened. Approval and publishing profiles are cleared. The collection snapshot is unchanged; use Update selected after editing.'); report('Saved article opened locally. Previous valid writing is in Revisions. Nothing was uploaded or published.');
     } catch (error) { status(error.message); }
   });
