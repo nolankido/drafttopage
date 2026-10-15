@@ -19,6 +19,8 @@ Keep these notes private. Use writing you have permission to use. Do not include
 - Did WordPress show invalid-block or recovery warnings?
 - Optional: did copying the Visual editor body back into the local text comparison help find a missing, repeated, or changed passage, or add unnecessary work?
 - If it reported a match, did you still inspect formatting, numbering, link targets, images, code indentation, and the saved/reopened post?
+- On your actual device, did copied body, title, excerpt, slug, and SEO description exactly match their source and reach the correct separate fields?
+- Did copy progress and confirmation appear beside the buttons? Did an edit clear approval and old confirmation before copying again?
 - How much image work remained?
 - Total time through the final WordPress preview:
 - Where did you need help or stop?
