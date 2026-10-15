@@ -13,19 +13,19 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
   const $ = id => document.getElementById(id);
   $('publishing-destination').value = defaultDestination;
   $('additional-exports').open = !compact;
-  const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy, getWordPressOptions });
+  let kitSnapshot = null, copying = false, feedbackSignature = '';
+  const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy, getWordPressOptions, clipboardBusy: () => copying, clipboardChanged: value => { copying = value; update(); }, reportCopy: reportWordPress });
   const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
   const word = installWordDocument({ getDraft, approved, changed, report, isBusy });
   const transfer = installWordPressTransfer({ getDraft, getWordPressOptions, report, isBusy });
-  let kitSnapshot = null, copying = false, feedbackSignature = '';
   function refreshFeedback() {
-    const draft = getDraft(), next = JSON.stringify([draft.title, draft.body, getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked]);
-    if (next !== feedbackSignature) { feedbackSignature = next; if ($('wordpress-action-status')) $('wordpress-action-status').textContent = ''; }
+    const draft = getDraft(), next = JSON.stringify([draft.title, draft.body, draft.excerpt, draft.slug, draft.description, getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked]);
+    if (next !== feedbackSignature) { feedbackSignature = next; for (const id of ['wordpress-action-status', 'wordpress-fields-action-status']) if ($(id)) $(id).textContent = ''; }
   }
   function reportWordPress(message) {
     refreshFeedback();
     // Mirror the existing live announcement visually beside the controls, without announcing twice.
-    if ($('wordpress-action-status')) $('wordpress-action-status').textContent = $('publishing-destination').value === 'wordpress' ? message : '';
+    for (const id of ['wordpress-action-status', 'wordpress-fields-action-status']) if ($(id)) $(id).textContent = $('publishing-destination').value === 'wordpress' ? message : '';
     report(message);
   }
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
@@ -133,5 +133,5 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     catch (error) { reportWordPress('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
     finally { copying = false; update(); }
   });
-  return { update, reset: () => { transfer.reset(); handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; if ($('other-export-formats')) $('other-export-formats').open = false; word.reset(); $('wordpress-code-preview').value = ''; feedbackSignature = ''; if ($('wordpress-action-status')) $('wordpress-action-status').textContent = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
+  return { update, reset: () => { transfer.reset(); handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; if ($('other-export-formats')) $('other-export-formats').open = false; word.reset(); $('wordpress-code-preview').value = ''; feedbackSignature = ''; for (const id of ['wordpress-action-status', 'wordpress-fields-action-status']) if ($(id)) $(id).textContent = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
 }
