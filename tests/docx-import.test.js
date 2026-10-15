@@ -218,7 +218,7 @@ test('Busy and oversized Word reads cannot replace writing; changing text purges
 test('All shared desks offer local Word import with explicit acknowledgement and unchanged private formats', async () => {
   for (const route of ['write', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word']) {
     const page = await readFile('public/' + route + '/index.html', 'utf8');
-    assert.match(page, /accept="\.docx,/); assert.match(page, /id="import-file-status"/); assert.match(page, /8 MiB/); assert.match(page, /id="import-changes-ok"/);
+    assert.match(page, /accept="\.docx,/); assert.match(page, /id="import-file-status"/); assert.match(page, /8 MiB/); assert.match(page, /id="import-changes-ok"/); assert.doesNotMatch(page, /Direct .docx import is not supported/);
   }
   const release = JSON.parse(await readFile('public/release.json', 'utf8')); assert.equal(release.wordDocumentImport, true);
   const source = await readFile('public/docx-import.js', 'utf8'); assert.doesNotMatch(source, /\bfetch\s*\(|innerHTML|localStorage|sessionStorage|indexedDB/);
