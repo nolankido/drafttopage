@@ -27,7 +27,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null;
+let questions = [], recovery = null, workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -39,7 +39,7 @@ const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
-const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork()) || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork());
+const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(recovery?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork()) || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork());
 function updateExitWarning() {
   window.removeEventListener('beforeunload', warn);
   if (hasWork()) window.addEventListener('beforeunload', warn);
@@ -78,6 +78,7 @@ function update() {
   $('preview-empty').hidden = hasBody; $('article-preview').hidden = !hasBody;
   try { $('drafting-brief').value = makeDraftingBrief(value.source); }
   catch (error) { $('drafting-brief').value = error.message; }
+  recovery?.update();
   previewNavigation?.refresh(); referenceLinks?.refresh();
   draftReview?.refresh();
   wordPressImages?.refresh();
@@ -100,6 +101,7 @@ function changed(event) {
   update();
 }
 function fill(value) {
+  recovery?.clear();
   bodyPaste.clear();
   for (const id of sourceFields) $(id).value = value.source[id];
   for (const id of DRAFT_FIELDS) $(id).value = value.draft?.[id] ?? '';
@@ -119,7 +121,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report });
+recovery = installRecovery({ capture, restore: value => { if (!revisions) throw new Error('Revision recovery is unavailable. Current writing is unchanged.'); const result = revisions.captureBefore('Before workspace restore'); fill(value); return { checkpointed: Boolean(result.id), evicted: result.evicted }; }, hasWork, hasPendingImport: () => Boolean(importer?.pending()), workChanged: updateExitWarning, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report });
 previewNavigation = installPreviewNavigation({ getDraft: () => capture().draft, isBusy: () => recovery.reading() || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), report, selectReview: () => workflow?.select('review') });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
@@ -220,13 +222,13 @@ $('copy-brief').addEventListener('click', () => {
 });
 $('clear').addEventListener('click', () => {
   if (recovery.reading() || importer?.reading()) return;
-  if (hasWork() && !confirm('Clear the notes, article, questions, unsaved passage review, image preparation, link preparation, and table preparation, publishing profile, private draft collection, collection undo, and ALL checkpoints in this tab? Download a private backup and collection first to keep saved writing. Unsaved passage reviews, image preparation, link preparation, and table preparation are not included in files. This cannot be undone in the workspace.')) return;
+  if (hasWork() && !confirm('Clear the notes, article, questions, backup preview, unsaved passage review, image preparation, link preparation, and table preparation, publishing profile, private draft collection, collection undo, and ALL checkpoints in this tab? Download a private backup and collection first to keep saved writing. Unsaved passage reviews, image preparation, link preparation, and table preparation are not included in files. This cannot be undone in the workspace.')) return;
   revisions?.clear();
   draftCollection?.clear();
   fill({ source: { profile: 'personal', audience: '', purpose: '', notes: '' }, draft: null });
   $('template-select').value = '';
-  $('backup-private-ok').checked = false; recovery.update(); update();
-  report('Writing desk, private collection, collection undo, and all in-tab checkpoints cleared. Files already downloaded to your device are unchanged.');
+  $('backup-private-ok').checked = false; recovery.clear(); update();
+  report('Writing desk, backup preview, private collection, collection undo, and all in-tab checkpoints cleared. Files already downloaded to your device are unchanged.');
 });
 function setFocus(active) {
   $('main').classList.toggle('desk-focus', active);

@@ -6,13 +6,13 @@ import { TEMPLATES, EXAMPLES } from './content-data.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
 const $ = selector => document.querySelector(selector);
-let ready = false, busy = false, checking = false, dirty = false, profiles = {};
+let ready = false, busy = false, checking = false, dirty = false, profiles = {}, recovery = null;
 const fields = ['title', 'excerpt', 'description', 'slug', 'body'];
 const exportButtons = ['download', 'copy', 'copy-body'];
 const status = message => { $('#status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('#body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => { if (message) status(message); } });
 const updateExports = () => { for (const id of exportButtons) $(`#${id}`).disabled = !$('#reviewed').checked || busy; };
-const edited = () => { dirty = true; $('#reviewed').checked = false; updateExports(); };
+const edited = () => { recovery?.update(); dirty = true; $('#reviewed').checked = false; updateExports(); };
 function updateProfile() {
   $('#profile-help').textContent = profiles[$('#profile').value]?.guidance || 'Built-in article guidance. This does not save a website profile or learn your voice.';
 }
@@ -121,15 +121,15 @@ function clearWorkspace() {
   $('#draft-form').reset(); fields.forEach(id => { $(`#${id}`).value = ''; }); $('#questions').replaceChildren();
   $('#editor').hidden = true; $('#empty-state').hidden = false; $('#reviewed').checked = false;
   $('#note-count').textContent = '0 / 8,000'; dirty = false; updateProfile(); updateExports();
-  $('#backup-private-ok').checked = false; recovery.update();
+  $('#backup-private-ok').checked = false; recovery.clear();
 }
-$('#clear').addEventListener('click', () => { if (recovery.reading()) return; if (dirty && !confirm('Discard these notes and the editable draft? There is no saved history.')) return; clearWorkspace(); status('Workspace cleared.'); });
-$('#logout').addEventListener('click', async () => { if (recovery.reading()) return; if (dirty && !confirm('Sign out and discard unsaved notes and edits?')) return; try { await api('logout', {}); clearWorkspace(); location.replace('/pilot'); } catch (error) { status(error.message); } });
-window.addEventListener('beforeunload', event => { if (dirty || busy) { event.preventDefault(); event.returnValue = ''; } });
+$('#clear').addEventListener('click', () => { if (recovery.reading()) return; if ((dirty || recovery.pending()) && !confirm('Discard these notes, the editable draft, and any backup preview? There is no saved history.')) return; clearWorkspace(); status('Workspace cleared.'); });
+$('#logout').addEventListener('click', async () => { if (recovery.reading()) return; if ((dirty || recovery.pending()) && !confirm('Sign out and discard unsaved notes, edits, and any backup preview?')) return; try { await api('logout', {}); clearWorkspace(); location.replace('/pilot'); } catch (error) { status(error.message); } });
+window.addEventListener('beforeunload', event => { if (dirty || busy || recovery?.pending()) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('pageshow', event => { if (event.persisted) { clearWorkspace(); location.reload(); } });
-const recovery = installRecovery({
+recovery = installRecovery({
   isBusy: () => busy,
-  hasWork: () => dirty,
+  hasWork: () => dirty || Boolean(recovery?.pending()),
   report: status,
   capture: () => ({
     source: Object.fromEntries(['profile', 'notes', 'audience', 'purpose'].map(id => [id, $(`#${id}`).value])),
