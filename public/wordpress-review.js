@@ -51,7 +51,7 @@ export function reviewWordPress(draft, { includeLinkedImages = false } = {}) {
       if (/^ {0,3}={3,}[ \t]*$/.test(masked)) flag('setext', 'This setext heading marker stays text. Use a Markdown # heading for the intended heading.');
       if (/^> ?(?:>|[-*+] +|\d+[.)] +|#{1,6} +)/.test(masked)) flag('quote-format', 'Nested formatting in this quote stays text. Rebuild the intended list, heading, or nested quote in WordPress.');
       if (/(^|[^\\])~~[^~]+~~/.test(masked)) flag('strike', 'Strike-through is outside this converter. Apply it in WordPress if needed.');
-      if (/^ {0,3}\[[^\]\n]+\]:|(^|[^\\])\[[^\[\]\n]+\]\[[^\[\]\n]*\]/.test(masked)) flag('reference', 'Reference links or footnotes stay text. Replace with inline links or rebuild them in WordPress.');
+      if (/^ {0,3}\[[^\]\n]+\]:|(^|[^\\])\[[^\[\]\n]+\]\[[^\[\]\n]*\]/.test(masked)) flag('reference', 'Reference links or footnotes stay text. Use Convert reference-style links above the export for supported web references, or rebuild the content in WordPress.');
       start += original.length + 1;
     }
   }
