@@ -136,6 +136,86 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # Opt-in recovery uses real browser storage and origin-scoped locks.
+    recovery_key='drafttopage.browser-recovery.v1'
+    page,context,state=open_page('/write/')
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    page.fill('#body','Unstored fictional writing.')
+    assert page.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
+    restore(page,backup)
+    open_details(page,'#browser-recovery-panel')
+    assert page.locator('#browser-recovery-start').is_disabled()
+    page.check('#browser-recovery-consent');page.click('#browser-recovery-start')
+    expect(page.locator('#browser-recovery-summary')).to_have_text('Browser recovery: on')
+    saved=json.loads(page.evaluate('(key)=>localStorage.getItem(key)',recovery_key))
+    assert saved['workspace']['source']==source and saved['workspace']['draft']==draft
+    assert set(saved)=={'format','version','savedAt','workspace'}
+    assert 'reviewed' not in saved['workspace'] and 'preferences' not in saved['workspace']
+    page.fill('#body','Newest fictional recovery article.')
+    page.wait_for_function('(key)=>JSON.parse(localStorage.getItem(key)).workspace.draft.body==="Newest fictional recovery article."',arg=recovery_key)
+    page.check('#reviewed');page.reload()
+    expect(page.locator('#browser-recovery-summary')).to_contain_text('saved copy available')
+    assert page.locator('#body').input_value()=='' and not page.locator('#reviewed').is_checked()
+    assert not page.locator('#browser-recovery-consent').is_checked()
+    page.click('#browser-recovery-inspect')
+    expect(page.locator('#browser-recovery-saved')).to_have_value('Newest fictional recovery article.')
+    assert page.locator('#browser-recovery-preview-heading').evaluate('el=>el===document.activeElement')
+    page.check('#browser-recovery-consent');page.check('#browser-recovery-reviewed')
+    page.fill('#body','Current writing to keep until confirmation.')
+    expect(page.locator('#browser-recovery-preview')).not_to_be_visible()
+    assert page.locator('#browser-recovery-saved').input_value()==''
+    page.check('#reviewed');page.click('#browser-recovery-inspect')
+    page.select_option('#browser-recovery-fields','notes')
+    expect(page.locator('#browser-recovery-saved')).to_have_value(source['notes'])
+    page.check('#browser-recovery-reviewed')
+    state['accept']=False;page.click('#browser-recovery-restore')
+    expect(page.locator('#browser-recovery-status')).to_contain_text('cancelled')
+    assert page.locator('#body').input_value()=='Current writing to keep until confirmation.' and page.locator('#reviewed').is_checked()
+    state['accept']=True;page.click('#browser-recovery-restore')
+    expect(page.locator('#body')).to_have_value('Newest fictional recovery article.')
+    assert not page.locator('#reviewed').is_checked() and page.locator('#notes').input_value()==source['notes']
+    assert page.locator('#checkpoint-select option').count()==1
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    exported=Path(info.value.path()).read_text()
+    assert 'Newest fictional recovery article.' in exported and source['notes'] not in exported and draft['questions'][0] not in exported
+    other=context.new_page();other.set_default_timeout(15000)
+    other.on('pageerror',lambda error:report['errors'].append(str(error)))
+    other.on('dialog',lambda dialog:dialog.accept())
+    other.goto(origin+'/markdown-to-wordpress/')
+    expect(other.locator('#browser-recovery-summary')).to_contain_text('saved copy available')
+    other.click('#browser-recovery-inspect');other.check('#browser-recovery-consent');other.check('#browser-recovery-reviewed')
+    other.click('#browser-recovery-restore')
+    expect(other.locator('#browser-recovery-status')).to_contain_text('Another Draft to Page tab')
+    assert other.locator('#body').input_value()==''
+    other.click('#browser-recovery-forget')
+    expect(other.locator('#browser-recovery-status')).to_contain_text('Another Draft to Page tab')
+    page.click('#browser-recovery-pause')
+    expect(page.locator('#browser-recovery-status')).to_contain_text('paused')
+    other.click('#browser-recovery-restore')
+    expect(other.locator('#body')).to_have_value('Newest fictional recovery article.')
+    layout(other,'browser-recovery')
+    other.click('#browser-recovery-forget')
+    expect(other.locator('#browser-recovery-summary')).to_contain_text('optional')
+    assert page.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
+    expect(page.locator('#browser-recovery-forget')).not_to_be_visible()
+    assert page.locator('#body').input_value()=='Newest fictional recovery article.'
+    other.fill('#body','Kept only in this tab after deletion.')
+    assert other.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
+    other.check('#browser-recovery-consent');other.click('#browser-recovery-start')
+    expect(other.locator('#browser-recovery-summary')).to_have_text('Browser recovery: on')
+    open_more(other);other.click('#start-notes');other.click('#clear')
+    expect(other.locator('#body')).to_have_value('')
+    assert other.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
+    assert state['api']==[];context.close()
+    report['checks'].append('Opt-in browser recovery: real localStorage and Web Locks, default-off/no writes, consent, debounced save, reload without auto-restore, exact private field comparison, stale/cancelled restore protection, checkpointed approval-clearing restore, private export exclusion, real competing tabs, pause, deletion, and clear')
+    page,context,state=open_page('/markdown-to-wordpress/',blocked_modules=('/browser-recovery.js',))
+    expect(page.locator('#browser-recovery-status')).to_contain_text('could not load')
+    page.fill('#body','Core conversion stays available.');page.check('#reviewed')
+    expect(page.locator('#download-wordpress')).to_be_enabled()
+    assert page.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
+    context.close()
+    report['checks'].append('Optional recovery-module failure leaves writing and reviewed exports available without browser storage')
     # Linked WordPress images are explicit; no image requests occur in this app.
     page,context,state=open_page('/markdown-to-wordpress/')
     image_body='## A fictional workshop\n\n![Participants at the workshop](https://example.test/photo.jpg?a=1&b=2)\n\nInline ![Inline example](https://example.test/inline.jpg) stays text.'

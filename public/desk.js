@@ -30,7 +30,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], recovery = null, workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null;
+let questions = [], recovery = null, workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null, browserRecovery = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -98,12 +98,14 @@ function update() {
   tableEditor?.refresh();
   importer?.updateBusy();
   workflow?.update();
+  browserRecovery?.refresh();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
   $('reviewed').checked = false;
   updateExitWarning();
   update();
+  browserRecovery?.schedule();
 }
 function fill(value) {
   recovery?.clear();
@@ -126,8 +128,8 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-recovery = installRecovery({ capture, restore: value => { if (!revisions) throw new Error('Revision recovery is unavailable. Current writing is unchanged.'); const result = revisions.captureBefore('Before workspace restore'); fill(value); return { checkpointed: Boolean(result.id), evicted: result.evicted }; }, hasWork, hasPendingImport: () => Boolean(importer?.pending()), workChanged: updateExitWarning, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report });
-previewNavigation = installPreviewNavigation({ getDraft: () => capture().draft, isBusy: () => recovery.reading() || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), report, selectReview: () => workflow?.select('review') });
+recovery = installRecovery({ capture, restore: value => { if (!revisions) throw new Error('Revision recovery is unavailable. Current writing is unchanged.'); const result = revisions.captureBefore('Before workspace restore'); fill(value); return { checkpointed: Boolean(result.id), evicted: result.evicted }; }, hasWork, hasPendingImport: () => Boolean(importer?.pending()), workChanged: updateExitWarning, isBusy: () => Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report });
+previewNavigation = installPreviewNavigation({ getDraft: () => capture().draft, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), report, selectReview: () => workflow?.select('review') });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -136,19 +138,19 @@ $('preview-panel').addEventListener('toggle', update);
 $('template-select').addEventListener('change', update);
 $('export-format').addEventListener('change', changed);
 $('start-notes').addEventListener('click', () => {
-  if (recovery.reading() || importer?.reading()) return;
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
   workflow?.select('bring');
   setFocus(false); $('notes-panel').open = true; $('template-select').focus();
   report('Choose an outline or enter your own notes. No text is generated automatically.');
 });
 $('start-draft').addEventListener('click', () => {
-  if (recovery.reading() || importer?.reading()) return;
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
   workflow?.select('bring');
   setFocus(true); $('notes-panel').open = false; focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
   report(markdownTool ? 'Paste text or Markdown into the article body. Review, then copy or download the .md file. Page metadata is optional.' : wordTool ? 'Paste simple Markdown into the article body. Review the preview, then download Word. The title is optional unless you include it.' : htmlTool ? 'Paste simple Markdown into the article body. Review the preview, then copy HTML source. The title is optional unless you include it.' : wordpressTool ? 'Paste simple Markdown into the article body. Keep the post title separate. The reading preview updates as you edit.' : 'Paste or write your article. Page details can wait until you need a full Markdown export.');
 });
 function loadSample() {
-  if (recovery.reading() || importer?.reading()) return;
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
   const existing = capture();
   if ((DRAFT_FIELDS.some(id => existing.draft[id].length) || importer?.pending() || sourceReview?.hasWork() || imageEditor?.hasWork() || linkEditor?.hasWork() || tableEditor?.hasWork()) && !confirm('Replace the current article with a fictional sample? A checkpoint keeps the current writing in this tab. Source notes and saved review questions are kept. Unsaved passage review, image preparation, link preparation, and table preparation are discarded. Save a private backup to keep them after leaving.')) return;
   try { revisions?.captureBefore('Before fictional sample'); } catch (error) { report(error.message); return; }
@@ -159,7 +161,7 @@ function loadSample() {
 $('start-sample').addEventListener('click', loadSample);
 function loadOutline(id) {
   const template = TEMPLATES.find(item => item.id === id);
-  if (!template || recovery.reading() || importer?.reading()) return;
+  if (!template || recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
   if ($('notes').value && !confirm('Replace the source notes with this outline? Save any notes you want to keep first. The current article is kept.')) return;
   try { revisions?.captureBefore('Before outline replacement'); } catch (error) { report(error.message); return; }
   $('notes').value = template.outline; $('profile').value = template.profile;
@@ -183,7 +185,7 @@ function followFragment() {
 }
 window.addEventListener('hashchange', followFragment);
 $('suggest-slug').addEventListener('click', () => {
-  if (recovery.reading() || importer?.reading()) return;
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
   if ($('slug').value && !confirm('Replace the current filename with a suggestion from the title?')) return;
   try { revisions?.captureBefore('Before filename suggestion'); } catch (error) { report(error.message); return; }
   $('slug').value = suggestFilename($('title').value); changed();
@@ -225,9 +227,12 @@ $('copy-brief').addEventListener('click', () => {
   try { copy(makeDraftingBrief(capture().source), 'Drafting brief copied. No AI request was made. Review your chosen tool before sending the material there.'); }
   catch (error) { report(error.message); $('notes').focus(); }
 });
-$('clear').addEventListener('click', () => {
-  if (recovery.reading() || importer?.reading()) return;
-  if (hasWork() && !confirm('Clear the notes, article, questions, backup preview, unsaved passage review, image preparation, link preparation, and table preparation, publishing profile, private draft collection, collection undo, and ALL checkpoints in this tab? Download a private backup and collection first to keep saved writing. Unsaved passage reviews, image preparation, link preparation, and table preparation are not included in files. This cannot be undone in the workspace.')) return;
+$('clear').addEventListener('click', async () => {
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
+  if ((hasWork() || browserRecovery?.state().available) && !confirm('Clear the notes, article, questions, backup preview, unsaved passage review, image preparation, link preparation, and table preparation, publishing profile, private draft collection, collection undo, ALL checkpoints in this tab, and the recovery copy stored in this browser? Download a private backup and collection first to keep saved writing. Unsaved preparation is excluded from files. This cannot be undone in the workspace.')) return;
+  const clearWorkspaceKey = JSON.stringify(capture());
+  if (browserRecovery && !await browserRecovery.removeForClear()) { report('Clear was cancelled because browser recovery could not be removed safely. Current writing is kept. Check its recovery status.'); return; }
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading() || JSON.stringify(capture()) !== clearWorkspaceKey) { report('Writing changed while clearing was prepared. Current writing was kept.'); return; }
   revisions?.clear();
   draftCollection?.clear();
   fill({ source: { profile: 'personal', audience: '', purpose: '', notes: '' }, draft: null });
@@ -243,7 +248,7 @@ function setFocus(active) {
 }
 $('toggle-focus').addEventListener('click', () => setFocus($('toggle-focus').getAttribute('aria-pressed') !== 'true'));
 for (const button of document.querySelectorAll('[data-format]')) button.addEventListener('click', () => {
-  if (recovery.reading() || importer?.reading()) return;
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
   try {
     const result = formatMarkdown($('body').value, $('body').selectionStart, $('body').selectionEnd, button.dataset.format);
     revisions?.captureBefore('Before ' + button.textContent.toLowerCase() + ' formatting');
@@ -259,7 +264,7 @@ function renderQuestions() {
     input.addEventListener('input', () => { questions[index] = input.value; changed(); });
     const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Remove note ' + (index + 1);
     remove.addEventListener('click', () => {
-      if (recovery.reading() || importer?.reading()) return;
+      if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return;
       try { revisions?.captureBefore('Before removing a review note'); } catch (error) { report(error.message); return; }
       questions.splice(index, 1); renderQuestions(); changed();
       $('add-question').focus(); report('Review note removed from this workspace. Downloaded backups are unchanged.');
@@ -282,7 +287,7 @@ importer = installArticleImport({
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
   workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); },
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report,
+  isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report,
   applyInsertion: plan => {
     revisions.captureBefore('Before article insertion');
     $('body').value = plan.body; touched.add('body'); changed();
@@ -303,7 +308,7 @@ importer = installArticleImport({
     changed(); focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
   }
 });
-$('start-import').addEventListener('click', () => { if (recovery.reading() || importer?.reading()) return; workflow?.select('bring'); $('import-panel').open = true; revealDetails($('import-file')); $('import-file').focus(); });
+$('start-import').addEventListener('click', () => { if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return; workflow?.select('bring'); $('import-panel').open = true; revealDetails($('import-file')); $('import-file').focus(); });
 $('start-insert-import').addEventListener('click', () => { workflow?.select('bring'); importer.openInsertion(); });
 $('start-formatted-import').addEventListener('click', () => { workflow?.select('bring'); importer.openFormatted(); });
 $('start-word-file')?.addEventListener('click', () => { workflow?.select('bring'); importer.openWordFile(); });
@@ -313,39 +318,39 @@ $('import-text').addEventListener('input', () => {
 });
 renderQuestions();
 draftReview = installDraftReview({
-  getDraft: () => capture().draft, editLink: (start, end) => linkEditor?.editLink(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(importer?.reading()), report,
+  getDraft: () => capture().draft, editLink: (start, end) => linkEditor?.editLink(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), report,
   applySectionMove: (plan, label) => {
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
 loadEditingTool(() => import('./reference-link-controls.js'), ({ installReferenceLinks }) => {
   referenceLinks = installReferenceLinks({ getBody: () => $('body').value, getTitle: () => $('title').value, apply: (body, label) => {
     revisions.captureBefore(label);
     $('body').value = body; touched.add('body'); changed();
-  }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), onApplied: () => workflow?.review(), report });
+  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), onApplied: () => workflow?.review(), report });
 }, () => {
   $('reference-links-panel').hidden = false;
   $('reference-status').textContent = 'Reference-link preparation could not load. Edit references directly as inline Markdown links. Your writing and other tools are kept.';
 });
 loadEditingTool(() => import('./wordpress-image-controls.js'), ({ installWordPressImages }) => {
-  wordPressImages = installWordPressImages({ getDraft: () => capture().draft, changed, report, editImage: (start, end) => imageEditor?.editImage(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(importer?.reading()) });
+  wordPressImages = installWordPressImages({ getDraft: () => capture().draft, changed, report, editImage: (start, end) => imageEditor?.editImage(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()) });
 }, () => {
   $('wordpress-image-status').textContent = 'Image preparation could not load. Images remain literal text in WordPress blocks. Your writing and other exports are kept.';
 });
 loadEditingTool(() => import('./publishing-profile-controls.js'), ({ installPublishingProfiles }) => {
-  publishingProfiles = installPublishingProfiles({ getWorkspace: capture, resetLinkedImages: () => wordPressImages?.reset(), changed, workChanged: updateExitWarning, isBusy: () => recovery.reading() || Boolean(importer?.reading()), report });
+  publishingProfiles = installPublishingProfiles({ getWorkspace: capture, resetLinkedImages: () => wordPressImages?.reset(), changed, workChanged: updateExitWarning, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), report });
 }, () => {
   $('publishing-profile-status').textContent = 'Publishing profiles could not load in this browser. Continue using the destination and title choices directly. Your writing is kept.';
 });
-revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
+revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
 loadEditingTool(() => import('./table-editor-controls.js'), ({ installTableEditor }) => {
   tableEditor = installTableEditor({ getBody: () => $('body').value, apply: (plan, label) => {
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
-  }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
 }, () => {
   $('table-editor-status').textContent = 'Table editor could not load. Edit table Markdown directly in the article. Your writing and exports are kept.';
 });
@@ -353,7 +358,7 @@ loadEditingTool(() => import('./link-editor-controls.js'), ({ installLinkEditor 
   linkEditor = installLinkEditor({ getBody: () => $('body').value, apply: (plan, label) => {
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
-  }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
 }, () => {
   $('link-editor-status').textContent = 'Link editor could not load. Edit link Markdown directly in the article. Your writing and exports are kept.';
 });
@@ -361,19 +366,19 @@ loadEditingTool(() => import('./image-editor-controls.js'), ({ installImageEdito
   imageEditor = installImageEditor({ getBody: () => $('body').value, apply: (plan, label) => {
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
-  }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
 }, () => {
   $('image-editor-status').textContent = 'Image editor could not load. Edit image Markdown directly in the article. Your writing and exports are kept.';
 });
 loadEditingTool(() => import('./source-review-controls.js'), ({ installSourceReview }) => {
-  sourceReview = installSourceReview({ getWorkspace: capture, applyNotes: (notes, label) => { revisions.captureBefore(label); questions = [...notes]; renderQuestions(); changed(); }, showSource: () => { setFocus(false); $('notes-panel').open = true; $('notes').focus(); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  sourceReview = installSourceReview({ getWorkspace: capture, applyNotes: (notes, label) => { revisions.captureBefore(label); questions = [...notes]; renderQuestions(); changed(); }, showSource: () => { setFocus(false); $('notes-panel').open = true; $('notes').focus(); }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
   $('start-source-review').disabled = false;
   $('start-source-review').addEventListener('click', () => { revealDetails($('source-review-panel')); $('pin-review-passage').click(); });
 }, () => {
   $('source-review-status').textContent = 'Passage review could not load. Use ordinary private review notes under Source notes & review. Your writing is kept.';
 });
 loadEditingTool(() => import('./draft-collection-controls.js'), ({ installDraftCollection }) => {
-  draftCollection = installDraftCollection({ capture, hasUnsavedPreparation: () => Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()), openWorkspace: value => { revisions.captureBefore('Before opening a saved article'); fill(value); }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  draftCollection = installDraftCollection({ capture, hasUnsavedPreparation: () => Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()), openWorkspace: value => { revisions.captureBefore('Before opening a saved article'); fill(value); }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
 }, () => {
   $('draft-collection-status').textContent = 'Draft collections could not load in this browser. Use single-workspace backups to keep writing. Your current work is unchanged.';
 });
@@ -385,7 +390,7 @@ loadEditingTool(() => import('./revision-diff-controls.js'), ({ installRevisionD
 });
 loadEditingTool(() => import('./search-controls.js'), ({ installArticleSearch }) => {
   articleSearch = installArticleSearch({
-    isBusy: () => recovery.reading() || Boolean(importer?.reading()), report,
+    isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), report,
     apply: (plan, label) => {
       revisions.captureBefore(label);
       $('body').value = plan.body; touched.add('body'); changed();
@@ -398,14 +403,25 @@ loadEditingTool(() => import('./search-controls.js'), ({ installArticleSearch })
   $('find-status').textContent = 'Find and replace could not load in this browser. Continue editing the article directly. Your writing is kept.';
 });
 window.addEventListener('pageshow', event => {
-  if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
+  if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. Browser recovery is off unless enabled in this tab.'); }
 });
 installWorkspaceLayout();
 workflow = installWorkflowNavigation({
   getDraft: () => capture().draft,
   getImportState: () => ({ pending: Boolean(importer?.pending()), staged: Boolean(importer?.staged()) }),
-  isBusy: () => recovery.reading() || Boolean(importer?.reading()), refreshPreview: update, report
+  isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), refreshPreview: update, report
 });
+await loadEditingTool(() => import('./browser-recovery.js'), ({ installBrowserRecovery }) => {
+  browserRecovery = installBrowserRecovery({ capture, hasWork,
+    stateChanged: () => { update(); updateExitWarning(); },
+    isBusy: () => recovery.reading() || Boolean(importer?.reading()) || Boolean(importer?.pending()),
+    restore: value => {
+      if (!revisions) throw new Error('Revision recovery is unavailable. Current writing is unchanged.');
+      revisions.captureBefore('Before browser recovery restore'); fill(value);
+      report('Reviewed browser copy restored. Export approval is cleared. Saving resumes in this tab only; keep a downloaded private backup.');
+    }
+  });
+}, () => { $('browser-recovery-status').textContent = 'Browser recovery could not load. Writing stays in this tab; download a private backup before leaving.'; });
 setFocus(true); update();
 report(htmlMarkdownTool ? 'HTML to Markdown tool ready. Paste HTML source or choose an HTML file, then preview before importing. Save explicitly before leaving.' : copiedPasteTool ? 'Copied-writing tool ready. Paste a Google Docs selection into the import box to preview before applying. Save explicitly before leaving.' : wordImportTool ? 'Word to ' + (markdownTool ? 'Markdown' : 'WordPress') + ' tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();

@@ -53,7 +53,7 @@ The archive writer emits deterministic stored UTF-8 text with fixed safe filenam
 
 Editor and review word counts now share the same limited Markdown-aware estimate. Stale link-inventory status clears alongside other findings. The default export panel presents editor copying and individual files, with complete Markdown and kit choices in purpose-specific details panels.
 
-## Explicit files, not autosave
+## Private files and optional browser recovery
 
 Find & replace in the article defaults to a conservative protected scope that skips recognized code, links, URLs, bracketed text, and HTML markup. Entire Markdown source is an explicit alternative. Optional Unicode whole-word filtering and exact-case matching accompany bounded literal search, previous/next selection, and Enter/Shift+Enter navigation. Replace selected match changes only the selected occurrence; Preview replace all reports actual changes, the resulting length, and at most five inert examples before confirmation. Both paths checkpoint current writing before mutation and clear approval. No-op and rejected replacements keep approval. Article/query/case/scope/whole-word/replacement edits invalidate bulk previews. Search/replacement settings and snippets are temporary, excluded from backups and exports, and purged on import, restore, or clear. See [the search release](docs/ARTICLE_SEARCH_RELEASE.md). The private pilot keeps its existing editor.
 
@@ -67,7 +67,7 @@ The local desk and private pilot share a versioned JSON workspace-backup format.
 
 A restore reads only the selected file, validates the entire content and a 512 KiB limit before replacement, asks before overwriting existing writing, and clears approval and pilot consent. It does not call AI. Article Markdown exports continue to omit notes and review questions.
 
-There is no browser autosave, persistent browser storage, account history, or server recovery. A download request cannot establish that the device saved the file. Check the actual file before leaving. See `/help/local-workspace/` and [the local desk release](docs/LOCAL_DESK_RELEASE.md).
+Browser recovery is **off by default**. Public tools can explicitly keep one unencrypted local workspace copy with informed consent, a single-writer browser lock, field comparison before restore, approval clearing, pause, and deletion. It excludes temporary imports, images, collections, checkpoints, credentials, approval, and export preferences. Reopening never restores or resumes automatically. Storage can fail or be evicted; keep an explicit downloaded backup for important work. The private pilot has no browser recovery. There is no account history or server recovery. A download request cannot establish that the device saved the file. Check the actual file before leaving. See `/help/local-workspace/` and [the local desk release](docs/LOCAL_DESK_RELEASE.md).
 
 ## Owner activation remains deferred
 
