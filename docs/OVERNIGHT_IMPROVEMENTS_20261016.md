@@ -43,6 +43,19 @@ The [ten-writer public alpha kit](PUBLIC_ALPHA_STUDY_20261016.md) is prepared wi
 
 **Real-user acceptance is NOT_RUN.** No participants were contacted, no completed results were invented, and intention to return is not counted as repeat use. The templates and existing sample assets are checked locally. This is documentation preparation, not completion of the ten-user research gate.
 
+## Release outcomes and continuation checkpoint
+
+| Cycle | GitHub outcome | Confirmed native Cloudflare production version |
+| --- | --- | --- |
+| 5: first conversion | PR #73, `f63fd67df746db361d7acdcc02bdbec67b57ee4b` | `1c460ea7-9b82-4f6a-89d7-766fac635b67` |
+| 6: browser recovery | PR #74, `68523832af742a80df124608df33d3eb393f0cca` | `5d1fd385-8db6-45e1-8fb9-1a7f887a3c57` |
+| 7: handoff feedback | PR #75, `1a56ad7be4bee70f8c44de81571ed5fa6d1c7524` | `78347d63-95e6-423b-aad9-9197620cc114` |
+| 8: alpha kit preparation | PR #76, `c5c428920882d16d605249f935811c3bfe0074f6` | Its preview succeeded; production build `bcc76301-a5b0-4c5c-895c-f510acce0731` failed without a diagnostic in GitHub. |
+
+After the documentation-only production failure, the exact native build command `node scripts/build-site.mjs` passed again locally. A diff from PR #75 to PR #76 confirms zero changes under public, src or scripts, or to package/hosting configuration. GitHub's check output has no diagnostic text and reports zero annotations, so a cause has not been established. This checkpoint records the outcome and provides one bounded retry through the preserved native Git deployment integration. The follow-up PR records its terminal build result. Do not add Actions, change hosting configuration, or repeatedly push empty commits to mask a failed build.
+
+The latest full runtime gate remains PR #75: 746 tests, 39 browser journeys and 262 layout checks passed. PR #74 additionally ran eight genuine local WordPress save/reopen cases. Documentation-only follow-ups do not claim another full runtime or destination acceptance run. The public site's direct HTTP rendering remains independently unverified from this execution environment, which previously returned 403.
+
 ## Next items
 
 1. Image reconciliation: make the handoff from Word image placeholders and recovered files to supported article image references easier to inspect without fetching or uploading images. Preserve explicit linked-image consent and original-byte privacy disclosures.
