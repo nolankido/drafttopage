@@ -88,6 +88,7 @@ export async function prepareWordImageKit(input, candidate) {
     '3. Upload each numbered image file to your WordPress Media Library.',
     '4. Find each [Word image N] placeholder. Use image-map.json to choose its file and review the alternative text supplied in Word. A repeated image can use the same uploaded file.',
     '5. Replace the placeholder with an Image block. Add captions or layout in WordPress. Preview before publishing.',
+    'Alternative: replace placeholders in Draft to Page before exporting. Open Add or edit image, then Match a downloaded Word image package. Select this image-map.json, pin the current placeholder, compare the entry and original Word document, and explicitly reuse reviewed alternative text. Enter the uploaded HTTPS image URL yourself, preview and apply each change, then separately choose linked Image blocks for WordPress.',
     '',
     'The article-body.md and placeholder map describe this import, not later article edits or combined documents. Use the original Word document to recheck positions.',
     'Recovery maps the first 200 visible image/object positions and up to 40 unique supported files, each at most 4 MiB and together at most 12 MiB. Additional positions need manual handling.',

@@ -1357,6 +1357,79 @@ with sync_playwright() as p:
     assert page.locator('#reviewed').is_checked() and page.locator('#wordpress-linked-images').is_checked()
     assert state['api']==[];layout(page,'guided-image-editor');context.close()
     report['checks'].append('Guided image editor: Word placeholder selection, exact replacement preview, stale-target rejection, checkpointed apply, explicit linked images, downloaded block source, no image DOM, and no-op approval preservation')
+    # Recover an actual fictional DOCX package, then reconcile its downloaded map.
+    page,context,state=open_page('/word-to-wordpress/')
+    image_docx=subprocess.check_output(['node','--input-type=module','-e',"import {imageFixture} from './tests/word-image-fixtures.js';process.stdout.write(Buffer.from(imageFixture({ids:['one','one','one']}).bytes));"])
+    with page.expect_file_chooser() as choice: page.click('#start-word-file')
+    choice.value.set_files({'name':'fictional-images.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':image_docx})
+    expect(page.locator('#import-summary')).to_contain_text('Word document')
+    page.click('#prepare-word-images');expect(page.locator('#word-image-kit-review')).to_be_visible()
+    page.check('#word-image-private-ok')
+    with page.expect_download() as info:page.click('#download-word-images')
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None
+        image_map=z.read('image-map.json')
+        assert json.loads(image_map)['placements'][2]['filename']=='word-image-001.png'
+        with zipfile.ZipFile(io.BytesIO(image_docx)) as original:
+            assert z.read('word-image-001.png')==original.read('word/media/one.png')
+    page.check('#import-changes-ok');page.click('#apply-import')
+    image_article=page.locator('#body').input_value();page.check('#reviewed')
+    open_details(page,'#editing-tools');page.click('#start-image-editor');page.click('#image-use-placeholder')
+    open_details(page,'#image-map-panel')
+    page.locator('#image-map-file').set_input_files({'name':'image-map.json','mimeType':'application/json','buffer':image_map})
+    expect(page.locator('#image-map-review')).to_be_visible()
+    assert page.locator('#image-alt').input_value()=='' and page.locator('#image-url').input_value()==''
+    assert page.locator('#body').input_value()==image_article and page.locator('#reviewed').is_checked()
+    assert page.locator('#image-map-use-alt').is_disabled()
+    # Inspect a different row without automatically retargeting or applying it.
+    page.select_option('#image-map-entry','[Word image 3]');assert page.locator('#image-map-confirm').is_disabled()
+    page.select_option('#image-placeholder-select','2');page.click('#image-use-placeholder')
+    assert '[Word image 3' in page.locator('#image-target-context').input_value()
+    page.check('#image-map-confirm');page.click('#image-map-use-alt')
+    assert page.locator('#image-alt').input_value()=='Fictional image 3'
+    assert page.locator('#image-url').input_value()=='' and page.locator('#reviewed').is_checked()
+    # Pending map/private preparation never enters a deliberate workspace backup.
+    open_details(page,'#workspace-files');page.check('#backup-private-ok')
+    with page.expect_download() as info:page.click('#save-backup')
+    pending_backup=Path(info.value.path()).read_text()
+    assert 'Fictional image 3' not in pending_backup and 'placementScope' not in pending_backup
+    page.fill('#image-url','https://example.com/reconciled.png');page.click('#image-preview')
+    assert page.locator('#image-before').input_value()=='\\[Word image 3\\]'
+    page.click('#image-apply')
+    assert not page.locator('#reviewed').is_checked() and not page.locator('#wordpress-linked-images').is_checked()
+    assert page.locator('#image-map-review').is_visible() and not page.locator('#image-map-confirm').is_checked()
+    # Remaining choices keep labels 1 and 2. After removing 1, 2 still means 2.
+    page.select_option('#image-placeholder-select','0');page.click('#image-use-placeholder')
+    page.fill('#image-url','https://example.com/first.png');page.fill('#image-alt','First image reviewed')
+    page.click('#image-preview');page.click('#image-apply')
+    expect(page.locator('#image-placeholder-select option')).to_have_count(1)
+    assert page.locator('#image-placeholder-select option').inner_text().startswith('[Word image 2] on line ')
+    page.click('#image-use-placeholder');page.select_option('#image-map-entry','[Word image 2]');page.check('#image-map-confirm')
+    body_before=page.locator('#body').input_value();page.fill('#body',body_before+'\n\nLater revision.')
+    assert not page.locator('#image-map-confirm').is_checked() and page.locator('#image-map-use-alt').is_disabled()
+    page.click('#image-use-placeholder');page.check('#image-map-confirm');page.click('#image-map-use-alt')
+    assert page.locator('#image-alt').input_value()=='Fictional image 2'
+    page.fill('#image-url','https://example.com/second.png');page.click('#image-preview');page.click('#image-apply')
+    expect(page.locator('#image-placeholder-choices')).to_be_hidden()
+    page.locator('#wordpress-image-panel > summary').click();page.check('#wordpress-linked-images');page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    blocks=Path(info.value.path()).read_text();assert blocks.count('<!-- wp:image -->')==3
+    assert 'Fictional image 3' in blocks and 'Fictional image 2' in blocks and 'Later revision.' in blocks
+    assert 'placementScope' not in blocks and 'word-image-001.png' not in blocks
+    expect(page.locator('#article-preview img')).to_have_count(0)
+    layout(page,'word-image-map-reconciliation')
+    page.click('#image-map-clear');assert page.locator('#image-map-alt').input_value()==''
+    assert page.locator('#image-map-review').is_hidden() and page.locator('#reviewed').is_checked()
+    # Combined documents disclose duplicate labels and their exact source context.
+    duplicate='First document [Word image 12].\n\nSecond document \\[Word image 12\\].'
+    page.fill('#body',duplicate);page.select_option('#image-placeholder-select','1');page.click('#image-use-placeholder')
+    assert '(occurrence 2 of 2)' in page.locator('#image-placeholder-select option').nth(1).inner_text()
+    assert page.locator('#image-placeholder-context').input_value()=='Second document \\[Word image 12\\].'
+    page.locator('#image-map-file').set_input_files({'name':'invalid.json','mimeType':'application/json','buffer':b'{"format":"wrong"}'})
+    expect(page.locator('#image-map-status')).to_contain_text('intact image-map')
+    assert page.locator('#body').input_value()==duplicate and page.locator('#image-map-review').is_hidden()
+    assert state['api']==[];context.close()
+    report['checks'].append('Word image reconciliation: real DOCX recovery and byte-identical image ZIP, actual downloaded map, original/duplicate labels and context, explicit alt reuse, stale acknowledgement reset, pending backup exclusion, retained map across checkpointed edits, three downloaded native Image blocks with separate consent, inert preview, local map deletion and invalid-file preservation')
     page,context,state=open_page('/write/',blocked_modules=('/image-editor-controls.js',))
     expect(page.locator('#image-editor-status')).to_contain_text('could not load')
     page.fill('#body','Fictional fallback writing.');page.check('#reviewed');page.click('#copy-body')
