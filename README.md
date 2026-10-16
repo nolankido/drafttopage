@@ -202,6 +202,8 @@ HTML imports can now preserve safe relative links through an explicit, temporary
 
 The optional [long-article editing benchmark](docs/LONG_ARTICLE_PERFORMANCE_20261016.md) measures local fictional input paths across all four export destinations. It does not run automatically, install dependencies, contact production or establish real-user latency. Inactive WordPress handoff review is skipped while another destination is selected; returning recomputes its current findings.
 
+[Inactive WordPress image inspection](docs/INACTIVE_IMAGE_INSPECTION_20261016.md) also skips article reads and clears derived references outside WordPress. Returning rechecks current images without reselecting them; linked-image consent and export approval remain separate explicit choices.
+
 ## Manual public alpha study
 
 The [ten-writer public alpha kit](docs/PUBLIC_ALPHA_STUDY_20261016.md) provides fictional material, six task cards and a blank private session-record template. It tests first conversion through actual handoff, voluntary recovery and observed repeat use. The study is prepared, **NOT_RUN**. No participants were contacted or counted. Completed records stay outside this public repository; the private AI pilot remains separate and inactive.

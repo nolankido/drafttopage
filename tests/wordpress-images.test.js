@@ -110,14 +110,54 @@ class Control {
   focus() {this.focused=true;}
   setSelectionRange(start,end) {this.selection=[start,end];}
 }
-function controls(run) {
+function controls(run,{destination='wordpress'}={}) {
   const prior=globalThis.document,fields=new Map(),$=id=>{if(!fields.has(id))fields.set(id,new Control());return fields.get(id);};
   globalThis.document={getElementById:$,createElement:tag=>new Control(tag)};
-  let value=draft(),busy=false,changes=0,download=null,report=''; $('publishing-destination').value='wordpress';$('reviewed').checked=true;
-  const ui=installWordPressImages({getDraft:()=>value,isBusy:()=>busy,changed:()=>{changes++;$('reviewed').checked=false;ui.refresh();},report:text=>{report=text;},reveal:()=>{},download:(...args)=>{download=args;}});
-  try {run({$,ui,setDraft:next=>{value=next;ui.refresh();},value:()=>value,busy:next=>{busy=next;ui.refresh();},changes:()=>changes,download:()=>download,report:()=>report});}
+  let value=draft(),busy=false,changes=0,download=null,report='',reads=0; $('publishing-destination').value=destination;$('reviewed').checked=true;
+  const ui=installWordPressImages({getDraft:()=>{reads++;return value;},isBusy:()=>busy,changed:()=>{changes++;$('reviewed').checked=false;ui.refresh();},report:text=>{report=text;},reveal:()=>{},download:(...args)=>{download=args;}});
+  try {run({$,ui,setDraft:next=>{value=next;ui.refresh();},value:()=>value,busy:next=>{busy=next;ui.refresh();},changes:()=>changes,download:()=>download,report:()=>report,reads:()=>reads});}
   finally {globalThis.document=prior;}
 }
+test('Inactive image controls and option queries never read writing or accept hidden mode/download events',()=>{
+  for(const destination of ['html','word','markdown','other'])controls(({$,ui,reads,changes,download})=>{
+    assert.equal(reads(),0,destination);assert.equal(ui.enabled(),false);ui.refresh();ui.reset();
+    $('wordpress-image-panel').open=true;$('wordpress-image-panel').fire('toggle');
+    $('wordpress-linked-images').checked=true;$('wordpress-linked-images').fire('change');$('download-image-plan').fire('click');
+    assert.equal(reads(),0,destination);assert.equal(changes(),0);assert.equal(download(),null);assert.equal($('reviewed').checked,true);
+    assert.equal($('wordpress-linked-images').checked,false);assert.equal($('wordpress-linked-images').disabled,true);assert.equal($('download-image-plan').disabled,true);
+    assert.equal($('wordpress-image-list').children.length,0);assert.equal($('wordpress-image-status').textContent,'');assert.equal($('wordpress-image-limit').textContent,'');
+  },{destination});
+});
+test('An inactive option query purges derived references and consent before any surrounding refresh',()=>controls(({$,ui,reads})=>{
+  $('wordpress-image-panel').open=true;ui.refresh();$('wordpress-linked-images').checked=true;$('wordpress-linked-images').fire('change');
+  assert.equal(ui.enabled(),true);assert.equal($('wordpress-image-list').children.length,1);
+  const before=reads();$('publishing-destination').value='markdown';assert.equal(ui.enabled(),false);
+  assert.equal(reads(),before);assert.equal($('wordpress-linked-images').checked,false);assert.equal($('wordpress-image-list').children.length,0);assert.equal($('wordpress-image-status').textContent,'');
+  $('publishing-destination').value='wordpress';ui.refresh();
+  assert.equal(ui.enabled(),false);assert.equal($('wordpress-linked-images').checked,false);assert.equal($('wordpress-linked-images').disabled,false);assert.equal($('wordpress-image-list').children.length,1);
+}));
+test('Returning re-inspects current Unicode/CRLF references and stale detached image buttons keep exact source guards',()=>controls(({$,ui,reads,setDraft,value})=>{
+  $('wordpress-image-panel').open=true;ui.refresh();const old=$('wordpress-image-list').querySelectorAll('button')[0];
+  $('publishing-destination').value='html';ui.refresh();const before=reads();old.fire('click');assert.equal(reads(),before);assert.equal($('body').selection,undefined);
+  const current='日本語 😀\r\n\r\n![Current](https://example.com/current.jpg)\r\n\r\n![Unsafe](http://example.com/unsafe.jpg)';
+  setDraft({...value(),body:current});assert.equal(reads(),before);
+  $('publishing-destination').value='wordpress';ui.refresh();
+  assert.equal($('wordpress-image-list').children.length,2);assert.match($('wordpress-image-list').children[0].children[0].textContent,/Line 3/);
+  assert.match($('wordpress-image-list').children[1].children[2].textContent,/Stays literal text/);assert.equal(ui.enabled(),false);
+  old.fire('click');assert.equal($('body').selection,undefined);
+  $('wordpress-image-list').querySelectorAll('button')[0].fire('click');assert.equal(current.slice(...$('body').selection),'![Current](https://example.com/current.jpg)');
+  assert.equal($('reviewed').checked,true);
+}));
+test('Reopened inspection retains bounded DOM, complete image notes and renewed explicit consent',()=>controls(({$,ui,setDraft,value,download,busy})=>{
+  $('publishing-destination').value='word';ui.refresh();setDraft({...value(),body:Array(41).fill(image).join('\n\n')+'\n\n![Unsafe](http://example.com/unsafe.jpg)'});
+  $('publishing-destination').value='wordpress';$('wordpress-image-panel').open=true;ui.refresh();
+  assert.equal($('wordpress-image-list').children.length,40);assert.match($('wordpress-image-limit').textContent,/first 40/);assert.equal(ui.enabled(),false);
+  $('wordpress-linked-images').checked=true;$('wordpress-linked-images').fire('change');assert.equal(ui.enabled(),true);
+  setDraft({...value(),title:'Title-only edit'});assert.equal(ui.enabled(),true);
+  busy(true);$('download-image-plan').fire('click');assert.equal(download(),null);busy(false);
+  $('download-image-plan').fire('click');assert.equal((download()[0].match(/Reference:/g)||[]).length,42);assert.match(download()[0],/41 linked Image block/);assert.match(download()[0],/http:\/\/example.com\/unsafe.jpg/);
+  ui.reset();assert.equal(ui.enabled(),false);
+}));
 test('Image inspection is read-only; explicit mode clears approval; view toggles keep it and purge hidden references',()=>controls(({$,ui,changes})=>{
   assert.equal(ui.enabled(),false);$('wordpress-image-panel').open=true;$('wordpress-image-panel').fire('toggle');assert.equal($('wordpress-image-list').children.length,1);assert.equal($('reviewed').checked,true);
   $('wordpress-linked-images').checked=true;$('wordpress-linked-images').fire('change');assert.equal(ui.enabled(),true);assert.equal(changes(),1);assert.equal($('reviewed').checked,false);
