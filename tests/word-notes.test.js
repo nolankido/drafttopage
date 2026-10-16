@@ -20,7 +20,7 @@ test('Word footnotes and endnotes receive separate labels in first-visible-refer
   assert.ok(result.markdown.indexOf('First footnote') < result.markdown.indexOf('Second footnote'));
   assert.equal((result.markdown.match(/### Word footnote 1/g) || []).length, 1);
   assert.match(result.markdown, /## Imported Word endnotes\n\n### Word endnote 1/);
-  assert.match(result.warnings.join(' '), /2 referenced footnotes/); assert.match(result.warnings.join(' '), /1 referenced endnotes/);
+  assert.match(result.warnings.join(' '), /2 referenced footnotes/); assert.match(result.warnings.join(' '), /1 referenced endnote to/);
   for (const phrase of ['not the original Word numbering', 'included in article exports', 'without automatic numbering', 'recheck labels']) assert.ok(result.warnings.join(' ').includes(phrase));
 });
 
