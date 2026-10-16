@@ -99,7 +99,7 @@ test('The editor and import box expose matching limits and accessible paste feed
   for (const route of ['write', 'markdown-to-wordpress']) {
     const html = await readFile('public/' + route + '/index.html', 'utf8');
     assert.match(html, new RegExp('id="body"[^>]*maxlength="' + ARTICLE_BODY_LIMIT + '"'));
-    assert.match(html, /aria-describedby="body-count body-error body-paste-status"/);
+    assert.match(html, /aria-describedby="body-help body-count body-error body-paste-status"/);
     assert.match(html, /id="body-paste-status"[^>]*role="status"/);
     assert.match(html, new RegExp('id="import-text"[^>]*maxlength="' + MAX_IMPORT_BYTES + '"'));
     assert.match(html, /id="import-paste-status"[^>]*role="status"/);
