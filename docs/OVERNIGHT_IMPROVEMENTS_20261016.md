@@ -89,9 +89,9 @@ PR #77 completed the bounded documentation-build retry successfully, merged as `
 
 ## Cycle 12: recovery keyboard continuity
 
-Active on `fix/recovery-keyboard-focus-20261016`, from main `9bab282f96882e5e86c6fd4dcfdf77531a8f2b86`. A local Chromium reproduction using Enter activation confirms focus falls to document.body after enable, pause and remove hide or disable their initiating controls. This is a reproduced keyboard navigation gap, not a real screen-reader session. Do not duplicate active work.
+Active in [PR #82](https://github.com/nolankido/drafttopage/pull/82), on `fix/recovery-keyboard-focus-20261016`, from main `9bab282f96882e5e86c6fd4dcfdf77531a8f2b86`. A local Chromium reproduction using Enter activation confirms focus falls to document.body after enable, pause and remove hide or disable their initiating controls. This is a reproduced keyboard navigation gap, not a real screen-reader session. Do not duplicate active work. See [the keyboard scope](RECOVERY_KEYBOARD_20261016.md).
 
-The bounded fix will retain focus at a useful visible recovery control after an explicit action, respect movement elsewhere while an action waits, and avoid focus changes during background saving or cross-tab notifications. Consent, safe restore, checkpoints, approvals, local storage and privacy behavior stay within cycle 6's existing contract. Validation must use real keyboard activation and the existing consent/storage/locking paths before release.
+The bounded fix retains focus at a useful visible recovery control after an explicit action, respects focus or pointer movement elsewhere while an action waits, and adds no focus handoff during background saving or cross-tab notifications. The existing restored-article focus is preserved. Consent, safe restore, checkpoints, approvals, local storage and privacy behavior stay within cycle 6's existing contract. All 26 existing recovery model/controller checks and a focused real-keyboard/storage/locking diagnostic pass. The full stable-source gate is still required before release; exact results and native build outcomes belong in PR #82. WordPress serialization is unchanged, so this cycle will record that separate destination gate as NOT_RUN and retain PR #81's ten-case evidence.
 
 ## Next items
 
