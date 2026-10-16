@@ -1,6 +1,6 @@
 {
   "format": "drafttopage-public-alpha-session",
-  "version": 1,
+  "version": 2,
   "status": "NOT_RUN",
   "session_id": null,
   "release_commit": null,
@@ -11,12 +11,48 @@
   "destination_type": null,
   "setup_seconds": null,
   "tasks": [
-    { "id": "T1", "status": "NOT_RUN", "elapsed_seconds": null, "procedural_hints": null, "outcome_note": "" },
-    { "id": "T2", "status": "NOT_RUN", "elapsed_seconds": null, "procedural_hints": null, "outcome_note": "" },
-    { "id": "T3", "status": "NOT_RUN", "elapsed_seconds": null, "procedural_hints": null, "outcome_note": "" },
-    { "id": "T4", "status": "NOT_RUN", "elapsed_seconds": null, "procedural_hints": null, "outcome_note": "" },
-    { "id": "T5", "status": "NOT_RUN", "elapsed_seconds": null, "procedural_hints": null, "outcome_note": "" },
-    { "id": "T6", "status": "NOT_RUN", "elapsed_seconds": null, "procedural_hints": null, "outcome_note": "" }
+    {
+      "id": "T1",
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null,
+      "outcome_note": ""
+    },
+    {
+      "id": "T2",
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null,
+      "outcome_note": ""
+    },
+    {
+      "id": "T3",
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null,
+      "outcome_note": ""
+    },
+    {
+      "id": "T4",
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null,
+      "outcome_note": ""
+    },
+    {
+      "id": "T5",
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null,
+      "outcome_note": ""
+    },
+    {
+      "id": "T6",
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null,
+      "outcome_note": ""
+    }
   ],
   "article_ending_retained": null,
   "private_material_in_export": null,
@@ -30,5 +66,27 @@
   "actual_second_article_observed": null,
   "second_article_delay_hours": null,
   "issue_summaries": [],
-  "private_storage_notice": "Keep completed records outside the public repository. Do not add names, email addresses, site identities, raw drafts, storage copies, or private screenshots."
+  "private_storage_notice": "Keep completed records outside the public repository. Do not add names, email addresses, site identities, raw drafts, storage copies, or private screenshots.",
+  "evidence_type": null,
+  "participant_qualified": null,
+  "consent_to_record_outcomes": null,
+  "publishes_articles_per_month": null,
+  "second_article_voluntary": null,
+  "second_article_is_distinct_real_work": null,
+  "paired_comparison": {
+    "boundary": "READY_SOURCE_TO_REVIEWED_SAVED_REOPENED_DRAFT",
+    "same_source_and_destination": null,
+    "includes_image_and_cleanup_work": null,
+    "order": null,
+    "usual_workflow": {
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null
+    },
+    "drafttopage": {
+      "status": "NOT_RUN",
+      "elapsed_seconds": null,
+      "procedural_hints": null
+    }
+  }
 }

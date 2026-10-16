@@ -3,7 +3,9 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "node scripts/build-site.mjs",
     "pretest": "npm run build",
@@ -15,6 +17,8 @@
     "precheck": "npm run build",
     "check": "node scripts/check.mjs",
     "prepreview:mock": "npm run build",
-    "preview:mock": "node scripts/preview.mjs"
+    "preview:mock": "node scripts/preview.mjs",
+    "study:init": "node scripts/alpha-study.mjs init",
+    "study:report": "node scripts/alpha-study.mjs report"
   }
 }
