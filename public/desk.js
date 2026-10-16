@@ -302,6 +302,7 @@ $('copy-questions').addEventListener('click', () => copy(questions.map(text => '
 importer = installArticleImport({
   focusPreview: wordImportTool || copiedPasteTool || htmlMarkdownTool, pasteFirst: copiedPasteTool,
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
+  continueToExport: wordImportTool || copiedPasteTool || htmlMarkdownTool ? () => workflow?.handoff() : undefined,
   workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); },
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
   isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report,
@@ -310,11 +311,12 @@ importer = installArticleImport({
     $('body').value = plan.body; touched.add('body'); changed();
     $('body').focus(); $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   },
-  apply: draft => {
+  apply: (draft, { continueToExport = false } = {}) => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
     articleSearch?.clear(); previewNavigation?.clear(); referenceLinks?.clear();
-    questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
+    questions = [...draft.questions]; touched.clear(); renderQuestions();
+    if (!continueToExport) setFocus(false);
     sourceReview?.clear();
     imageEditor?.clear();
     linkEditor?.clear();
@@ -322,7 +324,8 @@ importer = installArticleImport({
     wordPressImages?.reset();
     if (!publishingProfiles?.hasSetup()) $('export-format').value = markdownTool ? 'document' : 'page';
     if (wordImportTool || copiedPasteTool || htmlMarkdownTool) $('import-panel').open = false;
-    changed(); focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
+    changed();
+    if (!continueToExport) focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
   }
 });
 $('start-import').addEventListener('click', () => { if (recovery.reading() || browserRecovery?.busy() || importer?.reading()) return; workflow?.select('bring'); $('import-panel').open = true; revealDetails($('import-file')); $('import-file').focus(); });

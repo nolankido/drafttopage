@@ -10,8 +10,9 @@ import { HTML_SOURCE_SAMPLE } from './html-source-sample.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
-export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
+export function installArticleImport({ hasArticle, apply, applyInsertion, continueToExport, isBusy, busyChanged, report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
   const $ = id => document.getElementById(id);
+  const continueButton = $('apply-import-and-continue'), continueHelp = $('import-continue-help');
   let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null, candidateWordKey = null, candidateHTMLKey = null;
   const htmlOptions = () => ({ firstRowHeaders: $('import-first-row-headers').checked, sourceURL: $('import-source-url')?.value || '' });
   const htmlOptionsKey = () => JSON.stringify(htmlOptions());
@@ -42,6 +43,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     if ($('import-changes-label')) $('import-changes-label').textContent = 'I reviewed the converted article and the formatting changes or omissions listed above.';
     insertion.clear();
     $('import-preview').hidden = true; $('apply-import').disabled = true;
+    if (continueButton) { continueButton.hidden = true; continueButton.disabled = true; }
+    if (continueHelp) continueHelp.hidden = true;
     $('import-unmapped-ok').checked = false;
     $('import-changes-ok').checked = false; $('import-changes-section').hidden = true;
     $('import-reading-preview').replaceChildren();
@@ -108,6 +111,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     if (focusPreview) focusImportPreview($('import-preview-heading'));
   }
   const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && (candidateHTMLKey === null || candidateHTMLKey === htmlOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
+  const continuationOffered = () => Boolean(candidate && continueButton && typeof continueToExport === 'function' && insertion.mode() === 'replace');
   function updateApply() {
     insertion.refresh();
     commentRecovery?.update();
@@ -115,7 +119,15 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       const count = candidate.draft.body.trim() ? candidate.draft.body.trim().split(/\s+/u).length : 0;
       $('import-summary').textContent = candidate.kind + ': ' + (candidate.draft.title || 'Untitled article') + '. ' + count + ' approximate words; ' + (candidate.draft.questions.length + (commentRecovery?.selectedCount() || 0)) + ' review question(s).';
     }
-    $('apply-import').disabled = !allowed();
+    const ready = allowed(), continuing = continuationOffered();
+    $('apply-import').disabled = !ready;
+    $('apply-import').className = continuing ? 'secondary' : 'button';
+    if (continuing) $('apply-import').textContent = 'Import and edit';
+    if (continueButton) {
+      continueButton.hidden = !continuing;
+      continueButton.disabled = !continuing || !ready || !candidate?.draft.body.trim();
+    }
+    if (continueHelp) continueHelp.hidden = !continuing;
     if ($('import-word-revisions')) $('import-word-revisions').disabled = reading || isBusy();
     if ($('start-word-file')) $('start-word-file').disabled = reading || isBusy();
     if ($('start-insert-import')) $('start-insert-import').disabled = reading || isBusy();
@@ -255,8 +267,9 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     } catch (error) { clearPreview(); report(error instanceof TypeError && !wordFile ? 'Use a UTF-8 text file. Current writing is unchanged.' : error.message); }
     finally { reading = false; $('import-fields').disabled = false; $('cancel-import').disabled = false; $('import-file').value = ''; updateApply(); busyChanged(); }
   });
-  $('apply-import').addEventListener('click', () => {
+  function applyImport(continueAfterImport = false) {
     if (!allowed()) return;
+    if (continueAfterImport && (!continuationOffered() || !candidate.draft.body.trim())) return;
     if (insertion.mode() !== 'replace') {
       try {
         const plan = insertion.getPlan();
@@ -270,17 +283,20 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
     try {
-      apply(commentRecovery?.draft(candidate.draft) || candidate.draft);
+      apply(commentRecovery?.draft(candidate.draft) || candidate.draft, { continueToExport: continueAfterImport });
       discardImport();
       report('Article imported locally. Source notes were kept and export approval was cleared. Review before exporting. Nothing was uploaded or sent to AI.');
+      if (continueAfterImport) continueToExport();
     } catch (error) { report(error.message); }
-  });
+  }
+  $('apply-import').addEventListener('click', () => applyImport());
+  continueButton?.addEventListener('click', () => applyImport(true));
   $('cancel-import').addEventListener('click', () => {
     if (reading) return;
     discardImport();
     report('Import preview cleared. Current article and notes are unchanged.');
   });
-  showFormat();
+  showFormat(); updateApply();
   return { reading: () => reading, staged: () => Boolean(candidate && !copiedFailed), clear: discardImport, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || copiedSource || $('import-text').value.trim() || $('import-source-url')?.value.trim()), openCopied: () => {
     if (reading || isBusy()) return;
     $('import-panel').open = true; $('import-format').value = 'html'; showFormat();

@@ -128,7 +128,7 @@ test('A generated Word file round-trips supported article structure without work
 
 async function withUI(run, options = {}) {
   const prior = { document: globalThis.document, DOMParser: globalThis.DOMParser, confirm: globalThis.confirm };
-  const nodes = new Map(); let approved = false, busy = false, fail = false, message = ''; const applied = [];
+  const nodes = new Map(); let approved = false, busy = false, fail = false, message = ''; const applied = [], intents = [];
   function control(name = 'div') {
     const node = Object.assign(create(name), { value: '', checked: false, disabled: false, hidden: false, textContent: '', events: new Map(), selectionStart: 0, selectionEnd: 0 });
     node.addEventListener = (type, fn) => { if (!node.events.has(type)) node.events.set(type, []); node.events.get(type).push(fn); };
@@ -143,21 +143,35 @@ async function withUI(run, options = {}) {
   globalThis.DOMParser = class { parseFromString(source) { return { documentElement: trees({ x: source }).get('x'), getElementsByTagName: () => [] }; } };
   globalThis.confirm = () => approved;
   $('import-format').value = 'auto';
-  const ui = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, apply: draft => { if (fail) throw new Error('Checkpoint refused'); applied.push(draft); }, ...options });
+  const ui = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, apply: (draft, intent) => { if (fail) throw new Error('Checkpoint refused'); applied.push(draft); intents.push(intent); }, ...options });
   const file = async bytes => { $('import-file').files = [{ name: 'fictional.docx', size: bytes.length, arrayBuffer: async () => bytes.buffer }]; await $('import-file').fire('change'); };
-  try { await run({ $, ui, applied, file, message: () => message, confirm: value => { approved = value; }, busy: value => { busy = value; }, fail: value => { fail = value; } }); }
+  try { await run({ $, ui, applied, intents, file, message: () => message, confirm: value => { approved = value; }, busy: value => { busy = value; }, fail: value => { fail = value; } }); }
   finally { Object.assign(globalThis, prior); }
 }
-test('Word file selection stages only, acknowledgement gates apply, cancellation and checkpoint failure retain the preview', () => withUI(async ({ $, ui, applied, file, confirm, fail, message }) => {
-  await file(zip()); assert.equal($('import-preview').hidden, false); assert.match($('import-summary').textContent, /Word document/);
-  assert.equal($('import-text').value, ''); assert.equal($('apply-import').disabled, true); assert.equal(applied.length, 0);
-  await $('apply-import').fire(); assert.equal(applied.length, 0);
-  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, false);
-  await $('apply-import').fire(); assert.match(message(), /cancelled/); assert.equal(ui.pending(), true);
-  confirm(true); fail(true); await $('apply-import').fire(); assert.match(message(), /Checkpoint refused/); assert.equal(ui.pending(), true);
-  fail(false); await $('apply-import').fire(); assert.equal(applied.length, 1); assert.equal(applied[0].body, 'Fictional writing');
-  assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal($('import-reading-preview').childNodes.length, 0);
-}));
+for (const [action, continueToExport] of [['apply-import', false], ['apply-import-and-continue', true]]) {
+  test('Word ' + (continueToExport ? 'continuation' : 'editing') + ' preserves review gates and failed imports, then clears retained source before any continuation', async () => {
+    const continued = []; let readState;
+    const expected = { title: '', excerpt: '', description: '', slug: 'fictional', body: 'Fictional writing', questions: [] };
+    await withUI(async ({ $, ui, applied, intents, file, confirm, fail, busy, message }) => {
+      readState = () => ({ pending: ui.pending(), text: $('import-text').value, status: $('import-file-status').textContent, preview: $('import-body-preview').value, wordOptionsHidden: $('import-word-options').hidden, applied: structuredClone(applied) });
+      await file(zip()); assert.equal($('import-preview').hidden, false); assert.match($('import-summary').textContent, /Word document/);
+      assert.equal($('import-text').value, ''); assert.equal($(action).disabled, true); assert.equal(applied.length, 0);
+      assert.equal($('apply-import-and-continue').hidden, false); assert.equal($('import-continue-help').hidden, false);
+      await $(action).fire(); assert.equal(applied.length, 0); assert.deepEqual(continued, []);
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($(action).disabled, false);
+      busy(true); ui.updateBusy(); assert.equal($(action).disabled, true); await $(action).fire(); assert.equal(applied.length, 0); assert.deepEqual(continued, []);
+      busy(false); ui.updateBusy(); assert.equal($(action).disabled, false);
+      await $(action).fire(); assert.match(message(), /cancelled/); assert.equal(ui.pending(), true);
+      assert.equal($('import-body-preview').value, expected.body); assert.equal($('import-changes-ok').checked, true); assert.deepEqual(continued, []);
+      confirm(true); fail(true); await $(action).fire(); assert.match(message(), /Checkpoint refused/); assert.equal(ui.pending(), true);
+      assert.equal($('import-body-preview').value, expected.body); assert.equal($('import-preview').hidden, false); assert.equal(applied.length, 0); assert.deepEqual(continued, []);
+      fail(false); await $(action).fire(); assert.deepEqual(applied, [expected]); assert.deepEqual(intents, [{ continueToExport }]);
+      assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal($('import-reading-preview').childNodes.length, 0);
+      assert.deepEqual(continued, continueToExport ? [{ pending: false, text: '', status: '', preview: '', wordOptionsHidden: true, applied: [expected] }] : []);
+      await $(action).fire(); assert.equal(applied.length, 1); assert.equal(continued.length, Number(continueToExport));
+    }, { continueToExport: () => continued.push(readState()) });
+  });
+}
 
 test('Word notes remain staged with their conversion notices until acknowledgement and deliberate apply', () => withUI(async ({ $, ui, applied, file, confirm }) => {
   $('body').value = 'CURRENT ARTICLE';
@@ -291,12 +305,26 @@ test('Word revision choices require re-preview and fresh acknowledgement without
   fail(false); await $('apply-import').fire(); assert.equal(applied[0].body, previousBody); assert.equal(ui.pending(), false);
   assert.equal($('import-word-revisions').value, 'require-clean'); assert.equal($('import-word-options').hidden, true); assert.equal($('word-revision-summary').textContent, '');
 }));
-test('A silently changed Word option cannot apply an old preview, and selecting a new file resets revision intent', () => withUI(async ({ $, applied, file, confirm }) => {
-  await file(zip(revisionFixture())); $('import-word-revisions').value = 'proposed'; await $('preview-import').fire();
-  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(true);
-  $('import-word-revisions').value = 'previous'; await $('apply-import').fire(); assert.equal(applied.length, 0);
-  await file(zip(revisionFixture())); assert.equal($('import-word-revisions').value, 'require-clean'); assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false);
-}));
+for (const [action, continueToExport] of [['apply-import', false], ['apply-import-and-continue', true]]) {
+  test('Word ' + (continueToExport ? 'continuation' : 'editing') + ' rechecks revision and table choices and requires review of the current text version', async () => {
+    let continued = 0;
+    await withUI(async ({ $, applied, intents, file, confirm }) => {
+      await file(zip(revisionFixture())); $('import-word-revisions').value = 'proposed'; await $('preview-import').fire();
+      assert.equal($('import-body-preview').value, proposedBody);
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(true);
+      $('import-word-revisions').value = 'previous'; await $(action).fire(); assert.equal(applied.length, 0); assert.equal(continued, 0);
+      $('import-word-revisions').value = 'proposed'; $('import-first-row-headers').checked = true;
+      await $(action).fire(); assert.equal(applied.length, 0); assert.equal(continued, 0);
+      $('import-first-row-headers').checked = false; $('import-word-revisions').value = 'previous'; await $('import-word-revisions').fire('change');
+      assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false);
+      await $('preview-import').fire(); assert.equal($('import-body-preview').value, previousBody);
+      await $(action).fire(); assert.equal(applied.length, 0); assert.equal(continued, 0);
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $(action).fire();
+      assert.equal(applied.length, 1); assert.equal(applied[0].body, previousBody); assert.deepEqual(intents, [{ continueToExport }]); assert.equal(continued, Number(continueToExport));
+      await file(zip(revisionFixture())); assert.equal($('import-word-revisions').value, 'require-clean'); assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false);
+    }, { continueToExport: () => { continued++; } });
+  });
+}
 test('Word conversion ignores asynchronous results for changed versions or discarded source bytes', () => withUI(async ({ $, ui, applied, file, message }) => {
   await file(zip(revisionFixture()));
   const Parser = globalThis.DOMParser;
@@ -324,13 +352,18 @@ test('File-first preview focuses its review heading and formatted import opens t
   await file(zip()); assert.equal($('import-preview-heading').focused, true); assert.equal(applied.length, 0);
   ui.openFormatted(); assert.equal($('word-import-alternatives').open, true); assert.equal($('import-format').value, 'html'); assert.equal($('import-text').focused, true);
 }, { focusPreview: true }));
-test('The Word launch action stays disabled while selected file bytes are being read', () => withUI(async ({ $, ui }) => {
-  const bytes = zip(); let complete;
-  $('import-file').files = [{ name: 'fictional.docx', size: bytes.length, arrayBuffer: () => new Promise(resolve => { complete = resolve; }) }];
-  const pending = $('import-file').fire('change');
-  assert.equal(ui.reading(), true); assert.equal($('start-word-file').disabled, true); ui.openWordFile(); assert.equal($('import-file').clicked, undefined);
-  complete(bytes.buffer); await pending; assert.equal(ui.reading(), false); assert.equal($('start-word-file').disabled, false);
-}));
+test('The Word launch and continuation actions stay disabled while selected file bytes are being read', async () => {
+  let continued = 0;
+  await withUI(async ({ $, ui, applied }) => {
+    const bytes = zip(); let complete;
+    $('import-file').files = [{ name: 'fictional.docx', size: bytes.length, arrayBuffer: () => new Promise(resolve => { complete = resolve; }) }];
+    const pending = $('import-file').fire('change');
+    assert.equal(ui.reading(), true); assert.equal($('start-word-file').disabled, true); ui.openWordFile(); assert.equal($('import-file').clicked, undefined);
+    assert.equal($('apply-import-and-continue').disabled, true); await $('apply-import-and-continue').fire(); assert.equal(applied.length, 0); assert.equal(continued, 0);
+    complete(bytes.buffer); await pending; assert.equal(ui.reading(), false); assert.equal($('start-word-file').disabled, false);
+    assert.equal($('apply-import-and-continue').disabled, true); await $('apply-import-and-continue').fire(); assert.equal(applied.length, 0); assert.equal(continued, 0);
+  }, { continueToExport: () => { continued++; } });
+});
 test('All shared desks offer local Word import with explicit acknowledgement and unchanged private formats', async () => {
   for (const route of ['write', 'markdown-to-wordpress', 'word-to-wordpress', 'markdown-to-html', 'markdown-to-word']) {
     const page = await readFile('public/' + route + '/index.html', 'utf8');

@@ -256,7 +256,11 @@ def main():
                         source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
                         expect(source_page.locator('#import-preview')).to_be_visible()
                         source_page.check('#import-changes-ok')
-                        source_page.click('#apply-import')
+                        source_page.click('#apply-import-and-continue')
+                        expect(source_page.locator('#publishing-destination')).to_be_focused()
+                        expect(source_page.locator('#publishing-destination')).to_have_value('wordpress')
+                        expect(source_page.locator('#reviewed')).not_to_be_checked()
+                        entry['reviewedImportContinuation'] = True
                         entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and Copy WordPress blocks')
                     else:
                         source_page.fill('#body', case['body'])
