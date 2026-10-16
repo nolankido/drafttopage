@@ -137,6 +137,15 @@
       ]
     },
     {
+      "id": "toolbar-strikethrough-handoff",
+      "body": "Old plan stays. **Strong** and `literal`.\n\n## A fictional section\n\n- Keep uncertainty",
+      "formatSelection": "Old plan",
+      "formattedBody": "~~Old plan~~ stays. **Strong** and `literal`.\n\n## A fictional section\n\n- Keep uncertainty",
+      "text": "Old plan stays. Strong and literal. A fictional section Keep uncertainty",
+      "top": ["core/paragraph", "core/heading", "core/list"],
+      "strikes": ["Old plan"]
+    },
+    {
       "id": "word-strikethrough-handoff",
       "file": "tests/fixtures/documents/word-strikethrough.docx",
       "text": "Today’s Special: Salmon Sold out",

@@ -1,6 +1,6 @@
 # Inactive WordPress image inspection
 
-Cycle 14 is implemented in [PR #86](https://github.com/nolankido/drafttopage/pull/86), from main `ff2a243b098d25609ba0b99984fb8511644123f5`. Complete stable-source release checks and native deployment outcomes are required before release and belong in the PR.
+Cycle 14 was released in [PR #86](https://github.com/nolankido/drafttopage/pull/86), merged as `4de1421347b65b505e53d9803f258b34abc0cc9a`, tree `f6923a8cef224d9557a6a6097b7cef3a4f2cd206`. The complete stable-source gate passed 796 Node tests, 46 browser journeys, 289 layout checks and all 15 document cases. Repository source SHA-256: `8f927d2fca6efe5e1c6a2ee0907905ac6a9476d22e1d84c36c40e82eb4fe165b`. Native Cloudflare preview and production builds succeeded; production version `193c75bd-3574-4305-a2d6-5a94a57f2a60`. Exact build IDs and environment scope are recorded in the PR.
 
 ## Problem and bounded behavior
 
@@ -33,6 +33,6 @@ These observations are not real-user, physical-device or production latency evid
 
 All 32 focused image-controller/handoff checks pass, including four new cases covering inactive installation, option queries, reset/toggles, hidden mode/download events, consent purge before surrounding refresh, Unicode/CRLF current positions, stale detached buttons, renewed opt-in, title-only preservation, busy rejection, 40-row inspection and complete 42-reference notes.
 
-The focused Chromium journey passes actual native WordPress downloads with independent image attributes, byte-identical plain and linked output after a destination round trip, renewed consent, guarded hidden mode/download and detached button events, zero inactive downloads, current Unicode references and unsafe-reference warnings, exact guided-edit source, title/body/workspace-restore invalidation, private-field exclusions and inert preview. Expanded layouts pass at 1440/390/320. The complete stable-source gate is still required before merge; exact final counts and source/tree hashes belong in PR #86.
+The focused Chromium journey passes actual native WordPress downloads with independent image attributes, byte-identical plain and linked output after a destination round trip, renewed consent, guarded hidden mode/download and detached button events, zero inactive downloads, current Unicode references and unsafe-reference warnings, exact guided-edit source, title/body/workspace-restore invalidation, private-field exclusions and inert preview. Expanded layouts pass at 1440/390/320. The complete stable-source gate passed October 16, 2026, 14:26 UTC, including unchanged-source verification. All 58 relative Markdown links in changed prose and diff checks also passed.
 
 WordPress serialization is unchanged, so the separate genuine save/reopen gate is NOT_RUN in this cycle. PR #81 retains the latest ten local WordPress 7.1.3 Author-role cases. No fresh Word/Google Docs clipboard application, physical-device, screen-reader, real-user or independent live-rendering acceptance is claimed. No Actions, cron, tracking, persistent-writing changes, new dependency, provider, fee, hosting change or outreach is introduced.

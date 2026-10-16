@@ -1,6 +1,8 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
+import { formatStrikethrough } from './strike-editing.js';
 export function formatMarkdown(body, start, end, action) {
   if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT || !Number.isInteger(start) || !Number.isInteger(end) || start < 0 || end < start || end > body.length) throw new Error('Choose a valid selection in the article.');
+  if (action === 'strike') return formatStrikethrough(body, start, end);
   const inline = { bold: '**', italic: '*', code: '\x60' };
   let replacement, from = start, to = end, selectedStart, selectedEnd;
   if (Object.hasOwn(inline, action)) {

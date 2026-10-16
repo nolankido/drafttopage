@@ -8,7 +8,7 @@ export const privateMarkers = ['PRIVATE_ROUNDTRIP_SOURCE_3391', 'PRIVATE_ROUNDTR
 export function roundTripCases() {
   return configuration.cases.map(item => {
     const title = 'Fictional acceptance: ' + item.id;
-    const draft = { title, body: item.body, questions: [privateMarkers[1]], source: { notes: privateMarkers[0] } };
+    const draft = { title, body: item.formattedBody || item.body, questions: [privateMarkers[1]], source: { notes: privateMarkers[0] } };
     return { ...item, title, ...(item.file ? {} : { html: createWordPressArticle(draft, { includeLinkedImages: item.includeLinkedImages === true }).html }) };
   });
 }

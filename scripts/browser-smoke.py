@@ -136,6 +136,66 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # The optional strike control changes only a safe source selection.
+    page,context,state=open_page('/write/')
+    original='Old plan stays. **Strong** and `literal`.\n\n## A fictional section\n\n- Keep uncertainty'
+    fixture={**backup,'draft':{**draft,'body':original}}
+    restore(page,fixture)
+    page.select_option('#publishing-destination','wordpress')
+    assert page.locator('#text-format-tools').get_attribute('open') is None
+    open_details(page,'#text-format-tools')
+    button=page.locator('[data-format=strike]')
+    expect(button).to_have_attribute('aria-describedby','strike-help')
+    expect(page.locator('#strike-help')).to_contain_text('one phrase on one line')
+    before_count=page.locator('#checkpoint-select option').count()
+    page.check('#reviewed')
+    page.locator('#body').focus();page.keyboard.press('Control+Home')
+    for _ in range(8):page.keyboard.press('Shift+ArrowRight')
+    button.focus();page.keyboard.press('Enter')
+    marked='~~Old plan~~'+original[8:]
+    assert page.locator('#body').input_value()==marked
+    assert page.locator('#body').evaluate('el=>el===document.activeElement && el.value.slice(el.selectionStart,el.selectionEnd)==="Old plan"')
+    assert not page.locator('#reviewed').is_checked()
+    assert page.locator('#checkpoint-select option').count()==before_count+1
+    first_checkpoint=page.locator('#checkpoint-select option').first.get_attribute('value')
+    open_details(page,'#preview-panel')
+    expect(page.locator('#article-preview s')).to_have_text('Old plan')
+    assert 'line-through' in page.locator('#article-preview s').evaluate('el=>getComputedStyle(el).textDecorationLine')
+    assert page.locator('#download-wordpress').is_disabled()
+    from document_benchmark import ArticleHTML
+    for destination,download in [('wordpress','#download-wordpress'),('html','#download-html-source'),('word','#download-word')]:
+        page.select_option('#publishing-destination',destination);page.check('#reviewed')
+        with page.expect_download() as info:page.click(download)
+        if destination=='word':
+            with zipfile.ZipFile(info.value.path()) as z:
+                assert z.testzip() is None
+                doc=ET.fromstring(z.read('word/document.xml'));w='{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+                assert [''.join(t.text or '' for t in r.iter(w+'t')) for r in doc.iter(w+'r') if r.find(w+'rPr/'+w+'strike') is not None]==['Old plan']
+                exported=''.join(doc.itertext())
+        else:
+            exported=Path(info.value.path()).read_text()
+            assert ArticleHTML(exported).strikes==['Old plan']
+        assert source['notes'] not in exported and draft['questions'][0] not in exported
+    page.locator('#body').evaluate('el=>el.setSelectionRange(2,10)')
+    button.focus();page.keyboard.press('Space')
+    assert page.locator('#body').input_value()==original and not page.locator('#reviewed').is_checked()
+    expect(page.locator('#article-preview s')).to_have_count(0)
+    assert page.locator('#body').evaluate('el=>el===document.activeElement && el.value.slice(el.selectionStart,el.selectionEnd)==="Old plan"')
+    button.click();assert page.locator('#body').input_value()==marked
+    for phrase in ['Old','`literal`','## A fictional section']:
+        page.check('#reviewed');count=page.locator('#checkpoint-select option').count()
+        page.locator('#body').evaluate('(el,phrase)=>{const at=el.value.indexOf(phrase);el.setSelectionRange(at,at+phrase.length)}',phrase)
+        button.click()
+        expect(page.locator('#desk-status')).to_contain_text('unchanged')
+        assert page.locator('#body').input_value()==marked and page.locator('#reviewed').is_checked()
+        assert page.locator('#checkpoint-select option').count()==count
+    layout(page,'guarded-strike-toolbar')
+    open_details(page,'#checkpoint-panel');page.select_option('#checkpoint-select',first_checkpoint)
+    page.click('#restore-checkpoint')
+    assert page.locator('#body').input_value()==original and not page.locator('#reviewed').is_checked()
+    assert page.locator('#notes').input_value()==source['notes'] and page.locator('#questions textarea').first.input_value()==draft['questions'][0]
+    assert state['api']==[];context.close()
+    report['checks'].append('Strikethrough editing: collapsed optional control, real keyboard selection and Enter/Space toggle, exact source/focus/selection, checkpoint restore, rejected partial/code/block selections preserve writing/approval/history, independently read native WordPress/HTML/Word downloads, private exclusions, and 1440/390/320 layouts')
     # Image inspection is inactive outside WordPress and never retains consent.
     page,context,state=open_page('/markdown-to-wordpress/')
     restore(page,backup)
@@ -1576,8 +1636,16 @@ with sync_playwright() as p:
     assert page.locator('#body').input_value()==strike_body and page.locator('#reviewed').is_checked()
     layout(page,'strikethrough-import-export')
     page.click('#cancel-import');assert page.locator('#body').input_value()==strike_body and page.locator('#reviewed').is_checked()
+    open_details(page,'#text-format-tools')
+    page.locator('#body').evaluate('(el,end)=>el.setSelectionRange(0,end)',strike_body.index('~~',2)+2)
+    page.click('[data-format=strike]')
+    assert page.locator('#body').input_value()==strike_body.replace('~~','',2) and not page.locator('#reviewed').is_checked()
+    expect(page.locator('#article-preview s')).to_have_count(0)
+    page.select_option('#publishing-destination','wordpress');page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert ArticleHTML(Path(info.value.path()).read_text()).strikes==[]
     assert state['api']==[];context.close()
-    report['checks'].append('Strikethrough: pinned real Word file with visible semantic preview, acknowledgement and source preservation, actual WordPress/HTML/Word downloads independently checked, plain clipboard tilde literals, CSS formatted paste, cancellation, narrow layout and no API calls')
+    report['checks'].append('Strikethrough: pinned real Word file with visible semantic preview, acknowledgement and source preservation, actual WordPress/HTML/Word downloads independently checked, plain clipboard tilde literals, CSS formatted paste, cancellation, guarded removal of imported escaped marks with a fresh actual block download, narrow layout and no API calls')
     page,context,state=open_page('/word-to-wordpress/')
     image_placeholder='\\[Image or object omitted from Word document\\]'
     image_original='Before '+image_placeholder+' after.'

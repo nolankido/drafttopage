@@ -194,20 +194,30 @@ def main():
                     print('WordPress draft round trip: ' + case['id'], flush=True)
                     entry = {'id': case['id'], 'result': 'RUNNING'}
                     report['cases'].append(entry)
-                    if case.get('file'):
+                    if case.get('file') or case.get('formatSelection'):
                         source_page = new_page()
                         source_page.on('dialog', lambda dialog: dialog.accept())
                         source_page.goto('https://drafttopage.test/word-to-wordpress/')
                         expect(source_page.locator('#desk-status')).to_contain_text('ready')
-                        source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
-                        expect(source_page.locator('#import-preview')).to_be_visible()
-                        source_page.check('#import-changes-ok')
-                        source_page.click('#apply-import')
+                        if case.get('file'):
+                            source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
+                            expect(source_page.locator('#import-preview')).to_be_visible()
+                            source_page.check('#import-changes-ok')
+                            source_page.click('#apply-import')
+                            entry['source'] = 'native Word file import, review, apply, and actual block download'
+                        else:
+                            source_page.fill('#body', case['body'])
+                            source_page.locator('#text-format-tools > summary').click()
+                            source_page.locator('#body').evaluate('(el,phrase)=>{const at=el.value.indexOf(phrase);el.setSelectionRange(at,at+phrase.length)}',case['formatSelection'])
+                            source_page.locator('[data-format=strike]').click()
+                            assert source_page.locator('#body').input_value() == case['formattedBody'], 'Toolbar changed unexpected source'
+                            assert not source_page.locator('#reviewed').is_checked()
+                            entry['source'] = 'native strikethrough toolbar, review, and actual block download'
+                            entry['toolbarVerified'] = True
                         source_page.check('#reviewed')
                         with source_page.expect_download() as download:
                             source_page.click('#download-wordpress')
                         case['html'] = Path(download.value.path()).read_text()
-                        entry['source'] = 'native Word file import, review, apply, and actual block download'
                         source_page.close()
                     page = open_editor()
                     if case.get('inputMode') == 'code-editor':
