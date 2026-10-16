@@ -10,6 +10,8 @@ Repository: `nolankido/drafttopage`. Domain: `drafttopage.com`. Hosting: the exi
 
 ## Public writing workflow
 
+The current article can now prepare **reference-style Markdown links** through an explicit preview and apply flow. Supported full, collapsed, and shortcut references expand into ordinary inline links for the existing exporters. Definition removal is visible and conservative; unresolved syntax stays unchanged, and Apply saves a checkpoint before changing the body and clearing approval. [Reference-link release notes](docs/REFERENCE_LINKS_RELEASE.md).
+
 The reading preview now offers **Find passages in editor**. Each passage control selects its exact source range, including repeated text, original line endings, and Markdown markers. Return to this passage in preview follows the current editor cursor after edits. Controls are optional, limited to the first 200 passages, disabled while files are being read or imports are pending, and excluded from exports and private file schemas. [Preview passage release notes](docs/PREVIEW_PASSAGES_RELEASE.md).
 
 - `/write/`: start from notes or edit an existing article. Six outlines load directly into the workspace. A locally assembled drafting brief can be copied into a tool the author chooses; the public workspace itself never calls AI or uploads writing.

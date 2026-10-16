@@ -27,7 +27,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null;
+let questions = [], workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -78,7 +78,7 @@ function update() {
   $('preview-empty').hidden = hasBody; $('article-preview').hidden = !hasBody;
   try { $('drafting-brief').value = makeDraftingBrief(value.source); }
   catch (error) { $('drafting-brief').value = error.message; }
-  previewNavigation?.refresh();
+  previewNavigation?.refresh(); referenceLinks?.refresh();
   draftReview?.refresh();
   wordPressImages?.refresh();
   publishingExports?.update();
@@ -111,7 +111,7 @@ function fill(value) {
   touched.clear(); renderQuestions(); setFocus(false);
   importer?.clear(); $('import-text').value = '';
   articleSearch?.clear();
-  $('article-preview').replaceChildren(); previewNavigation?.clear();
+  $('article-preview').replaceChildren(); previewNavigation?.clear(); referenceLinks?.clear();
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
   wordPressImages?.reset();
@@ -119,7 +119,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); workflow?.update(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report });
 previewNavigation = installPreviewNavigation({ getDraft: () => capture().draft, isBusy: () => recovery.reading() || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), report, selectReview: () => workflow?.select('review') });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
@@ -273,9 +273,9 @@ $('copy-questions').addEventListener('click', () => copy(questions.map(text => '
 importer = installArticleImport({
   focusPreview: wordImportTool || copiedPasteTool, pasteFirst: copiedPasteTool,
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
-  workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); workflow?.update(); },
+  workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); },
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); workflow?.update(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); }, report,
   applyInsertion: plan => {
     revisions.captureBefore('Before article insertion');
     $('body').value = plan.body; touched.add('body'); changed();
@@ -284,7 +284,7 @@ importer = installArticleImport({
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
-    articleSearch?.clear(); previewNavigation?.clear();
+    articleSearch?.clear(); previewNavigation?.clear(); referenceLinks?.clear();
     questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
     sourceReview?.clear();
     imageEditor?.clear();
@@ -314,6 +314,15 @@ draftReview = installDraftReview({
   }
 });
 publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
+loadEditingTool(() => import('./reference-link-controls.js'), ({ installReferenceLinks }) => {
+  referenceLinks = installReferenceLinks({ getBody: () => $('body').value, getTitle: () => $('title').value, apply: (body, label) => {
+    revisions.captureBefore(label);
+    $('body').value = body; touched.add('body'); changed();
+  }, isBusy: () => recovery.reading() || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), onApplied: () => workflow?.review(), report });
+}, () => {
+  $('reference-links-panel').hidden = false;
+  $('reference-status').textContent = 'Reference-link preparation could not load. Edit references directly as inline Markdown links. Your writing and other tools are kept.';
+});
 loadEditingTool(() => import('./wordpress-image-controls.js'), ({ installWordPressImages }) => {
   wordPressImages = installWordPressImages({ getDraft: () => capture().draft, changed, report, editImage: (start, end) => imageEditor?.editImage(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(importer?.reading()) });
 }, () => {
