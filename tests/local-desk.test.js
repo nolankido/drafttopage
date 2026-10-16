@@ -111,7 +111,8 @@ test('Shared public build keeps stable URLs, template handoffs, and release outp
     assert.match(first[1], /aria-current="page"/);
     assert.match(first[1], /id="template-progress"/);
     assert.match(first[2], /href="\/write\/#template-progress"/);
-    assert.equal((first[5].match(/<url>/g) || []).length, 24);
+    assert.equal((first[5].match(/<url>/g) || []).length, 25);
+    assert.match(first[5], /<loc>https:\/\/drafttopage.com\/help\/conversion-checks\/<\/loc>/);
     assert.equal(JSON.parse(first[6]).release, RELEASE);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
