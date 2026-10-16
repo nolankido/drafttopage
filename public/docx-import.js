@@ -170,6 +170,10 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
       tag = /^title$/i.test(titleStyle) ? 'h1' : /^heading[1-6]$/i.test(titleStyle) ? 'h' + titleStyle.slice(-1) : 'p';
     }
     if (props.numId && props.numId !== '0' && tag !== 'p') throw unsupported('Numbered headings cannot be preserved.');
+    const borders = children(pp, 'pBdr'), border = borders[0], bottom = child(border, 'bottom');
+    if (borders.length === 1 && elements(border).length === 1 && bottom && val(bottom) === 'single' && tag === 'p' && (!props.numId || props.numId === '0') && content.every(part => typeof part === 'string' && !part.trim())) {
+      tag = 'hr'; warn('An empty paragraph with one single bottom border became a thematic break. Border styling is not retained.');
+    } else if (borders.length) warn('Paragraph borders were not retained.');
     return { content, tag, numId: props.numId && props.numId !== '0' ? props.numId : null, level: props.level ?? '0' };
   }
   const counters = new Map();
@@ -179,6 +183,7 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
       if (is(node, 'sectPr')) continue;
       if (is(node, 'p')) {
         const p = paragraph(node);
+        if (p.tag === 'hr' && inCell) throw unsupported('A separator inside a table cell needs review in Word first.');
         if (!p.numId) { listStack.length = 0; items = 0; result.push(h(p.tag, p.content)); continue; }
         if (inCell) throw unsupported('Lists in table cells cannot be preserved.');
         const def = levelFor(p.numId, p.level), depth = Number(p.level);

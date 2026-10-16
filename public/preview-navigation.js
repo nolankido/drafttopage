@@ -4,7 +4,7 @@ import { focusWorkflowTarget } from './workflow-navigation.js';
 
 export const PREVIEW_PASSAGE_LIMIT = 200;
 const passageKind = passage => passage.blocks.length > 1 || passage.blocks[0].items ? 'list group' :
-  ({ p: 'paragraph', pre: 'code block', blockquote: 'quotation', table: 'table' })[passage.blocks[0].type] || 'heading';
+  ({ p: 'paragraph', pre: 'code block', blockquote: 'quotation', table: 'table', hr: 'separator' })[passage.blocks[0].type] || 'heading';
 const lineLabel = passage => passage.line === passage.endLine ? 'line ' + passage.line : 'lines ' + passage.line + ' to ' + passage.endLine;
 
 // Selection is always based on the current source, including its original CRLF and UTF-16 offsets.

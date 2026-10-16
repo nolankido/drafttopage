@@ -3,6 +3,7 @@ import { inlineParts } from './inline-render.js';
 export { inlineParts } from './inline-render.js';
 import { readMarkdownTable } from './markdown-table.js';
 import { readMarkdownList } from './markdown-list.js';
+import { thematicBreak, setextLevel, setextParagraph } from './markdown-block-syntax.js';
 // A bounded reading aid. Only explicit web links become navigation; no resources load.
 export function previewPassages(body) {
   if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Preview supports at most 60,000 body characters.');
@@ -11,8 +12,8 @@ export function previewPassages(body) {
   for (const line of original) { offsets.push(offset); offset += line.length + 1; }
   const result = [];
   const add = (start, end, blocks) => result.push({ start: offsets[start], end: offsets[end] + original[end].length, line: start + 1, endLine: end + 1, blocks });
-  let paragraph = [], paragraphStart = 0;
-  const flush = () => { if (paragraph.length) add(paragraphStart, paragraphStart + paragraph.length - 1, [{ type: 'p', text: paragraph.join('\n') }]); paragraph = []; };
+  let paragraph = [], paragraphStart = 0, paragraphEligible = true;
+  const flush = () => { if (paragraph.length) add(paragraphStart, paragraphStart + paragraph.length - 1, [{ type: 'p', text: paragraph.join('\n') }]); paragraph = []; paragraphEligible = true; };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) { flush(); continue; }
@@ -25,6 +26,11 @@ export function previewPassages(body) {
     }
     const heading = /^ {0,3}(#{1,6})(?:[ \t]+(.*)|$)/.exec(line);
     if (heading) { flush(); add(i, i, [{ type: 'h' + Math.min(6, heading[1].length + 2), level: heading[1].length, text: (heading[2] || '').replace(/[ \t]+#+[ \t]*$/, '').trim() }]); continue; }
+    const level = setextLevel(line);
+    if (level && paragraph.length && paragraphEligible) {
+      add(paragraphStart, i, [{ type: 'h' + (level + 2), level, text: paragraph.join('\n').trim(), headingStyle: 'setext' }]); paragraph = []; paragraphEligible = true; continue;
+    }
+    if (thematicBreak(line)) { flush(); add(i, i, [{ type: 'hr', text: '' }]); continue; }
     const list = readMarkdownList(lines, i);
     if (list) {
       flush(); add(i, list.end - 1, list.supported ? list.blocks : [{ type: 'p', text: lines.slice(i, list.end).join('\n') }]);
@@ -43,7 +49,7 @@ export function previewPassages(body) {
       i = table.end - 1; continue;
     }
     if (!paragraph.length) paragraphStart = i;
-    paragraph.push(line);
+    paragraph.push(line); paragraphEligible &&= setextParagraph([line]);
   }
   flush(); return result;
 }
@@ -64,6 +70,7 @@ function appendInline(node, text) {
 }
 // A shared inert DOM renderer. Source markup is always text, and images never load.
 export function renderPreviewBlock(block) {
+  if (block.type === 'hr') return document.createElement('hr');
   if (block.items) {
     if (!['ul', 'ol'].includes(block.type)) throw new Error('Unsupported preview list.');
     const node = document.createElement(block.type);

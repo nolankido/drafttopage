@@ -180,7 +180,11 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false } = {}) {
   function render(node) {
     if (skip(node)) return '';
     const name = tag(node);
-    if (/^h[1-6]$/.test(name)) return '#'.repeat(Number(name[1])) + ' ' + (name === 'h1' ? escapeText(whitespace(plain(node)).trim()) : inline(node).trim());
+    if (/^h[1-6]$/.test(name)) {
+      const content = name === 'h1' ? escapeText(whitespace(plain(node)).trim()) : inline(node).trim();
+      if (/[\r\n]/.test(content)) warn('Line breaks in a heading became spaces.');
+      return '#'.repeat(Number(name[1])) + ' ' + content.replace(/\r\n?|\n/g, ' ');
+    }
     if (name === 'ul' || name === 'ol') return list(node, 1, { items: 0 }).join('\n');
     if (name === 'table') return table(node);
     if (name === 'pre') {
@@ -195,7 +199,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false } = {}) {
       const quoted = children(node).map(child => plain(child) + (blocks.has(tag(child)) ? '\n' : '')).join('').trim();
       return quoted.split('\n').map(line => '> ' + escapeText(whitespace(line))).join('\n');
     }
-    if (name === 'hr') { warn('A horizontal rule was omitted.'); return ''; }
+    if (name === 'hr') return '***';
     if (name === 'li') throw new Error('A list item is outside its list. Correct the source before importing.');
     if (blockDescendants.has(node)) return flow(node);
     return inline(node).trim();

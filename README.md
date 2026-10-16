@@ -176,3 +176,5 @@ Private Word comment recovery provides a separate text report and an optional pa
 Protected search and whole-word matching reduce accidental terminology edits inside recognized Markdown syntax. See [the protected search release](docs/PROTECTED_SEARCH_RELEASE.md) for scope and limitations.
 
 Word files with ordinary tracked text insertions and deletions can now use explicit **Proposed text** or **Previous text** previews. New files start with changes blocked. Version switches require re-preview and renewed acknowledgement; complex revisions remain unsupported. See [the Word text revision release](docs/WORD_TEXT_REVISIONS_RELEASE.md).
+
+Underlined Markdown headings and top-level thematic breaks now retain their structure across reading previews, outlines, destination previews, HTML, WordPress, and Word. Formatted HTML dividers and the exported Word bottom-border form also survive import. Exact source navigation and guarded section moves preserve authored writing. See [the block formatting release](docs/MARKDOWN_BLOCK_FIDELITY_RELEASE.md).

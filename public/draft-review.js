@@ -1,5 +1,6 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { inlineTokens, walkInlineTokens, inlineVisibleText } from './markdown-inline.js';
+import { previewPassages } from './preview.js';
 
 export const REVIEW_LIMIT = 40;
 export const PARAGRAPH_WORDS = 120;
@@ -9,10 +10,23 @@ const visibleText = tokens => inlineVisibleText(tokens);
 export function articleStructure(body) {
   if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Draft checks support at most 60,000 article characters.');
   const lines = body.split('\n'), blocks = [];
+  const semantic = new Map(previewPassages(body).filter(passage => ['hr'].includes(passage.blocks[0].type) || passage.blocks[0].headingStyle === 'setext').map(passage => [passage.start, passage]));
   let position = 0, paragraph = null, fence = null;
   const flush = () => { if (paragraph) blocks.push(paragraph); paragraph = null; };
   for (let index = 0; index < lines.length; index++) {
     const original = lines[index], text = original.replace(/\r$/, ''), end = position + original.length;
+    const passage = semantic.get(position);
+    if (!fence && passage) {
+      flush();
+      const block = passage.blocks[0];
+      if (block.type === 'hr') blocks.push({ kind: 'separator', text, start: position, contentStart: position, end: passage.end, line: index + 1 });
+      else {
+        const underlineStart = body.lastIndexOf('\n', passage.end - 1), content = body.slice(position, underlineStart);
+        const contentStart = position + content.match(/^\s*/)[0].length;
+        blocks.push({ kind: 'heading', level: block.level, headingStyle: 'setext', text: content.trim(), start: position, contentStart, end: passage.end, line: index + 1 });
+      }
+      index = passage.endLine - 1; position = passage.end + 1; continue;
+    }
     if (fence) {
       if (new RegExp('^ {0,3}' + (fence.char === '`' ? '\\x60' : '~') + '{' + fence.size + ',}\\s*$').test(text)) {
         fence.end = end; blocks.push(fence); fence = null;
@@ -49,6 +63,7 @@ export function analyzeDraft(draft, { imageFindings = true } = {}) {
   };
   for (let index = 0; index < blocks.length; index++) {
     const block = blocks[index];
+    if (block.kind === 'separator') continue;
     if (block.kind === 'code') {
       if (block.unclosed) add(block, 'fence', 'Close this code fence, or the rest of the article may appear as code.');
       continue;
