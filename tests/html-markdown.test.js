@@ -19,10 +19,19 @@ test('Dedicated HTML-to-Markdown page opens the shared source importer and expos
   const page=await readFile('public/html-to-markdown/index.html','utf8');
   assert.match(page, /data-workspace="html-to-markdown"/);assert.match(page, /<details id="import-panel"[^>]* open>/);
   assert.match(page, /<option value="html-source" selected>/);assert.match(page, /<h1>HTML to Markdown converter<\/h1>/);
-  for(const id of ['start-html-source','import-text','preview-import','import-reading-preview','import-body-preview','import-changes-ok','apply-import','markdown-include-title','copy-article-markdown','download-article-markdown','markdown-source-panel','body','editing-tools','workflow-steps'])assert.equal(page.split('id="'+id+'"').length,2,id);
+  for(const id of ['start-html-source','import-text','import-source-url','import-source-url-help','preview-import','import-reading-preview','import-body-preview','import-changes-ok','apply-import','markdown-include-title','copy-article-markdown','download-article-markdown','markdown-source-panel','body','editing-tools','workflow-steps'])assert.equal(page.split('id="'+id+'"').length,2,id);
   assert.ok(page.indexOf('id="import-panel"')<page.indexOf('id="article-heading"'));
   const desk=await readFile('public/desk.js','utf8');assert.match(desk,/const markdownTool = wordMarkdownTool \|\| htmlMarkdownTool/);assert.match(desk,/defaultDestination: markdownTool \? 'markdown'/);
   assert.equal(writingPages.find(p=>p.route==='/html-to-markdown/').script,'/desk.js');
+});
+
+test('Every workspace provides a bounded temporary URL field and the HTML guide discloses link resolution', async () => {
+  for(const route of ['write','word-to-wordpress','word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']) {
+    const page=await readFile('public/'+route+'/index.html','utf8');
+    assert.equal(page.split('id="import-source-url"').length,2);assert.match(page,/id="import-source-url"[^>]*type="url"[^>]*maxlength="2048"[^>]*autocomplete="off"/);
+    assert.match(page,/Nothing is fetched/);assert.match(page,/Fragment links point back to the original page/);
+  }
+  const guide=await readFile('public/html-to-markdown/index.html','utf8');assert.match(guide,/id="html-relative-links"/);assert.match(guide,/source page URL is <code>https:\/\/example.com\/notes\/plan<\/code>/);
 });
 
 test('New converter is linked, self-canonical, indexed, and honest about its limits', async () => {

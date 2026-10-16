@@ -1,5 +1,5 @@
 import { ARTICLE_BODY_LIMIT, MAX_IMPORT_BYTES } from './writing-limits.js';
-import { safeWebLink } from './markdown-inline.js';
+import { htmlLinkResolver } from './html-link-context.js';
 import { markdownFromInline } from './inline-markdown.js';
 
 const MAX_NODES = 12000, MAX_DEPTH = 32, MAX_TAGS = 6000;
@@ -31,7 +31,8 @@ export function parseHTMLArticle(source, options = {}) {
 }
 
 // The tree converter is independent of browser parsing so its limits and losses can be tested.
-export function htmlTreeToMarkdown(root, { firstRowHeaders = false } = {}) {
+export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = '' } = {}) {
+  const resolveLink = htmlLinkResolver(sourceURL);
   let count = 0;
   const stack = [[root, 0]], blockDescendants = new WeakSet();
   while (stack.length) {
@@ -51,6 +52,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false } = {}) {
   const warn = message => notices.set(message, (notices.get(message) || 0) + 1);
   function skip(node) {
     const name = tag(node);
+    if (name === 'base') { warn('Source HTML base URLs were ignored. Only the source page URL you supply is used for relative links.'); return true; }
     if (omitted.has(name)) { warn('Embedded, interactive, or document-only content was omitted.'); return true; }
     const style = styles(node);
     if (node.nodeType === 1 && (node.hasAttribute('hidden') || attr(node, 'aria-hidden')?.toLowerCase() === 'true' || style.get('display') === 'none' || style.get('visibility') === 'hidden')) {
@@ -81,8 +83,9 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false } = {}) {
     }
     let content = children(node).flatMap(child => inlineNodes(child, inLink || name === 'a'));
     if (name === 'a') {
-      const label = whitespace(children(node).map(plain).join('')).trim(), href = safeWebLink(attr(node, 'href'));
-      if (!href || inLink) { warn('Unsafe, relative, missing, or nested link targets were omitted; their text was kept.'); return content; }
+      const label = whitespace(children(node).map(plain).join('')).trim(), resolved = resolveLink(attr(node, 'href')), href = resolved.href;
+      if (!href || inLink) { warn('Unsafe, unresolved relative, missing, or nested link targets were omitted; their text was kept.'); return content; }
+      if (resolved.relative) warn('A relative link target was resolved using your source page URL. Inspect the resulting article URLs before sharing; they have not been fetched or verified.');
       if (!label || /[\[\]\\]/.test(label) || content.some(part => part.type === 'text' && /[\r\n]/.test(part.text))) {
         warn('A link label could not be represented as a Markdown link; its safe URL was kept as text.');
         return text((label ? label + ' ' : '') + '(' + href + ')');

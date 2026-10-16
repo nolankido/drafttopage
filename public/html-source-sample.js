@@ -6,7 +6,7 @@ const element = (name, nodes, attributes = {}) => ({ nodeType: 1, localName: nam
   getAttribute: key => attributes[key] ?? null, hasAttribute: key => Object.hasOwn(attributes, key), attributes });
 const root = { nodeType: 11, childNodes: [
   element('h1', ['A fictional garden plan']),
-  element('p', ['Keep the ', element('strong', ['useful details']), ' and the ', element('a', ['source link'], { href: 'https://example.com/garden' }), '.']),
+  element('p', ['Keep the ', element('strong', ['useful details']), ' and the ', element('a', ['source link'], { href: '/garden' }), '.']),
   element('h2', ['Next visit']),
   element('ol', [element('li', ['Check the seedlings']), element('li', ['Record what changed'])], { start: '4' }),
   element('hr', []),
@@ -15,4 +15,5 @@ const root = { nodeType: 11, childNodes: [
 ] };
 const escape = value => value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 const serialize = node => node.nodeType === 3 ? escape(node.nodeValue) : '<' + node.localName + Object.entries(node.attributes).map(([key, value]) => ' ' + key + '="' + escape(value) + '"').join('') + '>' + (node.localName === 'hr' ? '' : node.childNodes.map(serialize).join('') + '</' + node.localName + '>');
-export const HTML_SOURCE_SAMPLE = Object.freeze({ html: root.childNodes.map(serialize).join('\n'), markdown: htmlTreeToMarkdown(root).markdown });
+const sourceURL = 'https://example.com/notes/plan';
+export const HTML_SOURCE_SAMPLE = Object.freeze({ sourceURL, html: root.childNodes.map(serialize).join('\n'), markdown: htmlTreeToMarkdown(root, { sourceURL }).markdown });
