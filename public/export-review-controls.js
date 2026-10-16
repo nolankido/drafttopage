@@ -1,10 +1,10 @@
-import { reviewExport, exportReviewText, exportTitleHandling, EXPORT_REVIEW_LIMIT } from './export-review.js';
+import { reviewExport, exportReviewText, exportTitleHandling, formattingActionLabel, EXPORT_REVIEW_LIMIT } from './export-review.js';
 import { revealArticleSelection } from './editing.js';
 import { focusWorkflowTarget } from './workflow-navigation.js';
 import { downloadText } from './download.js';
 import { createCopyActions } from './copy-actions.js';
 
-export function installExportReview({ getDraft, isBusy = () => false, report, reveal = revealArticleSelection, move = target => focusWorkflowTarget(target, { bar: document.getElementById('workflow-steps') }), download = downloadText, copyActions = null }) {
+export function installExportReview({ getDraft, isBusy = () => false, report, reveal = revealArticleSelection, move = target => focusWorkflowTarget(target, { bar: document.getElementById('workflow-steps') }), download = downloadText, copyActions = null, openFinding = null }) {
   const $ = id => document.getElementById(id), panel = $('export-format-review');
   // Older cached markup must still allow the core writing and export controls to load.
   if (!panel) return { update() {}, reset() {} };
@@ -47,14 +47,31 @@ export function installExportReview({ getDraft, isBusy = () => false, report, re
         text.textContent = 'Line ' + item.line + ': ' + item.message;
         button.type = 'button'; button.className = 'secondary'; button.textContent = 'Inspect line ' + item.line;
         const original = signature;
-        button.addEventListener('click', () => {
-          if (isBusy()) return;
-          if (!active() || current().key !== original) { update(); report('The article or export options changed. Choose a current formatting finding.'); return; }
+        const ready = () => {
+          if (isBusy()) return false;
+          if (!active() || current().key !== original) { update(); report('The article or export options changed. Choose a current formatting finding.'); return false; }
+          return true;
+        };
+        const inspect = () => {
+          if (!ready()) return false;
           const body = $('body'); body.setSelectionRange(item.start, item.end); move(body);
           try { reveal(body); } catch { /* The exact selection is retained without geometry. */ }
           report('Selected ' + name + ' formatting finding on line ' + item.line + '. Inspect or edit the article. Nothing changed automatically.');
-        });
-        li.append(text, button); return li;
+          return true;
+        };
+        button.addEventListener('click', inspect);
+        li.append(text, button);
+        const label = formattingActionLabel(item);
+        if (label && openFinding) {
+          const action = document.createElement('button'); action.type = 'button'; action.className = 'secondary'; action.textContent = label;
+          action.addEventListener('click', () => {
+            if (!ready()) return;
+            try { if (openFinding(item) === true) return; } catch { /* Manual source inspection remains available. */ }
+            if (inspect()) report('The guided control is unavailable for this location. Its exact source is selected; inspect it manually. Writing and approval are kept.');
+          });
+          li.append(action);
+        }
+        return li;
       }));
     }
     if (panel.open && $('export-review-text-panel').open && !busy && review) {

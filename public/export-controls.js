@@ -12,18 +12,18 @@ import { installExportReview } from './export-review-controls.js';
 import { installExportPreview } from './export-preview-controls.js';
 import { createCopyActions } from './copy-actions.js';
 
-export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), getCopySnapshot = getDraft, copyChanged = () => {}, defaultDestination = 'wordpress', compact = false }) {
+export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), getCopySnapshot = getDraft, copyChanged = () => {}, openFinding = null, defaultDestination = 'wordpress', compact = false }) {
   const $ = id => document.getElementById(id);
   $('publishing-destination').value = defaultDestination;
   $('additional-exports').open = !compact;
   const copies = createCopyActions({ snapshot: () => JSON.stringify([getCopySnapshot(), getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked, $('export-format').value, $('copy-title').checked, $('html-include-title').checked, $('word-include-title').checked]), report, changed: () => { update(); copyChanged(); } });
   const reportAction = destination => message => copies.notice(message, destination);
-  const handoff = installWordPressHandoff({ getDraft, approved, report, reportAction: reportAction('wordpress'), isBusy, getWordPressOptions, copyActions: copies });
+  const handoff = installWordPressHandoff({ getDraft, approved, report, reportAction: reportAction('wordpress'), isBusy, getWordPressOptions, copyActions: copies, openFinding });
   const html = installHTMLSource({ getDraft, approved, changed, report: reportAction('html'), isBusy, copyActions: copies });
   const word = installWordDocument({ getDraft, approved, changed, report: reportAction('word'), isBusy });
   const markdown = installMarkdownHandoff({ getDraft, approved, changed, report: reportAction('markdown'), isBusy, copyActions: copies, defaultIncludeTitle: defaultDestination === 'markdown' });
   const destinationPreview = installExportPreview({ getDraft, getWordPressOptions, isBusy });
-  const formattingReview = installExportReview({ getDraft, isBusy, report, copyActions: copies });
+  const formattingReview = installExportReview({ getDraft, isBusy, report, copyActions: copies, openFinding });
   let kitSnapshot = null;
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
   function update() {

@@ -4,8 +4,9 @@ import { wordPressKitFiles, wordPressKitSummary, createWordPressKit } from './wo
 import { revealArticleSelection } from './editing.js';
 import { downloadText } from './download.js';
 import { createCopyActions } from './copy-actions.js';
+import { formattingActionLabel } from './export-review.js';
 
-export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection, copyActions = null, reportAction = report }) {
+export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection, copyActions = null, reportAction = report, openFinding = null }) {
   const $ = id => document.getElementById(id);
   const copies = copyActions || createCopyActions({ snapshot: () => JSON.stringify([getDraft(), getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked]), report, changed: update });
   let signature = '', review = null, rendered = '', kitRendered = '';
@@ -26,14 +27,31 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
         button.type = 'button'; button.className = 'secondary'; button.textContent = 'Inspect line ' + item.line;
         // Recheck both the source and destination before using saved text positions.
         const original = signature;
-        button.addEventListener('click', () => {
-          if (isBusy()) return;
-          if ($('publishing-destination').value !== 'wordpress' || JSON.stringify([draftSignature(getDraft()), getWordPressOptions()]) !== original) { update(); report('The article changed. Use its current handoff findings.'); return; }
+        const ready = () => {
+          if (isBusy()) return false;
+          if ($('publishing-destination').value !== 'wordpress' || JSON.stringify([draftSignature(getDraft()), getWordPressOptions()]) !== original) { update(); report('The article changed. Use its current handoff findings.'); return false; }
+          return true;
+        };
+        const inspect = () => {
+          if (!ready()) return false;
           const body = $('body'); body.focus(); body.setSelectionRange(item.start, item.end);
           try { reveal(body); } catch { /* Selection still works if geometry is unavailable. */ }
           report('Selected article text on line ' + item.line + '. Inspect or edit it; nothing was changed automatically.');
-        });
-        li.append(text, button); return li;
+          return true;
+        };
+        button.addEventListener('click', inspect);
+        li.append(text, button);
+        const label = formattingActionLabel(item);
+        if (label && openFinding) {
+          const action = document.createElement('button'); action.type = 'button'; action.className = 'secondary'; action.textContent = label;
+          action.addEventListener('click', () => {
+            if (!ready()) return;
+            try { if (openFinding(item) === true) return; } catch { /* Manual source inspection remains available. */ }
+            if (inspect()) report('The guided control is unavailable for this location. Its exact source is selected; inspect it manually. Writing and approval are kept.');
+          });
+          li.append(action);
+        }
+        return li;
       }));
     }
     for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).disabled = copies.state().pending || isBusy() || !visible || !$('reviewed').checked || !fieldValid(draft, key);
