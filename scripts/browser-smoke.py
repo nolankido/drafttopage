@@ -232,6 +232,72 @@ with sync_playwright() as p:
     assert state['api']==[];layout(page,'lazy-table-inventory');context.close()
     report['checks'].append('Lazy table inventory: closed/ancestor deferral, unchanged selected occurrence and exact export bytes, hidden-source choice/preview purge with cell retention, explicit duplicate-table and append-end rechecks, exact checkpointed apply, independent downloaded table text/private exclusion and narrow layouts')
 
+    # A native list choice identifies source without silently loading another preparation.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    first='| Time | Plan |\n| --- | --- |\n| Morning | Coffee |'
+    second='| Time | Plan |\n| --- | --- |\n| Evening | Tea |'
+    original='Fictional morning plan.\n\n'+first+'\n\nFictional evening plan.\n\n'+second
+    restore(page,{**backup,'source':{**source,'notes':'PRIVATE_CHOICE_SOURCE'},'draft':{**draft,'body':original,'questions':['PRIVATE_CHOICE_REVIEW']}})
+    assert page.locator('#table-choice-context').inner_text()=='' and page.locator('#table-choice-context').is_hidden()
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    original_bytes=Path(info.value.path()).read_bytes();history=page.locator('#checkpoint-select option').count()
+    open_details(page,'#table-editor-panel')
+    assert page.locator('#table-select option').first.inner_text().endswith('2 columns, 1 row · Time')
+    expect(page.locator('#table-choice-context')).to_contain_text('First data row: Morning | Coffee.')
+    page.locator('#table-select').focus();page.keyboard.press('End')
+    expect(page.locator('#table-select')).to_have_value('1');expect(page.locator('#table-choice-context')).to_contain_text('First data row: Evening | Tea.')
+    assert page.locator('#table-select').evaluate('el=>el===document.activeElement') and page.locator('#table-working').is_hidden()
+    assert page.locator('#body').input_value()==original and page.locator('#reviewed').is_checked()
+    page.locator('#table-select').evaluate('el=>window.choiceTextNode=document.getElementById("table-choice-context").firstChild')
+    page.fill('#title','Fictional choice identity')
+    assert page.evaluate('choiceTextNode===document.getElementById("table-choice-context").firstChild')
+    page.check('#reviewed');page.locator('#table-select').focus();page.keyboard.press('Home');page.click('#table-open-selected')
+    page.fill('#table-cell-0-1','Prepared morning');page.click('#table-preview-change');preview=page.locator('#table-after').input_value()
+    page.locator('#table-select').focus();page.keyboard.press('End')
+    assert page.locator('#table-cell-0-1').input_value()=='Prepared morning' and page.locator('#table-after').input_value()==preview
+    expect(page.locator('#table-target-status')).to_contain_text('line 3')
+    state['accept']=False;page.click('#table-open-selected');assert page.locator('#table-cell-0-1').input_value()=='Prepared morning'
+    state['accept']=True;page.click('#table-open-selected');assert page.locator('#table-cell-0-1').input_value()=='Tea'
+    assert page.locator('#reviewed').is_checked() and page.locator('#checkpoint-select option').count()==history
+    page.fill('#table-cell-0-1','Prepared evening');page.click('#table-preview-change')
+    page.locator('#editing-tools > summary').click();expect(page.locator('#table-choice-context')).to_have_text('')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert Path(info.value.path()).read_bytes()==original_bytes
+    page.locator('#body').focus();page.keyboard.press('Control+Home');page.keyboard.insert_text('New intro.\n\n')
+    current='New intro.\n\n'+original;expect(page.locator('#table-select option')).to_have_count(0)
+    assert page.locator('#table-choice-context').inner_text()=='' and page.locator('#table-cell-0-1').input_value()=='Prepared evening'
+    page.locator('#editing-tools > summary').click();expect(page.locator('#table-select option')).to_have_count(2);expect(page.locator('#table-select')).to_be_enabled();page.locator('#table-select').focus();page.keyboard.press('End')
+    expect(page.locator('#table-choice-context')).to_contain_text('First data row: Evening | Tea.')
+    page.click('#table-recheck');page.click('#table-preview-change');replacement=page.locator('#table-after').input_value()
+    page.click('#table-apply');applied=current[:current.rindex(second)]+replacement
+    assert page.locator('#body').input_value()==applied and not page.locator('#reviewed').is_checked()
+    assert page.locator('#checkpoint-select option').count()==history+1
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    blocks=Path(info.value.path()).read_text()
+    assert blocks.count('<table ')==2 and '<td>Morning</td><td>Coffee</td>' in blocks and '<td>Evening</td><td>Prepared evening</td>' in blocks
+    assert 'Prepared morning' not in blocks and 'PRIVATE_CHOICE' not in blocks
+    open_details(page,'#workspace-files');page.check('#backup-private-ok')
+    with page.expect_download() as info:page.click('#save-backup')
+    saved=json.loads(Path(info.value.path()).read_text());assert saved['draft']['body']==applied
+    assert set(saved)=={'format','version','source','draft'} and set(saved['draft'])=={'title','excerpt','description','slug','body','questions'}
+    assert saved['source']['notes']=='PRIVATE_CHOICE_SOURCE'
+    assert state['api']==[];layout(page,'table-choice-context');context.close()
+
+    page,context,state=open_page('/write/')
+    literal='| '+'😀'*500+' | <img src="https://example.test/never.png"> | Third | HIDDEN_FOURTH |\n| --- | --- | --- | --- |\n| '+'🚀'*500+' | [literal](https://example.test/) | Third | HIDDEN_FOURTH |\n| HIDDEN_SECOND_ROW | x | y | z |\n\n| Head | Note |\n| - | --- |\n| One | Two |'
+    page.fill('#body',literal);open_details(page,'#table-editor-panel');expect(page.locator('#table-choice-context')).to_contain_text('Headers:');context_text=page.locator('#table-choice-context').inner_text()
+    assert '<img src="https://example.test/never.png">' in context_text and '[literal](https://example.test/)' in context_text
+    assert 'HIDDEN_' not in context_text and 'first three columns' in context_text and '…' in context_text
+    assert page.locator('#table-choice-context a,#table-choice-context img,#table-choice-context svg').count()==0
+    assert page.locator('#table-choice-context').evaluate('el=>el.textContent.isWellFormed()&&Array.from(el.textContent).length<650')
+    assert page.locator('#table-select').evaluate('el=>el.getAttribute("aria-describedby").split(" ").every(id=>document.getElementById(id))')
+    page.locator('#table-select').focus();page.keyboard.press('End');expect(page.locator('#table-choice-context')).to_contain_text('Source editing needed: Use at least three dashes')
+    assert page.locator('#body').input_value()==literal and state['api']==[]
+    layout(page,'table-choice-literal');page.set_viewport_size({'width':320,'height':900});page.locator('#table-choice-context').scroll_into_view_if_needed();page.screenshot(path=str(out/'table-choice-320.png'));context.close()
+    report['checks'].append('Table choices: keyboard context without loading/retargeting, stable nodes, dirty replacement cancel/confirm, hidden/stale source purging and explicit recheck, exact checkpointed apply, current block and private backup downloads, inert bounded Unicode/unsupported snippets, accessible descriptions and narrow layouts')
+
     # Compare real same-event counts and heading positions to the frozen starting reader.
     page,context,state=open_page('/markdown-to-wordpress/')
     restore(page,{**backup,'source':{**source,'notes':'PRIVATE_STRUCTURE_SOURCE'},'draft':{**draft,'body':'Earlier fictional text.','questions':['PRIVATE_STRUCTURE_REVIEW']}})

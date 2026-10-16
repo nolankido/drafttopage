@@ -1,6 +1,6 @@
 import { revealDetails } from './disclosure.js';
 import { TABLE_LIMITS, markdownTableRanges } from './markdown-table.js';
-import { TABLE_CELL_LIMIT, TABLE_PAGE_ROWS, TABLE_CHOICE_LIMIT, copyEditableTable, tableEditTarget, newTableTarget, recheckTableTarget, changeEditableTable, planTableEdit } from './table-editing.js';
+import { TABLE_CELL_LIMIT, TABLE_PAGE_ROWS, TABLE_CHOICE_LIMIT, tableChoiceLabel, tableChoiceContext, copyEditableTable, tableEditTarget, newTableTarget, recheckTableTarget, changeEditableTable, planTableEdit } from './table-editing.js';
 import { renderPreview } from './preview.js';
 import { installPasteGuard } from './paste-guard.js';
 import { revealArticleSelection } from './editing.js';
@@ -8,6 +8,7 @@ import { revealArticleSelection } from './editing.js';
 export function installTableEditor({ getBody, apply, workChanged, report, isBusy = () => false, confirmAction = message => confirm(message), reveal = revealArticleSelection, render = renderPreview, inspect = markdownTableRanges }) {
   const $ = id => document.getElementById(id);
   let target = null, cells = null, page = 0, preview = null, snapshot = null, tables = [], guards = [], generation = 0, message = 'Choose a table or create one at the article end.';
+  let describedRange = null, describedBody = null;
   const hasWork = () => Boolean(target);
   const dirty = () => Boolean(target && cells && JSON.stringify(cells) !== JSON.stringify(target.table));
   const inventoryVisible = () => {
@@ -22,6 +23,17 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
   function purgePreview() {
     preview = null; $('table-before').value = ''; $('table-after').value = ''; $('table-reading-preview').replaceChildren(); $('table-change-preview').hidden = true; $('table-change-summary').textContent = '';
   }
+  function choiceContext(body, visible) {
+    const range = visible && snapshot === body ? selectedRange() : null, context = $('table-choice-context');
+    context.hidden = !range;
+    if (!range) { if (describedRange || context.textContent) context.textContent = ''; describedRange = null; describedBody = null; return; }
+    if (describedRange === range && describedBody === body) return;
+    let text;
+    try { text = tableChoiceContext(body, range); }
+    catch { text = 'Current table context is unavailable. Inspect its article source before editing.'; }
+    if (context.textContent !== text) context.textContent = text;
+    describedRange = range; describedBody = body;
+  }
   function refresh() {
     const body = getBody(), busy = isBusy(), stale = target && target.body !== body;
     const visible = inventoryVisible();
@@ -32,9 +44,10 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
       snapshot = body;
       try { tables = inspect(body); } catch { tables = []; }
       $('table-select').replaceChildren(...tables.slice(0, TABLE_CHOICE_LIMIT).map((table, index) => {
-        const option = document.createElement('option'); option.value = String(index); option.textContent = 'Table ' + (index + 1) + ' on line ' + table.line + (table.supported ? ' · ' + table.table.head.length + ' columns, ' + table.table.rows.length + ' rows' : ' · source editing needed'); return option;
+        const option = document.createElement('option'); option.value = String(index); option.textContent = tableChoiceLabel(table, index); return option;
       }));
     }
+    choiceContext(body, visible);
     if (stale) purgePreview();
     $('table-list-status').textContent = !visible ? 'Open table editing to inspect the current article tables. Prepared cells are kept.' : tables.length + ' recognized pipe table(s).' + (tables.length > TABLE_CHOICE_LIMIT ? ' Showing the first 40; use the article cursor for later tables.' : '') + ' Code and other table formats are outside this list.';
     for (const id of ['start-table-editor','table-use-cursor','table-create']) $(id).disabled = busy;
@@ -123,6 +136,12 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
     else if (target) $('table-grid').focus();
   });
   $('table-use-cursor').addEventListener('click', () => choose($('body').selectionStart, $('body').selectionEnd));
+  $('table-select').addEventListener('change', () => {
+    if (isBusy() || !inventoryVisible()) return;
+    const body = getBody();
+    if (snapshot !== body) { refresh(); report('The article changed. Choose from the current table list. Prepared cells are kept.'); return; }
+    choiceContext(body, true);
+  });
   $('table-open-selected').addEventListener('click', () => {
     if (isBusy() || !inventoryVisible()) return; const range = selectedRange();
     if (snapshot !== getBody()) { refresh(); report('The article changed. Choose from the current table list.'); return; }

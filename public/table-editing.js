@@ -5,6 +5,32 @@ import { articleStructure } from './draft-review.js';
 export const TABLE_CELL_LIMIT = 2000;
 export const TABLE_PAGE_ROWS = 10;
 export const TABLE_CHOICE_LIMIT = 40;
+export const TABLE_CONTEXT_CELL_LIMIT = 48;
+export const TABLE_CONTEXT_COLUMNS = 3;
+function contextSnippet(value, limit = TABLE_CONTEXT_CELL_LIMIT, fromEnd = false) {
+  if (typeof value !== 'string') throw new Error('Current table source is unavailable.');
+  const text = value.trim().replace(/\s+/gu, ' ');
+  if (fromEnd) { const characters = Array.from(text); return (characters.length > limit ? '…' : '') + characters.slice(-limit).join('') || '(empty)'; }
+  let result = '', count = 0;
+  for (const character of text) { if (count++ === limit) return result + '…'; result += character; }
+  return result || '(empty)';
+}
+export function tableChoiceLabel(range, index) {
+  const table = range.table, columns = table.head.length, rows = table.rows.length;
+  return 'Table ' + (index + 1) + ' on line ' + range.line + (range.supported ? ' · ' + columns + ' column' + (columns === 1 ? '' : 's') + ', ' + rows + ' row' + (rows === 1 ? '' : 's') : ' · source editing needed') + ' · ' + contextSnippet(table.head[0], 24);
+}
+export function tableChoiceContext(body, range) {
+  validBody(body);
+  if (!range || !boundary(body, range.start) || !boundary(body, contentEnd(body, range)) || contentEnd(body, range) < range.start) throw new Error('Choose a current complete table before inspecting its context.');
+  const table = range.table;
+  const row = cells => cells.slice(0, TABLE_CONTEXT_COLUMNS).map(text => contextSnippet(text)).join(' | ');
+  const before = body.slice(Math.max(0, range.start - 100), range.start).replace(/^[\uDC00-\uDFFF]/, '');
+  const after = body.slice(range.end, range.end + 100).replace(/[\uD800-\uDBFF]$/, '');
+  return [!range.supported ? 'Source editing needed: ' + contextSnippet(range.reason, 96) + '.' : '',
+    'Headers: ' + row(table.head) + '.', table.rows.length ? 'First data row: ' + row(table.rows[0]) + '.' : 'No data rows.',
+    table.head.length > TABLE_CONTEXT_COLUMNS ? 'Showing the first three columns only.' : '',
+    before.trim() ? 'Before: ' + contextSnippet(before, TABLE_CONTEXT_CELL_LIMIT, true) + '.' : '', after.trim() ? 'After: ' + contextSnippet(after) + '.' : ''].filter(Boolean).join(' ');
+}
 function validBody(body) {
   if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT || body.includes('\0')) throw new Error('The article supports at most 60,000 characters and no null characters.');
 }
