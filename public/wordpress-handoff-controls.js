@@ -12,12 +12,21 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
   let signature = '', review = null, rendered = '', kitRendered = '';
   const draftSignature = draft => JSON.stringify([draft.title, draft.body]);
   const fieldValid = (draft, key) => typeof draft[key] === 'string' && Boolean(draft[key].trim()) && draft[key].length <= ARTICLE_LIMITS[key] && !draft[key].includes('\u0000') && (key !== 'slug' || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft[key]));
+  function reset() {
+    signature = ''; review = null; rendered = ''; kitRendered = '';
+    $('wordpress-findings').replaceChildren(); $('wordpress-kit-files').replaceChildren();
+    for (const id of ['wordpress-review-status', 'wordpress-fields-status', 'wordpress-kit-status']) $(id).textContent = '';
+    for (const id of ['download-wordpress-kit', 'copy-wordpress-excerpt', 'copy-wordpress-slug', 'copy-wordpress-description']) $(id).disabled = true;
+  }
   function update() {
-    const draft = getDraft(), visible = $('publishing-destination').value === 'wordpress';
+    // A hidden destination needs neither a writing snapshot nor a formatting scan.
+    // Drop its derived state so returning always inspects the current article.
+    if ($('publishing-destination').value !== 'wordpress') { reset(); return; }
+    const draft = getDraft();
     const options = getWordPressOptions(), next = JSON.stringify([draftSignature(draft), options]);
     if (next !== signature) { signature = next; try { review = reviewWordPress(draft, options); } catch { review = null; } }
     $('wordpress-review-status').textContent = !review ? 'Add an article to inspect the handoff.' : review.totalFindings ? review.totalFindings + ' item(s) to inspect before publishing.' + (review.truncated ? ' Showing the first ' + review.findings.length + '; inspect the complete article.' : '') : 'No items found by these limited checks. Review the actual post and your source before publishing.';
-    if (!visible || !$('wordpress-review-panel').open || !review) {
+    if (!$('wordpress-review-panel').open || !review) {
       $('wordpress-findings').replaceChildren(); rendered = '';
     } else if (rendered !== signature) {
       rendered = signature;
@@ -54,14 +63,14 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
         return li;
       }));
     }
-    for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).disabled = copies.state().pending || isBusy() || !visible || !$('reviewed').checked || !fieldValid(draft, key);
+    for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).disabled = copies.state().pending || isBusy() || !$('reviewed').checked || !fieldValid(draft, key);
     const available = ['excerpt', 'slug', 'description'].filter(key => fieldValid(draft, key));
     $('wordpress-fields-status').textContent = available.length ? 'Optional fields available: ' + available.join(', ') + '. Copy each into its separate destination field after review.' : 'Optional post fields are empty or need editing. They are not required for copying blocks.';
     let kit = null, error = '';
     try { kit = wordPressKitSummary(draft, options); } catch (failure) { error = failure.message; }
-    $('download-wordpress-kit').disabled = isBusy() || !visible || !$('reviewed').checked || !kit;
+    $('download-wordpress-kit').disabled = isBusy() || !$('reviewed').checked || !kit;
     $('wordpress-kit-status').textContent = kit ? 'Six files for a complete manual WordPress handoff. ' + kit.notices.join(' ') : 'Add a valid title and article for a WordPress kit. ' + error;
-    if (visible && $('wordpress-kit-panel').open && kit) {
+    if ($('wordpress-kit-panel').open && kit) {
       const nextKit = JSON.stringify([draft.title, draft.body, draft.excerpt, draft.slug, draft.description, options]);
       if (kitRendered !== nextKit) {
         kitRendered = nextKit;
@@ -85,5 +94,5 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
     try { approved(); const kit = createWordPressKit(getDraft(), getWordPressOptions()); downloadText(kit.bytes, kit.filename, 'application/zip'); reportAction('WordPress kit download requested with six article files, current handoff findings, image handoff notes, and destination instructions. Inspect the files before sharing. Private source and review notes are excluded. Nothing was published.'); }
     catch (error) { reportAction(error.message); }
   });
-  return { update, reset: () => { signature = ''; review = null; rendered = ''; kitRendered = ''; $('wordpress-findings').replaceChildren(); $('wordpress-kit-files').replaceChildren(); } };
+  return { update, reset };
 }

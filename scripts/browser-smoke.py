@@ -136,6 +136,72 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # Hidden WordPress handoff work is discarded and re-created from current text.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    restore(page,backup)
+    original='A **bold** and ~~struck~~ fictional passage.\n\n[Word image 2]'
+    page.fill('#body',original);open_details(page,'#wordpress-review-panel')
+    expect(page.locator('#wordpress-findings li')).to_have_count(1)
+    page.evaluate('window.oldHandoffInspect=document.querySelector("#wordpress-findings button")')
+    open_details(page,'#wordpress-kit-panel')
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress-kit')
+    original_kit=Path(info.value.path()).read_bytes()
+    with zipfile.ZipFile(io.BytesIO(original_kit)) as archive:
+        assert archive.testzip() is None and len(archive.namelist())==6
+        assert archive.read('article-body.md').decode()==original
+        assert all(source['notes'] not in archive.read(name).decode() and draft['questions'][0] not in archive.read(name).decode() for name in archive.namelist())
+    page.evaluate("""() => {
+      window.inactiveWordPressWrites=[];
+      const native=navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText=text=>{window.inactiveWordPressWrites.push(text);return native(text);};
+    }""")
+    for destination in ['html','word','markdown']:
+        page.select_option('#publishing-destination',destination)
+        assert not page.locator('#reviewed').is_checked()
+        for selector in ['#wordpress-review-status','#wordpress-fields-status','#wordpress-kit-status']:
+            assert page.locator(selector).text_content()==''
+        assert page.locator('#wordpress-findings li').count()==0 and page.locator('#wordpress-kit-files li').count()==0
+        page.check('#reviewed')
+        page.evaluate("""() => {
+          for(const id of ['copy-wordpress-excerpt','copy-wordpress-slug','copy-wordpress-description','download-wordpress-kit']){
+            const control=document.getElementById(id);if(!control.disabled)throw Error('Inactive control enabled');
+            control.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          }
+          window.oldHandoffInspect.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+        }""")
+        assert page.evaluate('window.inactiveWordPressWrites.length')==0 and page.locator('#reviewed').is_checked()
+        assert page.locator('#body').input_value()==original
+    page.select_option('#publishing-destination','wordpress')
+    expect(page.locator('#wordpress-findings li')).to_have_count(1)
+    assert not page.locator('#reviewed').is_checked()
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress-kit')
+    assert Path(info.value.path()).read_bytes()==original_kit
+    page.select_option('#publishing-destination','markdown')
+    current='日本語 😀\n\nA different current paragraph.\n\n[Word image 19]'
+    page.fill('#body',current);page.check('#reviewed')
+    selected=page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')
+    page.evaluate('window.oldHandoffInspect.dispatchEvent(new MouseEvent("click",{bubbles:true}))')
+    assert page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')==selected and page.locator('#reviewed').is_checked()
+    page.select_option('#publishing-destination','wordpress')
+    expect(page.locator('#wordpress-findings li')).to_have_count(1)
+    expect(page.locator('#wordpress-findings li').first).to_contain_text('Line 5:')
+    page.locator('#wordpress-findings button').first.click()
+    assert page.locator('#body').evaluate('el=>el.value.slice(el.selectionStart,el.selectionEnd)')=='[Word image 19]'
+    assert page.locator('#body').input_value()==current and not page.locator('#reviewed').is_checked()
+    long_body='Fictional local article. '*2350
+    assert 58000<len(long_body)<59000
+    restore(page,{**backup,'draft':{**draft,'body':long_body}})
+    page.select_option('#publishing-destination','markdown')
+    expect(page.locator('#body')).to_have_value(long_body);page.check('#reviewed')
+    page.locator('#body').focus();page.keyboard.press('Control+End');page.keyboard.insert_text('!')
+    assert not page.locator('#reviewed').is_checked(), 'Native article editing did not clear approval'
+    actual=page.locator('#body').input_value()
+    assert actual==long_body+'!', {'length':len(actual),'expected':len(long_body)+1,'tail':actual[-50:],'selection':page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')}
+    assert page.locator('#wordpress-review-status').text_content()=='' and page.locator('#wordpress-findings li').count()==0
+    layout(page,'inactive-wordpress');assert state['api']==[];context.close()
+    report['checks'].append('Inactive WordPress handoff: hidden statuses/derived DOM cleared across HTML/Word/Markdown, disabled and programmatically guarded actions, no clipboard writes, identical actual six-file ZIP after destination round trip, fresh Unicode source selection after inactive edits, native near-limit typing clears approval immediately, private-field exclusions and narrow layouts')
     # Delayed permission fixtures still complete through the native clipboard.
     page,context,state=open_page('/markdown-to-wordpress/')
     restore(page,backup);page.check('#reviewed')
