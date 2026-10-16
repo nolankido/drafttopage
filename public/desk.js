@@ -55,9 +55,11 @@ function update() {
   $('description-count').textContent = $('description').value.length + ' / 160 characters';
   $('note-count').textContent = $('notes').value.length.toLocaleString() + ' / 8,000 characters';
   const issues = articleIssues(value.draft);
+  const destination = $('publishing-destination').value;
+  const needsTitle = destination === 'html' && $('html-include-title').checked || destination === 'word' && $('word-include-title').checked;
   for (const id of DRAFT_FIELDS) {
     const error = $(id + '-error');
-    const optionalExportField = id !== 'body' && !$(id).value.length && ($('publishing-destination').value === 'markdown' || $('publishing-destination').value === 'word' && !(id === 'title' && $('word-include-title').checked));
+    const optionalExportField = destination !== 'other' && id !== 'body' && !$(id).value.length && !(id === 'title' && needsTitle);
     const showError = !optionalExportField && Boolean(issues[id]) && (touched.has(id) || $(id).value.length > 0);
     error.textContent = issues[id] || ''; error.hidden = !showError;
     if (showError) $(id).setAttribute('aria-invalid', 'true'); else $(id).removeAttribute('aria-invalid');

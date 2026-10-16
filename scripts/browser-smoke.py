@@ -370,6 +370,11 @@ with sync_playwright() as p:
     # All shared routes retain writing while switching between both layouts.
     for route_name in ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']:
         page,context,state=open_page('/'+route_name+'/')
+        assert page.locator('#workspace-layout-options').get_attribute('open') is None
+        assert page.locator('#text-format-tools').get_attribute('open') is None
+        page.locator('#title').focus(); page.locator('#body').focus()
+        expect(page.locator('#title-error')).not_to_be_visible()
+        assert page.locator('#title').get_attribute('aria-invalid') is None
         open_details(page,'#preview-panel')
         expect(page.locator('#preview-empty')).to_be_visible()
         if route_name!='write':assert page.locator('#additional-exports').get_attribute('open') is None
@@ -381,6 +386,7 @@ with sync_playwright() as p:
         assert region.evaluate('(el)=>getComputedStyle(el).maxHeight')=='none'
         assert 'KEEP THE ENDING' in region.inner_text()
         page.check('#reviewed')
+        open_details(page,'#workspace-layout-options')
         for view in ['stacked','compare']:
             page.select_option('#workspace-layout-choice',view)
             for width in [1440,850,390,320]:
@@ -402,6 +408,32 @@ with sync_playwright() as p:
         assert page.locator('#additional-exports').get_attribute('open') is not None and not page.locator('#reviewed').is_checked()
         assert state['api']==[];context.close()
     report['checks'].append('Eight workspace routes: full-width page-flow default, optional keyboard-scrollable comparison, both layouts at 1440/850/390/320, exact writing and approval preservation, and extra-export navigation')
+    # First-time publishing needs only an article body and explicit review.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    body='A fictional first post.\n\n## One next step\n\n- Keep this editable'
+    page.fill('#body',body)
+    page.click('#review-current-article')
+    expect(page.locator('#article-preview')).to_contain_text('One next step')
+    page.click('#continue-to-export')
+    assert page.locator('#publishing-destination').evaluate('el=>el===document.activeElement')
+    assert page.locator('#copy-wordpress').is_disabled()
+    assert page.locator('#title-error').is_hidden()
+    assert page.locator('#excerpt').input_value()=='' and page.locator('#slug').input_value()==''
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    content=Path(info.value.path()).read_text()
+    assert '<!-- wp:paragraph -->' in content and '<!-- wp:heading' in content
+    assert '<h1' not in content and 'Keep this editable' in content
+    open_details(page,'#workspace-layout-options')
+    page.select_option('#workspace-layout-choice','compare')
+    open_details(page,'#text-format-tools')
+    assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
+    page.select_option('#publishing-destination','other')
+    assert not page.locator('#reviewed').is_checked()
+    page.locator('#title').focus();page.locator('#body').focus()
+    expect(page.locator('#title-error')).to_be_visible()
+    assert state['api']==[];context.close()
+    report['checks'].append('First conversion: collapsed optional tools, no false optional-title error, body-only native block download through review and export navigation, view-only approval preservation, and page-metadata validation when required')
     # Native Word download is review-gated and keeps destination defaults across restore.
     page,context,state=open_page('/markdown-to-word/')
     expect(page.locator('#desk-status')).to_contain_text('Markdown to Word tool ready')
@@ -765,7 +797,9 @@ with sync_playwright() as p:
     open_more(page); page.click('#toggle-focus'); assert page.locator('.source-editor').is_hidden()
     page.fill('#body','One two three')
     page.locator('#body').evaluate('(el)=>el.setSelectionRange(4,7)')
+    open_details(page,'#text-format-tools')
     page.click('[data-format=bold]'); expect(page.locator('#body')).to_have_value('One **two** three')
+    open_details(page,'#text-format-tools')
     page.click('[data-format=bold]'); expect(page.locator('#body')).to_have_value('One two three')
     open_more(page); page.click('#toggle-focus'); assert page.locator('.source-editor').is_visible()
     page.click('#start-import')
@@ -1033,6 +1067,7 @@ with sync_playwright() as p:
     assert not page.locator('#reviewed').is_checked() and not page.locator('#copy-title').is_checked()
     assert not page.locator('#checkpoint-private-ok').is_checked()
     page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
+    open_details(page,'#text-format-tools')
     page.click('[data-format=bold]')
     formatted=page.locator('#body').input_value(); assert '**' in formatted
     page.click('#restore-checkpoint'); expect(page.locator('#body')).to_have_value('Replacement article text.')
@@ -1096,6 +1131,7 @@ with sync_playwright() as p:
     expect(page.locator('#desk-status')).to_contain_text('restored locally')
     original_search_body='foo and FOO and foo $& []'
     page.fill('#body',original_search_body); page.check('#reviewed')
+    open_details(page,'#text-format-tools')
     page.click('#start-find'); page.fill('#find-text','foo')
     expect(page.locator('#find-status')).to_contain_text('3 eligible match')
     assert page.locator('#reviewed').is_checked() and page.locator('#replace-match').is_disabled()
@@ -1159,6 +1195,7 @@ with sync_playwright() as p:
     open_extra_exports(page)
     with page.expect_download() as info: page.click('#download-body')
     assert Path(info.value.path()).read_text()=='Fictional fallback article.\n'
+    open_details(page,'#text-format-tools')
     page.click('[data-format=bold]'); assert '**' in page.locator('#body').input_value()
     assert not page.locator('#reviewed').is_checked() and page.locator('#checkpoint-select option').count()==1
     assert state['blocked']==['/search-controls.js'] and state['api']==[]
