@@ -9,6 +9,7 @@
     "pretest": "npm run build",
     "test": "node --test tests/*.test.js",
     "test:alpha-journey": "node --test tests/alpha-journey.test.js",
+    "test:alpha-portability": "node --test tests/alpha-portability.test.js",
     "precheck": "npm run build",
     "check": "node scripts/check.mjs",
     "prepreview:mock": "npm run build",

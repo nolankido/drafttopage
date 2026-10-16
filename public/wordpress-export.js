@@ -1,5 +1,6 @@
 import { articleIssues } from './authoring.js';
 import { previewBlocks, inlineParts } from './preview.js';
+export { wordPressArticleText } from './wordpress-text.js';
 import { tableHTML } from './markdown-table.js';
 import { listHTML, listText } from './markdown-list.js';
 import { wordPressImageBlocks } from './wordpress-images.js';
@@ -13,17 +14,6 @@ function articleBlocks(draft, { includeLinkedImages = false } = {}) {
   const issues = articleIssues(draft, 'body');
   if (Object.keys(issues).length) throw new Error(Object.values(issues)[0]);
   return includeLinkedImages ? wordPressImageBlocks(draft.body) : previewBlocks(draft.body);
-}
-
-// Use the actual export's block and inline model, without CSS list markers or link targets.
-export function wordPressArticleText(draft, options) {
-  const blocks = articleBlocks(draft, options);
-  const plain = text => inlineParts(text).map(part => part.text).join('');
-  const list = item => item.items.map((text, index) => [plain(text), ...(item.children?.[index] || []).map(list)].join('\n')).join('\n');
-  return {
-    text: blocks.filter(item => item.type !== 'linked-image').map(item => item.type === 'pre' ? item.text : item.items ? list(item) : item.type === 'table' ? [item.head, ...item.rows].map(row => row.map(plain).join('\t')).join('\n') : plain(item.text)).join('\n\n'),
-    imageCount: blocks.filter(item => item.type === 'linked-image').length
-  };
 }
 
 // Only article body becomes blocks. Title and page fields belong in WordPress fields.
