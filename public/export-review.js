@@ -48,6 +48,12 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
       }
       masked += text.slice(offset);
       const flag = (kind, message) => add(kind, message, start, end, line);
+      for (const match of masked.matchAll(/\\?\[(?:Word image [1-9]\d{0,4}|Image or object omitted from Word document)\\?\]/g)) {
+        add('word-image', wordpress
+          ? 'This possible Word image placeholder stays text in copied blocks. Compare this occurrence with the original document and placement map. Replace it with a reviewed HTTPS image reference and choose linked Image blocks separately, or add the image yourself in WordPress.'
+          : 'This possible Word image placeholder stays text in the ' + (destination === 'word' ? 'Word document' : 'HTML fragment') + '. Compare it with the original document and add the actual image in your destination editor. Image Markdown also stays text in this export.',
+        start + match.index, start + match.index + match[0].length, line);
+      }
       if (/(^|[^\\])<[^<>\n]+>/.test(masked)) flag('html', 'Source HTML and angle-bracket links stay literal text. Rebuild the intended content in ' + target + '.');
       while (listIndex < lists.length && start >= lists[listIndex].end) listIndex++;
       const inList = Boolean(lists[listIndex] && start >= lists[listIndex].start && start < lists[listIndex].end);
@@ -65,6 +71,13 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
   }
   findings.sort((a, b) => a.start - b.start || a.end - b.end || a.kind.localeCompare(b.kind));
   return { findings: findings.slice(0, EXPORT_REVIEW_LIMIT), totalFindings, truncated: totalFindings > EXPORT_REVIEW_LIMIT };
+}
+
+export function formattingActionLabel(item) {
+  if (item.kind === 'word-image') return 'Prepare this Word image replacement';
+  if (item.kind === 'image' || item.kind === 'image-alt') return 'Review this image reference';
+  if (item.kind === 'reference') return 'Review reference-link conversion';
+  return '';
 }
 
 export function exportTitleHandling({ destination, includeTitle = false }) {

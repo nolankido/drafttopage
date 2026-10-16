@@ -118,3 +118,4 @@
 #import-word-options select{box-sizing:border-box;width:100%;max-width:100%;min-width:0;min-height:44px;font:inherit}#word-revision-review{border-left:3px solid var(--accent);padding-left:1rem;overflow-wrap:anywhere}
 
 .article-preview hr,.export-content-preview hr{border:0;border-top:1px solid var(--line);margin:1.5rem 0}
+.wordpress-findings button,#export-format-findings button{margin-block:.2rem;margin-inline-end:.35rem;max-width:calc(100% - .35rem);min-height:2.75rem;white-space:normal}

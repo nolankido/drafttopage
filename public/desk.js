@@ -33,6 +33,22 @@ const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
 let questions = [], recovery = null, workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null, browserRecovery = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
+function openFormattingFinding(item) {
+  if (recovery?.reading() || browserRecovery?.busy() || importer?.reading()) return false;
+  if (['word-image', 'image', 'image-alt'].includes(item.kind)) {
+    if (!imageEditor?.editImage(item.start, item.end)) return false;
+    report('Image preparation opened for the current finding. Writing and approval are kept. ' + (['word', 'html'].includes($('publishing-destination').value) ? 'Image Markdown stays text in this export; add the actual image in your destination editor.' : 'Preview and apply deliberately, then choose linked Image blocks separately. No image was loaded.'));
+    return true;
+  }
+  if (item.kind === 'reference' && referenceLinks) {
+    referenceLinks.refresh();
+    if ($('reference-links-panel').hidden) return false;
+    focusWorkflowTarget($('reference-links-panel').querySelector('summary'), { bar: $('workflow-steps') });
+    report('Reference-link controls opened. Preview, inspect the supported conversions and remaining items, then apply deliberately. Writing and approval are kept.');
+    return true;
+  }
+  return false;
+}
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
   $('body-paste-status').textContent = message;
   if (message) report(message);
@@ -326,7 +342,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, getCopySnapshot: capture, copyChanged: () => draftReview?.refresh(), getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getCopySnapshot: capture, copyChanged: () => draftReview?.refresh(), openFinding: openFormattingFinding, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
 loadEditingTool(() => import('./reference-link-controls.js'), ({ installReferenceLinks }) => {
   referenceLinks = installReferenceLinks({ getBody: () => $('body').value, getTitle: () => $('title').value, apply: (body, label) => {
     revisions.captureBefore(label);

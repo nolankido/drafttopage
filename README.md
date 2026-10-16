@@ -156,6 +156,8 @@ All five writing workspaces offer Add or edit image: choose an omitted Word imag
 
 Word image reconciliation preserves original placeholder numbers after replacements and identifies duplicate labels by occurrence and context. An explicitly selected, bounded image-map.json from the existing recovery ZIP can be inspected locally. Reusing Word alternative text requires matching the pinned label and acknowledging a manual document/context comparison. URLs are entered separately; individual edits retain the map, while clearing or workspace replacement purges it. No image loads or uploads. See [the reconciliation release](docs/WORD_IMAGE_RECONCILIATION_20261016.md).
 
+Destination formatting reviews now flag unresolved original/legacy Word image placeholders and route image and reference findings into the existing preparation controls. Opening a control preserves writing and approval; stale findings and unavailable tools keep safe manual inspection. Word and HTML retain their literal-image limitation. See [the actionable review release](docs/ACTIONABLE_FORMATTING_20261016.md).
+
 ## Guided hyperlink editing
 
 All five writing workspaces offer Add or edit link and an article-wide inline link inventory. Choose selected plain text, a cursor, or a complete existing link; enter a descriptive label and HTTP(S) URL; inspect an exact change or unlink preview; then apply with a checkpoint. Source outside the selected range stays exact. Stale targets, partial formatting, code/table contexts, malformed URLs, and overflow are rejected. Pending preparation stays out of unchanged private formats; no-op/discard keeps approval. No URL is fetched or verified. See [the link editor release](docs/GUIDED_LINK_EDITOR_RELEASE.md).
