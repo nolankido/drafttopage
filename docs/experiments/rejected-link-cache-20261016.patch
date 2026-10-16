@@ -1,0 +1,85 @@
+diff --git a/public/link-editor-controls.js b/public/link-editor-controls.js
+index e33652a..e586a05 100644
+--- a/public/link-editor-controls.js
++++ b/public/link-editor-controls.js
+@@ -1,10 +1,11 @@
+ import { revealDetails } from './disclosure.js';
+-import { articleLinks, articleLinkNotes, linkEditTarget, planLinkEdit, LINK_LABEL_LIMIT, LINK_URL_LIMIT, LINK_REVIEW_LIMIT } from './link-editing.js';
++import { articleLinkNotes, linkEditTarget, planLinkEdit, LINK_LABEL_LIMIT, LINK_URL_LIMIT, LINK_REVIEW_LIMIT } from './link-editing.js';
++import { createLinkInventoryReader } from './link-inventory.js';
+ import { revealArticleSelection } from './editing.js';
+ import { installPasteGuard } from './paste-guard.js';
+ import { downloadText } from './download.js';
+ 
+-export function installLinkEditor({ getBody, apply, workChanged, report, isBusy = () => false, confirmAction = message => confirm(message), reveal = revealArticleSelection, download = downloadText, inspect = articleLinks }) {
++export function installLinkEditor({ getBody, apply, workChanged, report, isBusy = () => false, confirmAction = message => confirm(message), reveal = revealArticleSelection, download = downloadText, inspect = createLinkInventoryReader() }) {
+   const $ = id => document.getElementById(id);
+   let target = null, preview = null, snapshot = null, rendered = null, links = [], error = '', message = 'Choose article text or an existing link, enter details, then preview.';
+   let inventoryGeneration = 0;
+@@ -23,6 +24,7 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy
+     const body = getBody(), busy = isBusy(), stale = target && target.body !== body;
+     const visible = inventoryVisible();
+     if (!visible) {
++      inspect.clear?.();
+       if (snapshot !== null || rendered !== null) inventoryGeneration++;
+       snapshot = null; links = []; error = '';
+       $('article-link-list').replaceChildren(); rendered = null;
+@@ -63,6 +65,7 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy
+     $('link-editor-status').textContent = stale ? 'The article changed. The old preview was cleared. Choose a current selection or link again.' : message;
+   }
+   function clear() {
++    inspect.clear?.();
+     target = null; $('link-label').value = ''; $('link-url').value = ''; purgePreview(); for (const guard of guards) guard.clear();
+     status('Link preparation cleared. Article writing and approval are kept.'); refresh(); workChanged();
+   }
+diff --git a/public/link-inventory.js b/public/link-inventory.js
+new file mode 100644
+index 0000000..c92829c
+--- /dev/null
++++ b/public/link-inventory.js
+@@ -0,0 +1,45 @@
++import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
++import { articleStructure } from './draft-review.js';
++import { markdownTableRanges } from './markdown-table.js';
++import { inlineTokens, walkInlineTokens, inlineVisibleText, decodeMarkdownEscapes } from './markdown-inline.js';
++
++export const LINK_BLOCK_CACHE_LIMIT = 512;
++
++// Only relative inline results are reusable. Structure, table membership, source
++// positions and lines are read again for every changed article by the controller.
++// The unchanged stateless articleLinks remains the editing/download authority.
++export function createLinkInventoryReader({ readStructure = articleStructure, readTables = markdownTableRanges, readTokens = inlineTokens } = {}) {
++  let cache = new Map();
++  function read(body) {
++    try {
++      if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT || body.includes('\0')) throw new Error('The article supports at most 60,000 characters and no null characters.');
++      if (!body) { read.clear(); return []; }
++      const tables = readTables(body), next = new Map(), links = [];
++      for (const block of readStructure(body)) {
++        if (block.kind === 'code') continue;
++        let relative = next.get(block.text) || cache.get(block.text);
++        if (!relative) {
++          relative = [];
++          let line = 0, offset = 0, emphasisEnd = 0;
++          for (const token of walkInlineTokens(readTokens(block.text))) {
++            if (['strong', 'em', 's'].includes(token.type)) emphasisEnd = Math.max(emphasisEnd, token.end);
++            if (token.type !== 'link') continue;
++            line += (block.text.slice(offset, token.start).match(/\n/g) || []).length; offset = token.end;
++            relative.push({ start: token.start, end: token.end, line,
++              label: token.children ? inlineVisibleText(token.children, { includeCode: true, includeImages: true }) : decodeMarkdownEscapes(token.text),
++              formattedLabel: Boolean(token.children?.some(child => child.type !== 'text')), url: token.target, href: token.href, inEmphasis: token.start < emphasisEnd });
++          }
++        }
++        if (next.size < LINK_BLOCK_CACHE_LIMIT) next.set(block.text, relative);
++        for (const link of relative) {
++          const start = block.contentStart + link.start, end = block.contentStart + link.end;
++          links.push({ ...link, start, end, line: block.line + link.line, inTable: tables.some(table => start >= table.start && end <= table.end) });
++        }
++      }
++      cache = next;
++      return links;
++    } catch (error) { read.clear(); throw error; }
++  }
++  read.clear = () => { cache.clear(); };
++  return read;
++}
