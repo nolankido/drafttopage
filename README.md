@@ -2,6 +2,8 @@
 
 Your ideas. Ready for your website.
 
+Run `npm run verify:release` for the complete manually invoked build, regression, static, and routed-browser gate. It rejects stale or incomplete browser evidence. Branch integration decisions and tool setup are recorded in [the release baseline](docs/RELEASE_BASELINE_20261016.md).
+
 Plain-text clipboard selections now keep Markdown-looking punctuation literal instead of extracting page details or headings. Intentional Markdown remains available through its explicit import format. Oversized escaped selections are rejected in full. See [the plain clipboard correction](docs/PLAIN_CLIPBOARD_RELEASE.md).
 
 The free [Word to Markdown converter](https://drafttopage.com/word-to-markdown/) now gives .docx writers a direct import, review, and .md handoff. Every public workspace also offers **Markdown article (.md)** as a first-class destination, without requiring page metadata. A shared title preference includes the separate title as a literal heading when available; the new route defaults it on. Copy/download, approved source inspection, clipboard fallback, profile portability, a generated fictional Word sample, and explicit conversion limits are included. [Word-to-Markdown release notes](docs/WORD_MARKDOWN_RELEASE.md).
