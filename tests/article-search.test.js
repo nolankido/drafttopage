@@ -111,9 +111,9 @@ function fakeControls() {
 }
 function withEditor(run) {
   const original = { document: globalThis.document, confirm: globalThis.confirm, getComputedStyle: globalThis.getComputedStyle };
-  const fake = fakeControls(), $ = fake.get; let approved = true, busy = false, accepted = false, failure = false, message = '';
+  const fake = fakeControls(), $ = fake.get; let approved = true, busy = false, accepted = false, failure = false, message = '', confirmation = '';
   const history = createCheckpointHistory();
-  globalThis.document = fake.document; globalThis.confirm = () => accepted; globalThis.getComputedStyle = () => ({ lineHeight: '24px' });
+  globalThis.document = fake.document; globalThis.confirm = text => { confirmation = text; return accepted; }; globalThis.getComputedStyle = () => ({ lineHeight: '24px' });
   $('body').value = 'foo and FOO and foo';
   const source = { profile: 'personal', notes: 'Private fictional source.', audience: '', purpose: '' };
   const draft = () => ({ title: 'Fictional search', excerpt: '', description: '', slug: '', body: $('body').value, questions: ['Private fictional question?'] });
@@ -123,7 +123,7 @@ function withEditor(run) {
       history.save({ source, draft: draft() }, label);
       $('body').value = plan.body; $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd); approved = false;
     } });
-    run({ $, ui, history, approved: () => approved, message: () => message, setAccepted: value => { accepted = value; }, setBusy: value => { busy = value; }, setFailure: value => { failure = value; } });
+    run({ $, ui, history, approved: () => approved, message: () => message, confirmation: () => confirmation, setAccepted: value => { accepted = value; }, setBusy: value => { busy = value; }, setFailure: value => { failure = value; } });
   } finally { Object.assign(globalThis, original); }
 }
 test('Controller finds and navigates without clearing approval, then checkpoints a single replacement', () => withEditor(({ $, ui, history, approved }) => {
@@ -171,4 +171,25 @@ test('Keyboard navigation ignores IME composition and clearing removes query, re
   $('replace-text').value = 'bar'; $('replace-text').fire('input'); $('preview-replace-all').fire();
   ui.clear(); assert.equal($('find-text').value, ''); assert.equal($('replace-text').value, ''); assert.equal($('find-case').checked, false);
   assert.equal($('replace-preview').hidden, true); assert.equal($('replace-examples').children.length, 0); assert.equal(approved(), true);
+}));
+test('Protected controller previews only eligible words, confirms scope, and checkpoints before changing prose', () => withEditor(({ $, ui, history, approved, setAccepted, confirmation }) => {
+  const original = 'foo food `foo` [foo] https://fictional.example/foo foo';
+  $('body').value = original; $('find-text').value = 'foo'; $('replace-text').value = 'bar'; $('find-whole').checked = true; ui.refresh();
+  assert.match($('find-status').textContent, /2 eligible match/); assert.match($('find-status').textContent, /Skipped 3 protected/); assert.match($('find-status').textContent, /Excluded 1 partial/);
+  $('preview-replace-all').fire(); assert.match($('replace-summary').textContent, /2 of 2 eligible/); assert.equal(approved(), true);
+  $('apply-replace-all').fire(); assert.equal($('body').value, original); assert.equal(history.list().length, 0); assert.match(confirmation(), /Conservative scanning/);
+  setAccepted(true); $('apply-replace-all').fire();
+  assert.equal($('body').value, 'bar food `foo` [foo] https://fictional.example/foo bar'); assert.equal(approved(), false);
+  assert.equal(history.read(history.list()[0].id).draft.body, original);
+  ui.clear(); assert.equal($('find-scope').value, 'protected'); assert.equal($('find-whole').checked, false);
+}));
+test('Scope and whole-word changes invalidate a preview even without dispatched change events', () => withEditor(({ $, ui, history, setAccepted }) => {
+  setAccepted(true); $('body').value = 'foo food `foo`'; $('find-text').value = 'foo'; $('replace-text').value = 'bar';
+  for (const change of [() => { $('find-scope').value = 'source'; }, () => { $('find-whole').checked = true; }]) {
+    $('find-scope').value = 'protected'; $('find-whole').checked = false; ui.refresh(); $('preview-replace-all').fire();
+    assert.equal($('replace-preview').hidden, false); change(); $('apply-replace-all').fire();
+    assert.equal($('replace-preview').hidden, true); assert.equal($('body').value, 'foo food `foo`'); assert.equal(history.list().length, 0);
+  }
+  $('find-scope').value = 'source'; $('find-scope').fire('change'); $('find-whole').checked = false; $('find-whole').fire('change'); $('preview-replace-all').fire();
+  assert.match($('replace-summary').textContent, /3 of 3 eligible/); $('apply-replace-all').fire(); assert.equal($('body').value, 'bar bard `bar`');
 }));
