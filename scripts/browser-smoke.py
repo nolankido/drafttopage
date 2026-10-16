@@ -10,6 +10,7 @@ import json
 import zipfile
 import xml.etree.ElementTree as ET
 import mimetypes
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -22,10 +23,11 @@ args = parser.parse_args()
 root = Path.cwd()
 out = root / 'test-results'
 out.mkdir(exist_ok=True)
+(out/'browser-results.json').unlink(missing_ok=True)
 origin = 'https://drafttopage.test'
 csp = next(line.split(':', 1)[1].strip() for line in (root/'public/_headers').read_text().splitlines() if 'Content-Security-Policy:' in line)
 app_html = subprocess.check_output(['node','--input-type=module','-e',"import {appPage} from './src/pages.js'; process.stdout.write(appPage)"], text=True)
-report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}}
+report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}, 'motion':'reduced for deterministic fixture geometry'}
 source = {'profile':'update','notes':'Fictional source notes, not part of the article.','audience':'Readers','purpose':'Explain the experiment.'}
 draft = {'title':'An edited local article','excerpt':'A brief summary.','description':'A factual description.','slug':'edited-local-article','body':'An article paragraph.\n\n## A heading\n\n- One\n- Two','questions':['Does this preserve uncertainty?']}
 backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':draft}
@@ -33,6 +35,15 @@ backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':d
 def open_more(page):
     if not page.locator('#start-notes').is_visible():
         page.click('#desk-more > summary')
+
+
+def open_details(page, selector):
+    target=page.locator(selector)
+    for parent in target.locator('xpath=ancestor::details').all():
+        if not parent.evaluate('el=>el.open'):
+            parent.locator(':scope > summary').click()
+    if not target.evaluate('el=>el.open'):
+        target.locator(':scope > summary').click()
 
 
 def open_extra_exports(page):
@@ -43,12 +54,16 @@ def open_extra_exports(page):
 
 with sync_playwright() as p:
     options = {'headless':True,'args':['--no-sandbox','--disable-dev-shm-usage']}
-    binary = shutil.which('chromium') or shutil.which('chromium-browser')
+    binary = os.environ.get('CHROMIUM_EXECUTABLE') or shutil.which('chromium') or shutil.which('chromium-browser')
     if binary: options['executable_path'] = binary
     browser = p.chromium.launch(**options)
+    report['browser_version']=browser.version
     def open_page(path, js=True, blocked_modules=()):
+        print('Browser fixture: '+path,flush=True)
         state = {'calls':0,'expired':False,'failure':False,'accept':True,'api':[], 'blocked':[]}
-        context = browser.new_context(viewport={'width':1440,'height':1000},java_script_enabled=js,accept_downloads=True)
+        context = browser.new_context(viewport={'width':1440,'height':1000},java_script_enabled=js,accept_downloads=True,reduced_motion='reduce')
+        # Test-browser clipboard permission is scoped to this fictional local origin.
+        context.grant_permissions(['clipboard-read','clipboard-write'],origin=origin)
         def route(r):
             u = urlparse(r.request.url)
             if u.netloc != 'drafttopage.test':
@@ -75,7 +90,7 @@ with sync_playwright() as p:
             mime = 'text/javascript' if target.suffix == '.js' else mimetypes.guess_type(str(target))[0] or 'text/plain'
             r.fulfill(body=target.read_bytes(),content_type=mime,headers={'Content-Security-Policy':csp,'X-Content-Type-Options':'nosniff'})
         context.route('**/*',route)
-        page=context.new_page(); page.set_default_timeout(8000)
+        page=context.new_page(); page.set_default_timeout(15000)
         page.on('pageerror',lambda error: report['errors'].append(str(error)))
         page.on('dialog',lambda dialog: dialog.accept() if state['accept'] else dialog.dismiss())
         page.goto(origin+path)
@@ -88,21 +103,36 @@ with sync_playwright() as p:
             assert not overflow, f'{name} overflows at {width}'
             if name=='write' and width in [1440,390]: page.screenshot(path=str(out/f'write-{width}.png'),full_page=True)
         page.set_viewport_size({'width':1440,'height':1000})
-    def restore(page, value):
+    def stage_backup(page, value):
         data = value if isinstance(value, bytes) else json.dumps(value).encode()
+        before = page.locator('#body').input_value()
+        reviewed = page.locator('#reviewed').is_checked()
+        files = page.locator('#workspace-files')
+        if not files.evaluate('el=>el.open'):
+            files.locator('summary').first.click()
         page.locator('#restore-backup').set_input_files({'name':'fixture.json','mimeType':'application/json','buffer':data})
+        return before,reviewed
+    def restore(page, value):
+        before,reviewed = stage_backup(page,value)
+        expect(page.locator('#restore-preview')).to_be_visible()
+        expect(page.locator('#body')).to_have_value(before)
+        assert page.locator('#reviewed').is_checked()==reviewed
+        expect(page.locator('#apply-restore')).to_be_disabled()
+        page.check('#restore-reviewed')
+        page.click('#apply-restore')
     # Linked WordPress images are explicit; no image requests occur in this app.
     page,context,state=open_page('/markdown-to-wordpress/')
     image_body='## A fictional workshop\n\n![Participants at the workshop](https://example.test/photo.jpg?a=1&b=2)\n\nInline ![Inline example](https://example.test/inline.jpg) stays text.'
     image_backup={'format':'drafttopage-workspace','version':1,'source':source,'draft':{**draft,'body':image_body}}
     restore(page,image_backup)
-    expect(page.locator('#desk-status')).to_contain_text('Workspace restored')
+    expect(page.locator('#desk-status')).to_contain_text('Reviewed backup restored')
     page.locator('#wordpress-image-panel > summary').click()
     expect(page.locator('#wordpress-linked-images')).to_be_enabled()
     expect(page.locator('#wordpress-image-status')).to_contain_text('2 image reference')
     assert not page.locator('#wordpress-linked-images').is_checked()
     page.check('#reviewed')
-    page.locator('#wordpress-code-panel > summary').click()
+    open_details(page,'#wordpress-code-panel')
+    expect(page.locator('#wordpress-code-preview')).not_to_have_value('')
     assert '<img ' not in page.locator('#wordpress-code-preview').input_value()
     page.check('#wordpress-linked-images')
     assert not page.locator('#reviewed').is_checked()
@@ -140,7 +170,8 @@ with sync_playwright() as p:
     page,context,state=open_page('/markdown-to-wordpress/',blocked_modules=('/wordpress-image-controls.js',))
     expect(page.locator('#wordpress-image-status')).to_contain_text('could not load')
     page.fill('#body',image_body);page.check('#reviewed')
-    page.locator('#wordpress-code-panel > summary').click()
+    open_details(page,'#wordpress-code-panel')
+    expect(page.locator('#wordpress-code-preview')).not_to_have_value('')
     assert '<img ' not in page.locator('#wordpress-code-preview').input_value()
     expect(page.locator('#copy-wordpress')).to_be_enabled()
     context.close()
@@ -183,7 +214,14 @@ with sync_playwright() as p:
     assert review_backup['version']==1 and len(review_backup['draft']['questions'])==1
     assert 'PRIVATE revised evidence' in review_backup['draft']['questions'][0]
     page.fill('#review-passage',review_passage)
-    restore(page,review_backup)
+    stage_backup(page,review_backup)
+    expect(page.locator('#restore-summary')).to_contain_text('matches your current writing')
+    page.check('#restore-reviewed'); expect(page.locator('#apply-restore')).to_be_disabled()
+    expect(page.locator('#review-passage')).to_have_value(review_passage)
+    # A matching file is a deliberate no-op. Change saved writing to exercise
+    # replacement and purging of unsaved passage preparation separately.
+    page.fill('#body','Temporary changed wording before restoration.')
+    page.check('#restore-reviewed'); page.click('#apply-restore')
     expect(page.locator('#review-passage')).to_have_value('')
     expect(page.locator('#source-review-count')).to_contain_text('1 saved passage')
     page.fill('#body',review_passage+' '+review_passage)
@@ -204,8 +242,8 @@ with sync_playwright() as p:
     # Private collections are explicit snapshots, separate from the current editor.
     page,context,state=open_page('/write/')
     restore(page,backup)
-    expect(page.locator('#desk-status')).to_contain_text('Workspace restored')
-    page.locator('#draft-collection-panel > summary').click()
+    expect(page.locator('#desk-status')).to_contain_text('Reviewed backup restored')
+    open_details(page,'#draft-collection-panel')
     expect(page.locator('#draft-collection-controls')).to_be_enabled()
     page.fill('#draft-collection-name','First article')
     page.check('#reviewed');page.click('#add-to-draft-collection')
@@ -215,16 +253,17 @@ with sync_playwright() as p:
     expect(page.locator('#draft-collection-count')).to_contain_text('2 / 8')
     page.select_option('#draft-collection-select','0')
     page.locator('#draft-collection-inspection > summary').click()
+    expect(page.locator('#draft-collection-saved-preview')).not_to_have_value('')
     assert json.loads(page.locator('#draft-collection-saved-preview').input_value())['draft']['body']==draft['body']
     page.locator('#draft-collection-inspection > summary').click()
-    assert page.locator('#draft-collection-saved-preview').input_value()==''
+    expect(page.locator('#draft-collection-saved-preview')).to_have_value('')
     page.locator('#publishing-profile-panel > summary').click()
     page.fill('#publishing-profile-name','Temporary publishing setup')
     page.fill('#publishing-profile-checks','Fictional reminder')
     page.click('#open-draft-collection-entry')
     assert page.locator('#body').input_value()==draft['body'] and page.locator('#notes').input_value()==source['notes']
     assert not page.locator('#reviewed').is_checked() and page.locator('#publishing-profile-name').input_value()==''
-    assert 'Before opening a saved article' in page.locator('#checkpoint-select').inner_text()
+    assert 'Before opening a saved article' in page.locator('#checkpoint-select').text_content(), page.locator('#checkpoint-select').text_content()
     page.fill('#body','An update to the first article');page.click('#update-draft-collection-entry')
     page.click('#undo-draft-collection')
     assert page.locator('#body').input_value()=='An update to the first article'
@@ -242,14 +281,15 @@ with sync_playwright() as p:
     assert state['calls']==0;context.close()
     page,context,state=open_page('/markdown-to-wordpress/')
     page.fill('#body','Current editor must survive collection loading.')
-    page.check('#reviewed');page.locator('#draft-collection-panel > summary').click()
+    page.check('#reviewed');open_details(page,'#draft-collection-panel')
     page.locator('#load-draft-collection').set_input_files({'name':'collection.json','mimeType':'application/json','buffer':collection_bytes})
     expect(page.locator('#draft-collection-file-preview')).to_be_visible()
     page.click('#apply-draft-collection')
     assert page.locator('#body').input_value()=='Current editor must survive collection loading.' and page.locator('#reviewed').is_checked()
     page.click('#open-draft-collection-entry')
     assert page.locator('#body').input_value()==draft['body'] and not page.locator('#reviewed').is_checked()
-    restore(page,backup);expect(page.locator('#desk-status')).to_contain_text('Workspace restored')
+    page.fill('#body','Temporary collection editor change before backup restoration.')
+    restore(page,backup);expect(page.locator('#desk-status')).to_contain_text('Reviewed backup restored')
     expect(page.locator('#draft-collection-count')).to_contain_text('2 / 8')
     page.click('#clear')
     expect(page.locator('#draft-collection-count')).to_contain_text('0 / 8')
@@ -311,31 +351,41 @@ with sync_playwright() as p:
     expect(page.locator('#download-word')).to_be_enabled()
     expect(page.locator('#publishing-profile-status')).to_contain_text('could not load')
     context.close()
-    # Converter layout retains DOM/keyboard order and changes only the view.
-    for route_name in ['markdown-to-wordpress','markdown-to-html','markdown-to-word']:
+    # All shared routes retain writing while switching between both layouts.
+    for route_name in ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']:
         page,context,state=open_page('/'+route_name+'/')
+        open_details(page,'#preview-panel')
         expect(page.locator('#preview-empty')).to_be_visible()
-        assert page.locator('#additional-exports').get_attribute('open') is None
+        if route_name!='write':assert page.locator('#additional-exports').get_attribute('open') is None
         body='## A fictional article\n\n'+'\n\n'.join(f'Paragraph {i}: keep a distinct fictional observation and inspect the result.' for i in range(100))+'\n\nKEEP THE ENDING'
         page.fill('#body',body)
         expect(page.locator('#preview-empty')).not_to_be_visible()
-        region=page.locator('#article-preview');region.focus();region.press('End')
-        assert region.evaluate('(el)=>el.scrollTop')>0
+        region=page.locator('#article-preview')
+        assert page.locator('#workspace-layout-choice').input_value()=='stacked'
+        assert region.evaluate('(el)=>getComputedStyle(el).maxHeight')=='none'
         assert 'KEEP THE ENDING' in region.inner_text()
-        for width in [1440,850,390,320]:
-            page.set_viewport_size({'width':width,'height':900})
-            rects=page.evaluate("""() => {const a=document.getElementById('draft').getBoundingClientRect(),b=document.getElementById('conversion-results').getBoundingClientRect();return {a:{x:a.x,y:a.y,bottom:a.bottom},b:{x:b.x,y:b.y},overflow:document.documentElement.scrollWidth>innerWidth,maxHeight:getComputedStyle(document.getElementById('article-preview')).maxHeight}}""")
-            assert not rects['overflow']
-            if width>850:assert rects['a']['x']<rects['b']['x'] and abs(rects['a']['y']-rects['b']['y'])<2
-            else:assert rects['a']['bottom']<=rects['b']['y'] and rects['maxHeight']=='none'
-        page.check('#reviewed');open_extra_exports(page)
+        page.check('#reviewed')
+        for view in ['stacked','compare']:
+            page.select_option('#workspace-layout-choice',view)
+            for width in [1440,850,390,320]:
+                page.set_viewport_size({'width':width,'height':900})
+                rects=page.evaluate("""() => {const a=document.getElementById('draft').getBoundingClientRect(),b=document.getElementById('conversion-results').getBoundingClientRect();return {a:{x:a.x,y:a.y,bottom:a.bottom},b:{x:b.x,y:b.y},overflow:document.documentElement.scrollWidth>innerWidth,maxHeight:getComputedStyle(document.getElementById('article-preview')).maxHeight}}""")
+                report['layout'][route_name+'-'+view+'-'+str(width)]=rects['overflow']
+                assert not rects['overflow']
+                if view=='compare' and width>850:
+                    assert rects['a']['x']<rects['b']['x'] and abs(rects['a']['y']-rects['b']['y'])<2
+                    region.focus();region.press('End')
+                    expect(region).not_to_have_js_property('scrollTop',0)
+                else:assert rects['a']['bottom']<=rects['b']['y'] and rects['maxHeight']=='none'
+                assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
+        open_extra_exports(page)
         assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
         page.locator('#additional-exports > summary').click()
         assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
         page.select_option('#publishing-destination','other')
         assert page.locator('#additional-exports').get_attribute('open') is not None and not page.locator('#reviewed').is_checked()
         assert state['api']==[];context.close()
-    report['checks'].append('Focused converter layout: all three routes, bounded keyboard-scrollable full preview, editor/result alignment, 1440/850/390/320 reflow, extra-export toggles, exact writing and approval preservation, and other-editor reveal')
+    report['checks'].append('Eight workspace routes: full-width page-flow default, optional keyboard-scrollable comparison, both layouts at 1440/850/390/320, exact writing and approval preservation, and extra-export navigation')
     # Native Word download is review-gated and keeps destination defaults across restore.
     page,context,state=open_page('/markdown-to-word/')
     expect(page.locator('#desk-status')).to_contain_text('Markdown to Word tool ready')
@@ -381,10 +431,10 @@ with sync_playwright() as p:
     choice.value.set_files({'name':'fictional-article.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':word_import_bytes})
     expect(page.locator('#import-summary')).to_contain_text('Word document')
     expect(page.locator('#import-preview-heading')).to_be_focused()
-    assert page.locator('#import-reading-preview h2').count()==1
-    assert page.locator('#import-reading-preview ol[start="4"] ol[start="7"]').count()==1
-    assert page.locator('#import-reading-preview th').count()==2
-    assert page.locator('#import-reading-preview img, #import-reading-preview script').count()==0
+    expect(page.locator('#import-reading-preview').get_by_role('heading',name='A fictional section',exact=True)).to_be_visible()
+    expect(page.locator('#import-reading-preview ol[start="4"] ol[start="7"]')).to_have_count(1)
+    expect(page.locator('#import-reading-preview th')).to_have_count(2)
+    expect(page.locator('#import-reading-preview img, #import-reading-preview script')).to_have_count(0)
     assert page.locator('#reviewed').is_checked() and page.locator('#apply-import').is_disabled()
     page.check('#import-changes-ok'); state['accept']=False; page.click('#apply-import')
     expect(page.locator('#body')).to_have_value('Keep the current article.')
@@ -474,11 +524,11 @@ with sync_playwright() as p:
     expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
     expect(page.locator('h1')).to_have_text('Markdown to WordPress converter')
     assert page.locator('#preview-panel').get_attribute('open') is not None
-    assert page.locator('.tool-guide .conversion-example code').count()==2
+    expect(page.locator('.tool-guide .conversion-example code')).to_have_count(2)
     body='A fictional conversion test.\n\n## Inspect this\n\nTODO: inspect this detail.'
     page.fill('#body',body)
     expect(page.locator('#article-preview')).to_contain_text('Inspect this')
-    assert page.locator('#wordpress-findings li').count()==1
+    expect(page.locator('#wordpress-findings li')).to_have_count(1)
     assert page.locator('#copy-wordpress').is_disabled()
     page.click('#wordpress-kit-panel > summary')
     page.check('#reviewed')
@@ -489,17 +539,18 @@ with sync_playwright() as p:
         assert b'TODO' in z.read('REVIEW.txt')
     page.fill('#body','A changed fictional article.')
     assert not page.locator('#reviewed').is_checked()
-    assert page.locator('#wordpress-findings li').count()==0
+    expect(page.locator('#wordpress-findings li')).to_have_count(0)
     layout(page,'wordpress-tool'); assert state['api']==[]; context.close()
     report['checks'].append('Acquisition tool: working sample, live preview, current findings, approval-gated exact-body ZIP, edit resets, and narrow layouts')
     page,context,state=open_page('/markdown-to-wordpress/#sample')
     expect(page.locator('#article-preview table')).to_be_visible()
-    assert page.locator('#article-preview th[scope=col]').count()==2
-    assert page.locator('#article-preview tbody tr').count()==3
+    expect(page.locator('#article-preview th[scope=col]')).to_have_count(2)
+    expect(page.locator('#article-preview tbody tr')).to_have_count(3)
     table='| Name | Count |\n| :--- | ---: |\n| **Alpha** | 2 |\n| Beta \\| Gamma | 3 |'
     page.fill('#body',table)
-    assert page.locator('#wordpress-findings li').count()==0
-    page.check('#reviewed'); page.click('#wordpress-code-panel > summary')
+    expect(page.locator('#wordpress-findings li')).to_have_count(0)
+    page.check('#reviewed'); open_details(page,'#wordpress-code-panel')
+    expect(page.locator('#wordpress-code-preview')).not_to_have_value('')
     assert '<!-- wp:table' in page.locator('#wordpress-code-preview').input_value()
     assert 'data-align="right"' in page.locator('#wordpress-code-preview').input_value()
     open_extra_exports(page)
@@ -508,7 +559,7 @@ with sync_playwright() as p:
     assert '<thead>' in reading and 'Beta | Gamma' in reading
     bad=table+'\n| EXTRA | CELL | KEEP |'
     page.fill('#body',bad)
-    assert page.locator('#article-preview table').count()==0
+    expect(page.locator('#article-preview table')).to_have_count(0)
     expect(page.locator('#article-preview')).to_contain_text('KEEP')
     expect(page.locator('#wordpress-findings')).to_contain_text('same column count')
     assert not page.locator('#reviewed').is_checked()
@@ -518,13 +569,14 @@ with sync_playwright() as p:
     report['checks'].append('Tables: live headers/alignment, escaped pipes, native blocks, reading file, malformed-source preservation, approval reset, and narrow layouts')
     page,context,state=open_page('/markdown-to-wordpress/#sample')
     expect(page.locator('#article-preview ol[start="4"]')).to_be_visible()
-    assert page.locator('#article-preview ol[start="7"]').count()==1
+    expect(page.locator('#article-preview ol[start="7"]')).to_have_count(1)
     assert page.locator('#article-preview li > ul').count()>=2
     lists='4. Inspect the article\n  - Compare facts\n    + Keep uncertainty\n  - Check links\n5. Prepare the handoff\n  7) Paste the blocks\n  8) Preview the post'
     page.fill('#body',lists)
-    assert page.locator('#article-preview li').count()==7
-    assert page.locator('#wordpress-findings li').count()==0
-    page.check('#reviewed'); page.click('#wordpress-code-panel > summary')
+    expect(page.locator('#article-preview li')).to_have_count(7)
+    expect(page.locator('#wordpress-findings li')).to_have_count(0)
+    page.check('#reviewed'); open_details(page,'#wordpress-code-panel')
+    expect(page.locator('#wordpress-code-preview')).not_to_have_value('')
     code=page.locator('#wordpress-code-preview').input_value()
     assert '"start":4' in code and '"start":7' in code
     assert code.count('<!-- wp:list-item -->')==7
@@ -534,7 +586,7 @@ with sync_playwright() as p:
     assert '<ol start="4">' in reading and '<ol start="7">' in reading
     bad='4. Keep the parent\n   - Irregular child\n5. KEEP THE LAST ITEM'
     page.fill('#body',bad)
-    assert page.locator('#article-preview li').count()==0
+    expect(page.locator('#article-preview li')).to_have_count(0)
     expect(page.locator('#article-preview')).to_contain_text('KEEP THE LAST ITEM')
     expect(page.locator('#wordpress-findings')).to_contain_text('two or four additional spaces')
     page.locator('#wordpress-findings button').first.click()
@@ -549,7 +601,8 @@ with sync_playwright() as p:
     assert page.locator('.source-editor').is_hidden()
     assert page.locator('#copy-wordpress').is_disabled()
     page.check('#reviewed')
-    page.click('#wordpress-code-panel > summary')
+    open_details(page,'#wordpress-code-panel')
+    expect(page.locator('#wordpress-code-preview')).not_to_have_value('')
     assert '<!-- wp:list-item -->' in page.locator('#wordpress-code-preview').input_value()
     with page.expect_download() as info: page.click('#download-wordpress')
     wptext=Path(info.value.path()).read_text()
@@ -568,11 +621,11 @@ with sync_playwright() as p:
     page,context,state=open_page('/write/#sample')
     page.fill('#body','A fictional opening.\n\n  - Nested list\n\n![image](https://example.test/image.png)\n\nTODO: inspect.')
     expect(page.locator('#wordpress-review-status')).to_contain_text('item(s) to inspect')
-    assert page.locator('#wordpress-findings li').count()==3
+    expect(page.locator('#wordpress-findings li')).to_have_count(3)
     page.locator('#wordpress-findings button').first.click()
     assert page.locator('#body').evaluate('(el) => el.value.slice(el.selectionStart, el.selectionEnd)')=='  - Nested list'
     page.click('#wordpress-kit-panel > summary')
-    assert page.locator('#wordpress-kit-files li').count()==6
+    expect(page.locator('#wordpress-kit-files li')).to_have_count(6)
     assert page.locator('#download-wordpress-kit').is_disabled()
     page.check('#reviewed')
     with page.expect_download() as info: page.click('#download-wordpress-kit')
@@ -607,10 +660,11 @@ with sync_playwright() as p:
     assert '<script' not in reading_text and 'default-src' in reading_text
     reader=context.new_page()
     reader.set_content(reading_text)
-    assert reader.locator('h1').count()==1 and reader.locator('script, img, a').count()==0
+    expect(reader.locator('h1')).to_have_count(1)
+    expect(reader.locator('script, img, a')).to_have_count(0)
     layout(reader,'reading-page')
     reader.close()
-    page.locator('#page-details summary').click()
+    page.locator('#page-details > summary').click()
     open_more(page); page.click('#start-notes')
     for key in ['title','excerpt','description','slug','body']: page.fill('#'+key,draft[key])
     page.fill('#notes',source['notes'])
@@ -634,17 +688,19 @@ with sync_playwright() as p:
     assert page.locator('#body').input_value()=='Changed article text.' and not page.locator('#reviewed').is_checked()
     assert not page.locator('#backup-private-ok').is_checked()
     previous=page.locator('#body').input_value()
-    restore(page,b'{broken'); expect(page.locator('#desk-status')).to_contain_text('not valid workspace JSON')
+    stage_backup(page,b'{broken'); expect(page.locator('#desk-status')).to_contain_text('not valid workspace JSON')
+    expect(page.locator('#restore-preview')).to_be_hidden()
     assert page.locator('#body').input_value()==previous
-    restore(page,b'x'*(512*1024+1)); expect(page.locator('#desk-status')).to_contain_text('512 KiB')
+    stage_backup(page,b'x'*(512*1024+1)); expect(page.locator('#desk-status')).to_contain_text('512 KiB')
+    expect(page.locator('#restore-preview')).to_be_hidden()
     assert page.locator('#body').input_value()==previous
-    state['accept']=False; restore(page,backup); expect(page.locator('#desk-status')).to_contain_text('cancelled')
+    state['accept']=False; restore(page,backup); expect(page.locator('#restore-status')).to_contain_text('cancelled')
     assert page.locator('#body').input_value()==previous
     state['accept']=True; restore(page,backup); expect(page.locator('#desk-status')).to_contain_text('restored locally')
-    assert page.locator('#questions li').count()==1
-    page.locator('#preview-panel summary').click()
+    expect(page.locator('#questions li')).to_have_count(1)
+    page.locator('#preview-panel > summary').click()
     page.fill('#body','<img src="https://example.com/x" onerror="window.pwned=true">\n\n<script>window.pwned=true</script>\n\n[click](javascript:bad())')
-    assert page.locator('#article-preview img, #article-preview script, #article-preview a').count()==0
+    expect(page.locator('#article-preview img, #article-preview script, #article-preview a')).to_have_count(0)
     assert page.evaluate('window.pwned === undefined')
     page.fill('#body',draft['body']); page.fill('#title',draft['title'])
     layout(page,'write')
@@ -708,7 +764,7 @@ with sync_playwright() as p:
     page.click('#preview-import'); page.click('#apply-import')
     expect(page.locator('#desk-status')).to_contain_text('imported locally')
     page.locator('#preview-panel > summary').click()
-    assert page.locator('#article-preview script, #questions img').count()==0
+    expect(page.locator('#article-preview script, #questions img')).to_have_count(0)
     assert page.evaluate('window.importPwned===undefined')
     layout(page,'import-review'); assert state['api']==[]
     context.close()
@@ -722,9 +778,9 @@ with sync_playwright() as p:
     page.fill('#import-text',rich); page.click('#preview-import')
     expect(page.locator('#import-preview')).to_be_visible()
     assert page.locator('#import-reading-preview strong').inner_text()=='important'
-    assert page.locator('#import-reading-preview ol[start="4"] ol[start="7"]').count()==1
-    assert page.locator('#import-reading-preview th[scope="col"]').count()==2
-    assert page.locator('#import-reading-preview script, #import-reading-preview img, #import-reading-preview iframe').count()==0
+    expect(page.locator('#import-reading-preview ol[start="4"] ol[start="7"]')).to_have_count(1)
+    expect(page.locator('#import-reading-preview th[scope="col"]')).to_have_count(2)
+    expect(page.locator('#import-reading-preview script, #import-reading-preview img, #import-reading-preview iframe')).to_have_count(0)
     assert page.locator('body').get_attribute('data-html-import-pwned') is None
     expect(page.locator('#body')).to_have_value('Keep original article.')
     assert page.locator('#reviewed').is_checked() and page.locator('#apply-import').is_disabled()
@@ -741,7 +797,7 @@ with sync_playwright() as p:
     expect(page.locator('#desk-status')).to_contain_text('copied')
     page.click('#start-formatted-import'); page.locator('#import-text').press('Control+V')
     page.click('#preview-import'); expect(page.locator('#import-summary')).to_contain_text('Copied formatted writing')
-    assert page.locator('#import-reading-preview table').count()==1
+    expect(page.locator('#import-reading-preview table')).to_have_count(1)
     assert page.locator('#apply-import').is_disabled()
     page.click('#cancel-import')
     page.locator('#import-file').set_input_files({'name':'header-choice.html','mimeType':'text/html','buffer':b'<table><tr><td>Name</td></tr><tr><td>One</td></tr></table>'})
@@ -761,7 +817,7 @@ with sync_playwright() as p:
     page.check('#reviewed'); page.click('#run-checks')
     assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==body
     expect(page.locator('#draft-check-status')).to_contain_text('item(s) to consider')
-    assert page.locator('#draft-findings li').count()==4
+    expect(page.locator('#draft-findings li')).to_have_count(4)
     page.locator('#draft-findings').get_by_role('button',name='Edit line 3',exact=True).click()
     selection=page.locator('#body').evaluate('(el)=>({text:el.value.slice(el.selectionStart,el.selectionEnd),focused:document.activeElement===el})')
     assert selection=={'text':'TODO','focused':True}
@@ -780,7 +836,7 @@ with sync_playwright() as p:
     expect(links).to_have_count(1)
     expect(links).to_have_attribute('href','https://example.test/a_(b)')
     assert links.get_attribute('rel')=='noopener noreferrer' and links.get_attribute('target')=='_blank'
-    assert page.locator('#article-preview img, #article-preview script').count()==0
+    expect(page.locator('#article-preview img, #article-preview script')).to_have_count(0)
     # Leaving the editor must not replace a link before its click is dispatched.
     page.locator('#body').focus()
     page.evaluate("document.querySelector('#article-preview a').addEventListener('click',event=>{event.preventDefault();window.previewLinkClicked=true})")
@@ -792,8 +848,10 @@ with sync_playwright() as p:
     html=Path(info.value.path()).read_text()
     assert 'PRIVATE SOURCE CHECK SENTINEL' not in html and '<a href="https://example.test/a_(b)"' in html
     reader=context.new_page(); reader.set_content(html)
-    assert reader.locator('a').count()==1 and reader.locator('script,img').count()==0
-    assert reader.locator('h1').count()==1 and reader.locator('h2').count()==2
+    expect(reader.locator('a')).to_have_count(1)
+    expect(reader.locator('script,img')).to_have_count(0)
+    expect(reader.locator('h1')).to_have_count(1)
+    expect(reader.locator('h2')).to_have_count(2)
     layout(reader,'reading-links'); reader.close()
     page.locator('.recovery-box:has(#backup-controls) > summary').click(); page.check('#backup-private-ok')
     with page.expect_download() as info: page.click('#save-backup')
@@ -803,11 +861,11 @@ with sync_playwright() as p:
     page.fill('#body','A clear fictional paragraph.'); page.click('#run-checks')
     expect(page.locator('#draft-check-status')).to_contain_text('No patterns were flagged')
     page.fill('#body','TODO\n\n'*45); page.click('#run-checks')
-    assert page.locator('#draft-findings li').count()==40
+    expect(page.locator('#draft-findings li')).to_have_count(40)
     expect(page.locator('#draft-check-status')).to_contain_text('Showing the first 40')
     page.fill('#body','<script>bad()</script>\n\n## <img src=x onerror=bad()>\nTODO')
     page.click('#run-checks')
-    assert page.locator('#draft-check-panel script, #draft-check-panel img').count()==0
+    expect(page.locator('#draft-check-panel script, #draft-check-panel img')).to_have_count(0)
     # Section moves carry descendants, retain checkpoints, invalidate checks,
     # and keep keyboard focus in the outline. These are actual UI assertions.
     sections='Opening.\n\n## First\nTODO\n\n### Detail\nNested.\n\n## Second\nDone.'
@@ -816,7 +874,7 @@ with sync_playwright() as p:
     page.get_by_role('button',name='Move First down',exact=True).click()
     assert page.locator('#body').input_value()==moved
     assert not page.locator('#reviewed').is_checked()
-    assert page.locator('#draft-findings li').count()==0
+    expect(page.locator('#draft-findings li')).to_have_count(0)
     assert page.locator('#checkpoint-saved').input_value()==sections
     assert page.locator('#article-outline .review-jump').nth(1).evaluate('(node)=>node===document.activeElement')
     page.get_by_role('button',name='Move First up',exact=True).click()
@@ -832,7 +890,7 @@ with sync_playwright() as p:
     assert selection['text']=='TODO' and selection['scroll']>0
     page.locator('#draft-check-panel > summary').click()
     page.click('#clear')
-    assert page.locator('#article-outline li').count()==0
+    expect(page.locator('#article-outline li')).to_have_count(0)
     assert page.locator('#body').input_value()==''
     layout(page,'draft-checks')
     assert state['api']==[]
@@ -853,7 +911,8 @@ with sync_playwright() as p:
     assert '<strong>A fictional change</strong>' in copied['text/html'] and '<script>' not in copied['text/html']
     assert 'Planning resource (https://example.test/)' in copied['text/plain']
     reader=context.new_page(); reader.set_content(copied['text/html'])
-    assert reader.locator('script,img').count()==0 and reader.locator('a').count()==1
+    expect(reader.locator('script,img')).to_have_count(0)
+    expect(reader.locator('a')).to_have_count(1)
     reader.close()
     open_extra_exports(page)
     page.fill('#title','Fictional handoff'); page.check('#copy-title')
@@ -872,7 +931,7 @@ with sync_playwright() as p:
     page.click('#copy-formatted'); expect(page.locator('#desk-status')).to_contain_text('Formatted copy unavailable')
     page.evaluate('() => { window.ClipboardItem=window.savedClipboardItem; }')
     open_more(page); page.click('#start-notes'); page.fill('#notes','PRIVATE SOURCE KIT SENTINEL')
-    page.locator('#review-panel > summary').click(); page.click('#add-question')
+    open_details(page,'#review-panel'); page.click('#add-question')
     page.fill('#review-question-0','PRIVATE QUESTION KIT SENTINEL')
     open_extra_exports(page)
     page.locator('#publishing-kit-panel > summary').click()
@@ -910,19 +969,20 @@ with sync_playwright() as p:
     with page.expect_download() as info: page.click('#save-backup')
     saved=json.loads(Path(info.value.path()).read_bytes())
     assert saved['version']==1 and set(saved['draft'])=={'title','excerpt','description','slug','body','questions'}
+    page.fill('#body','Temporary fictional edit before file restore.')
     restore(page,saved); expect(page.locator('#copy-title')).not_to_be_checked()
-    page.locator('#publishing-kit-panel').evaluate('(el)=>el.open=true')
+    open_details(page,'#publishing-kit-panel')
     layout(page,'publishing-handoff')
     assert state['api']==[]; context.close()
     report['checks'].append('Publishing handoff: native ClipboardItem HTML/plain representations with title choices and blocked/unsupported fallback, actual partial/complete ZIP bytes and independent CRC validation, source/review exclusion, latest edits, consistent counts, unchanged backups, restored preferences, and no upload/API calls')
     # Revision recovery uses actual controls, comparisons and download bytes.
     page,context,state=open_page('/write/')
     expect(page.locator('#desk-status')).to_contain_text('ready')
-    page.locator('#checkpoint-panel > summary').click()
+    open_details(page,'#checkpoint-panel')
     page.click('#save-checkpoint'); expect(page.locator('#desk-status')).to_contain_text('Add writing')
     page.fill('#title','Fictional first version'); page.fill('#body','Original article text.')
     open_more(page); page.click('#start-notes'); page.fill('#notes','Fictional private revision source.')
-    page.click('#add-question'); page.fill('#review-question-0','Fictional private review question?')
+    open_details(page,'#review-panel'); page.click('#add-question'); page.fill('#review-question-0','Fictional private review question?')
     page.fill('#checkpoint-label','Before revision'); page.check('#reviewed'); page.click('#save-checkpoint')
     assert page.locator('#reviewed').is_checked()
     original=page.locator('#checkpoint-select').input_value()
@@ -972,19 +1032,21 @@ with sync_playwright() as p:
     page.click('#restore-checkpoint'); expect(page.locator('#notes')).to_have_value('Fictional private revision source.')
     if not page.locator('#review-panel').evaluate('el=>el.open'): page.locator('#review-panel > summary').click()
     page.get_by_role('button',name='Remove note 1',exact=True).click()
-    assert page.locator('#questions li').count()==0
+    expect(page.locator('#questions li')).to_have_count(0)
     page.click('#restore-checkpoint'); assert page.locator('#questions li').count()==1
     for i in range(7):
         page.fill('#body','Fictional bounded version '+str(i)); page.click('#save-checkpoint')
-    assert page.locator('#checkpoint-select option').count()==5
+    expect(page.locator('#checkpoint-select option')).to_have_count(5)
     page.select_option('#checkpoint-field','body'); layout(page,'revisions-expanded')
-    page.fill('#body','a\n'*4000); page.click('#save-checkpoint'); page.fill('#body','b\n'*4000)
+    # 500 changed lines exceed the 160,000-cell diff budget. Model tests also
+    # retain the 4,000-line case; browser capacity is a separate performance gate.
+    page.fill('#body','a\n'*500); page.click('#save-checkpoint'); page.fill('#body','b\n'*500)
     expect(page.locator('#article-diff-status')).to_contain_text('Large changed region grouped')
     assert page.locator('#article-diff-groups .article-diff-preview').all_text_contents()==['a\n'*8,'b\n'*8]
-    assert page.locator('.article-diff-complete[open]').count()==0
+    expect(page.locator('.article-diff-complete[open]')).to_have_count(0)
     layout(page,'revision-diff-large')
     page.check('#reviewed'); page.locator('.article-diff-complete > summary').first.click()
-    assert page.locator('.article-diff-complete').first.locator('pre').inner_text()=='a\n'*4000
+    assert page.locator('.article-diff-complete').first.locator('pre').inner_text()=='a\n'*500
     assert page.locator('#reviewed').is_checked()
     page.locator('.article-diff-complete > summary').first.click()
     state['accept']=False; page.click('#clear'); assert page.locator('#checkpoint-select option').count()==5
@@ -992,17 +1054,19 @@ with sync_playwright() as p:
     expect(page.locator('#checkpoint-count')).to_contain_text('0 / 5')
     assert page.locator('#checkpoint-comparison').is_hidden() and page.locator('#body').input_value()==''
     assert page.locator('#checkpoint-saved').input_value()=='' and page.locator('#checkpoint-current').input_value()==''
-    assert page.locator('#article-diff-groups li').count()==0
-    assert page.locator('.article-diff-complete').count()==0
+    expect(page.locator('#article-diff-groups li')).to_have_count(0)
+    expect(page.locator('.article-diff-complete')).to_have_count(0)
     assert page.locator('#import-body-preview').input_value()==''
-    assert page.locator('#article-preview').inner_text().strip()=='Untitled article'
+    open_details(page,'#preview-panel')
+    expect(page.locator('#preview-empty')).to_be_visible()
+    expect(page.locator('#article-preview')).to_be_hidden()
     assert state['api']==[]
     report['checks'].append('Revisions: empty/save/compare/private download, cancellation, restore/redo, approval/preferences reset, automatic snapshots around formatting/import/file restore/outline/review-note removal, count bounds, clear purge, expanded narrow layouts, and no API calls')
     context.close()
     # Failure of the optional comparison module must not block writing/recovery.
     page,context,state=open_page('/write/',blocked_modules=('/revision-diff-controls.js',))
     expect(page.locator('#desk-status')).to_contain_text('ready')
-    page.fill('#body','Fictional original.'); page.locator('#checkpoint-panel > summary').click(); page.click('#save-checkpoint')
+    page.fill('#body','Fictional original.'); open_details(page,'#checkpoint-panel'); page.click('#save-checkpoint')
     page.fill('#body','Fictional current.'); page.locator('#article-diff-panel > summary').click()
     expect(page.locator('#article-diff-status')).to_contain_text('could not load')
     assert page.locator('#checkpoint-saved').input_value()=='Fictional original.'
@@ -1017,7 +1081,7 @@ with sync_playwright() as p:
     original_search_body='foo and FOO and foo $& []'
     page.fill('#body',original_search_body); page.check('#reviewed')
     page.click('#start-find'); page.fill('#find-text','foo')
-    expect(page.locator('#find-status')).to_contain_text('3 match')
+    expect(page.locator('#find-status')).to_contain_text('3 eligible match')
     assert page.locator('#reviewed').is_checked() and page.locator('#replace-match').is_disabled()
     page.press('#find-text','Enter')
     assert page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')==[0,3]
@@ -1026,13 +1090,14 @@ with sync_playwright() as p:
     page.fill('#replace-text','$&'); page.click('#replace-match')
     expect(page.locator('#body')).to_have_value('$& and FOO and foo $& []')
     assert not page.locator('#reviewed').is_checked()
-    page.locator('#checkpoint-panel > summary').click(); page.click('#restore-checkpoint')
+    open_details(page,'#checkpoint-panel'); page.click('#restore-checkpoint')
     expect(page.locator('#body')).to_have_value(original_search_body)
     assert page.locator('#find-text').input_value()=='' and page.locator('#replace-text').input_value()==''
     page.fill('#find-text','foo'); page.fill('#replace-text','<script>fictional()</script>'); page.check('#reviewed')
     page.click('#preview-replace-all')
     expect(page.locator('#replace-summary')).to_contain_text('change 3 of 3')
-    assert page.locator('#replace-examples li').count()==3 and page.locator('#replace-examples script,img,a').count()==0
+    expect(page.locator('#replace-examples li')).to_have_count(3)
+    expect(page.locator('#replace-examples').locator('script,img,a')).to_have_count(0)
     assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==original_search_body
     page.check('#find-case'); assert page.locator('#replace-preview').is_hidden()
     page.uncheck('#find-case'); page.click('#preview-replace-all')
@@ -1045,7 +1110,8 @@ with sync_playwright() as p:
     state['accept']=True; page.click('#apply-replace-all')
     applied='<script>fictional()</script> and <script>fictional()</script> and <script>fictional()</script> $& []!'
     expect(page.locator('#body')).to_have_value(applied)
-    assert page.locator('#notes').input_value()==source['notes'] and page.locator('#questions li').count()==1
+    expect(page.locator('#notes')).to_have_value(source['notes'])
+    expect(page.locator('#questions li')).to_have_count(1)
     assert not page.locator('#reviewed').is_checked() and page.locator('#replace-examples li').count()==0
     page.check('#reviewed')
     open_extra_exports(page)
@@ -1063,7 +1129,8 @@ with sync_playwright() as p:
     assert not page.locator('#reviewed').is_checked() and page.locator('#notes').input_value()==source['notes']
     page.click('#clear')
     assert page.locator('#find-text').input_value()=='' and page.locator('#replace-text').input_value()==''
-    assert page.locator('#replace-preview').is_hidden() and page.locator('#replace-examples li').count()==0
+    expect(page.locator('#replace-preview')).to_be_hidden()
+    expect(page.locator('#replace-examples li')).to_have_count(0)
     assert state['api']==[]
     report['checks'].append('Article search: exact literal selection and keyboard navigation, approval-preserving preview, single/bulk checkpoint recovery, stale/cancelled/oversized protection, private source/review retention, inert examples, actual edited-body download, deletion, clear purge, expanded narrow layouts, and no API calls')
     context.close()
@@ -1086,7 +1153,7 @@ with sync_playwright() as p:
     image_placeholder='\\[Image or object omitted from Word document\\]'
     image_original='Before '+image_placeholder+' after.'
     page.fill('#body',image_original);page.fill('#title','Fictional image edit');page.check('#reviewed')
-    page.click('#start-image-editor');page.click('#image-use-placeholder')
+    open_details(page,'#editing-tools');page.click('#start-image-editor');page.click('#image-use-placeholder')
     page.fill('#image-url','https://example.com/fictional_(1).jpg?a=1&b=2')
     page.fill('#image-alt','Fictional [workshop] participants')
     page.click('#image-preview')
@@ -1099,7 +1166,7 @@ with sync_playwright() as p:
     assert page.locator('#body').input_value().startswith('Before \n\n![')
     assert page.locator('#body').input_value().endswith('\n\n after. Revised.')
     assert not page.locator('#reviewed').is_checked() and not page.locator('#wordpress-linked-images').is_checked()
-    assert page.locator('#article-preview img').count()==0
+    expect(page.locator('#article-preview img')).to_have_count(0)
     page.locator('#wordpress-image-panel > summary').click();page.check('#wordpress-linked-images');page.check('#reviewed')
     with page.expect_download() as info:page.click('#download-wordpress')
     blocks=Path(info.value.path()).read_text()
@@ -1120,7 +1187,7 @@ with sync_playwright() as p:
     link_original='Read this resource. [Original resource](https://example.com/original)'
     page.fill('#body',link_original);page.fill('#title','Fictional link editing');page.check('#reviewed')
     page.locator('#body').evaluate('(el)=>el.setSelectionRange(10,18)')
-    page.click('#start-link-editor');page.fill('#link-label','Fictional [reading group]');page.fill('#link-url','https://example.com/reading_(1)?a=1&b=2');page.click('#link-preview')
+    open_details(page,'#editing-tools');page.click('#start-link-editor');page.fill('#link-label','Fictional [reading group]');page.fill('#link-url','https://example.com/reading_(1)?a=1&b=2');page.click('#link-preview')
     assert page.locator('#link-before').input_value()=='resource'
     assert page.locator('#body').input_value()==link_original and page.locator('#reviewed').is_checked()
     page.fill('#body',link_original+' Revised.')
@@ -1128,9 +1195,10 @@ with sync_playwright() as p:
     page.locator('#body').evaluate('(el)=>el.setSelectionRange(10,18)');page.click('#link-use-selection')
     page.fill('#link-label','Fictional [reading group]');page.click('#link-preview');page.click('#link-apply')
     assert not page.locator('#reviewed').is_checked();assert page.locator('#link-url').input_value()==''
-    assert page.locator('#article-preview a').count()==2
+    expect(page.locator('#article-preview a')).to_have_count(2)
     page.check('#reviewed');page.locator('#article-link-list-panel > summary').click()
-    assert page.locator('#article-link-list li').count()==2 and page.locator('#article-link-list a').count()==0
+    expect(page.locator('#article-link-list li')).to_have_count(2)
+    expect(page.locator('#article-link-list a')).to_have_count(0)
     page.locator('#article-link-list button').first.click();page.click('#link-preview');page.click('#link-apply')
     assert page.locator('#reviewed').is_checked()
     page.locator('#article-link-list button').first.click();page.click('#link-preview-remove');page.click('#link-apply')
@@ -1153,7 +1221,7 @@ with sync_playwright() as p:
     table_source='| Step | Plan |\n| :--- | ---: |\n| Welcome | Share an introduction |\n| Read | Take turns |'
     table_article='Opening.\n\n'+table_source+'\n\nEnding.'
     page.fill('#body',table_article);page.fill('#title','Fictional table edit');page.check('#reviewed')
-    page.click('#start-table-editor');page.click('#table-open-selected')
+    open_details(page,'#editing-tools');page.click('#start-table-editor');page.click('#table-open-selected')
     page.fill('#table-cell-1-1','Read together | quietly');page.select_option('#table-align-1','center');page.click('#table-preview-change')
     assert page.locator('#table-before').input_value()==table_source
     assert page.locator('#table-reading-preview table').count()==1 and page.locator('#body').input_value()==table_article and page.locator('#reviewed').is_checked()
@@ -1181,7 +1249,7 @@ with sync_playwright() as p:
 
     page,context,state=open_page('/markdown-to-wordpress/')
     page.fill('#title','Existing fictional title');page.fill('#body','Existing opening.');page.check('#reviewed')
-    page.click('#start-insert-import');page.fill('#import-text','# Additional section\n\nNew **details**.');page.click('#preview-import')
+    open_details(page,'#editing-tools');page.click('#start-insert-import');page.fill('#import-text','# Additional section\n\nNew **details**.');page.click('#preview-import')
     expect(page.locator('#apply-import')).to_be_disabled();page.click('#preview-insertion')
     assert page.locator('#body').input_value()=='Existing opening.' and page.locator('#reviewed').is_checked()
     page.fill('#body','Current opening.');expect(page.locator('#apply-import')).to_be_disabled()
@@ -1189,12 +1257,12 @@ with sync_playwright() as p:
     page.check('#import-include-title');page.click('#preview-insertion');page.click('#apply-import')
     assert page.locator('#body').input_value()=='Current opening.\n\n## Additional section\n\nNew **details**.'
     assert page.locator('#title').input_value()=='Existing fictional title' and not page.locator('#reviewed').is_checked()
-    assert page.locator('#checkpoint-select option').count()==1
+    expect(page.locator('#checkpoint-select option')).to_have_count(1)
     page.check('#reviewed')
     with page.expect_download() as info:page.click('#download-wordpress')
     combined_blocks=Path(info.value.path()).read_text()
     assert 'Current opening.' in combined_blocks and '<h2 class="wp-block-heading">Additional section</h2>' in combined_blocks and '<strong>details</strong>' in combined_blocks
-    page.click('#start-insert-import');page.fill('#import-text','Another section.');page.click('#preview-import');page.click('#preview-insertion')
+    open_details(page,'#editing-tools');page.click('#start-insert-import');page.fill('#import-text','Another section.');page.click('#preview-import');page.click('#preview-insertion')
     assert state['api']==[];layout(page,'article-import-insertion');context.close()
     report['checks'].append('Article insertion: exact append preview, stale location recovery retaining conversion, optional section title, existing title preservation, checkpointed apply, WordPress download, and contained layout')
 
@@ -1207,11 +1275,25 @@ with sync_playwright() as p:
     page.check('#reviewed')
     with page.expect_download() as info:page.click('#download-wordpress')
     copied_blocks=Path(info.value.path()).read_text();assert '<strong>bold text</strong>' in copied_blocks and '<!-- wp:table' in copied_blocks
-    page.click('#start-copied-paste');page.locator('#import-text').fill('Only plain text for fallback.')
+    literal='---\ntitle: Keep this in the body\n---\n\n# Literal heading\n\n**Literal emphasis**\n\n```markdown\nKeep these fences.\n```'
+    previous_body=page.locator('#body').input_value()
+    page.click('#start-copied-paste');page.locator('#import-text').fill(literal)
     page.locator('#import-text').press('Control+A');page.locator('#import-text').press('Control+C');page.locator('#import-text').press('Control+V')
-    expect(page.locator('#import-summary')).to_contain_text('Copied plain text');expect(page.locator('#import-warnings')).to_contain_text('Only plain text')
+    expect(page.locator('#import-summary')).to_contain_text('Copied plain text');expect(page.locator('#import-warnings')).to_contain_text('Punctuation stays literal')
+    expect(page.locator('#body')).to_have_value(previous_body)
+    expect(page.locator('#apply-import')).to_be_disabled()
+    pending=page.locator('#import-body-preview').input_value()
+    page.click('#preview-import');expect(page.locator('#import-body-preview')).to_have_value(pending)
+    page.check('#import-changes-ok');page.click('#apply-import')
+    expect(page.locator('#title')).to_have_value('');expect(page.locator('#body')).to_have_value(pending)
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    literal_blocks=Path(info.value.path()).read_text()
+    for passage in ['title: Keep this in the body','# Literal heading','**Literal emphasis**','```markdown','Keep these fences.']:
+        assert passage in literal_blocks
+    assert '<!-- wp:heading' not in literal_blocks and '<strong>' not in literal_blocks and '<pre' not in literal_blocks
     assert state['api']==[];layout(page,'google-docs-paste');context.close()
-    report['checks'].append('Google Docs paste-first route: local example preview, acknowledgement, native table WordPress download, copied plain-text warning and responsive layout')
+    report['checks'].append('Google Docs paste-first route: local example preview, acknowledgement, native table WordPress download, native plain-text punctuation/metadata/fence preservation through re-preview, apply and downloaded blocks, plus responsive layout')
 
     if not args.desk_only:
         for path in sorted((root/'public').rglob('*.html')):
