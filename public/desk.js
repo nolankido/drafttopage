@@ -294,7 +294,7 @@ importer = installArticleImport({
     linkEditor?.clear();
     tableEditor?.clear();
     wordPressImages?.reset();
-    if (!publishingProfiles?.hasSetup()) $('export-format').value = 'page';
+    if (!publishingProfiles?.hasSetup()) $('export-format').value = markdownTool ? 'document' : 'page';
     if (wordImportTool || copiedPasteTool) $('import-panel').open = false;
     changed(); focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
   }

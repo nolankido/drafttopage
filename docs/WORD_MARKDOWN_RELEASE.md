@@ -1,6 +1,6 @@
 # Word to Markdown and direct article exports
 
-Release: `word-markdown-20261016`.
+Release: `word-markdown-20261016.1`.
 
 ## Why this change
 
@@ -14,7 +14,7 @@ Every public writing and converter page offers Markdown article (.md) alongside 
 
 The body is retained exactly, including spaces, CRLF, unsupported Markdown, and literal HTML. A final newline is added only when absent. Title newlines become spaces, and literal punctuation is escaped through the checked inline serializer. Markdown is untrusted destination input, not universally sanitized HTML. Editors can interpret source HTML or request linked resources; the interface and help explain this distinction.
 
-The title control and existing page-Markdown format share the `markdownTitle` preference. Existing version-1 profile files are unchanged in shape, and `markdown` is an additional allowed destination. Backups remain version 1 and exclude export choices. New Markdown-destination profiles require a release that understands this destination; older clients reject them instead of silently choosing another output.
+The title control and existing page-Markdown format share the `markdownTitle` preference. Plain imports use the entry page's title default unless a publishing setup is active, in which case the selected profile choices are kept. Existing version-1 profile files are unchanged in shape, and `markdown` is an additional allowed destination. Backups remain version 1 and exclude export choices. New Markdown-destination profiles require a release that understands this destination; older clients reject them instead of silently choosing another output.
 
 The route has a canonical address, unique title/description, a navigation entry, homepage and contextual links, and a sitemap entry. The guide documents real supported structures and exclusions rather than promising full Word or Markdown-dialect compatibility. A fictional .docx and matching source .md are generated deterministically with the production exporters. The sample demonstrates actual file import without inventing user results; Word styles can produce equivalent explicit header emphasis and escaped punctuation.
 
