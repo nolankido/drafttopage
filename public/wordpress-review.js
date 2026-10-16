@@ -13,8 +13,9 @@ export function wordPressReviewText(draft, review = reviewWordPress(draft)) {
     'Before publishing in WordPress:',
     '- Compare names, dates, claims, quotations, and uncertainty with your own source.',
     '- Check permissions for writing and images. Add and inspect images in WordPress.',
-    '- Inspect supported formatting and any literal Markdown after returning to Visual editor.',
+    '- Inspect supported formatting and any literal Markdown in Visual editor.',
     '- Enter the title and optional excerpt, slug, and SEO description in their separate fields.',
+    '- Save as a draft, close and reopen the post, and confirm supported blocks remain editable.',
     '- Check the actual post preview, mobile layout, and links before publishing yourself.', '',
     'Source notes and private review questions are excluded. Article text can still contain private information.'
   ].join('\n') + '\n';

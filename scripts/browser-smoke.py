@@ -11,6 +11,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 import mimetypes
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -825,6 +826,39 @@ with sync_playwright() as p:
     assert page.locator('#markdown-action-status').inner_text()=='' and page.locator('#copy-article-markdown').is_disabled()
     layout(page,'copy-feedback');assert state['api']==[];context.close()
     report['checks'].append('Clipboard handoff: delayed native writes, one shared lock across destinations, duplicate-click exclusion, downloads while copying, stale-result identification, nearby success/failure feedback, native clipboard contents, manual fallback, approval reset, and narrow layouts')
+    # The primary WordPress instructions open below the action that initiated a
+    # real clipboard write. Keyboard users keep their place while reading them.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    visual_backup={**backup,'source':{**source,'notes':'PRIVATE_NATIVE_COPY_SOURCE'},'draft':{**draft,'questions':['PRIVATE_NATIVE_COPY_REVIEW']}}
+    restore(page,visual_backup);page.check('#reviewed')
+    copy_button=page.locator('#copy-wordpress')
+    relative_top='el=>el.getBoundingClientRect().top-document.getElementById("wordpress-handoff").getBoundingClientRect().top'
+    before_copy_top=copy_button.evaluate(relative_top)
+    copy_button.focus();page.keyboard.press('Enter')
+    expect(page.locator('#wordpress-action-status')).to_contain_text('WordPress blocks copied')
+    expect(copy_button).to_be_focused()
+    instructions=page.locator('#wordpress-instructions')
+    assert instructions.evaluate('el=>el.open')
+    assert copy_button.evaluate('el=>Boolean(el.compareDocumentPosition(document.getElementById("wordpress-instructions")) & Node.DOCUMENT_POSITION_FOLLOWING)')
+    assert abs(copy_button.evaluate(relative_top)-before_copy_top)<1
+    expect(instructions.locator(':scope > ol')).to_contain_text('empty paragraph below the title')
+    assert 'Code editor' not in instructions.locator(':scope > ol').inner_text()
+    assert not page.locator('#wordpress-code-fallback').evaluate('el=>el.open')
+    copied_blocks=page.evaluate('navigator.clipboard.readText()')
+    assert '<!-- wp:paragraph -->' in copied_blocks and '<!-- wp:heading -->' in copied_blocks and '<!-- wp:list -->' in copied_blocks
+    assert all(value not in copied_blocks for value in [draft['title'],draft['excerpt'],draft['description'],'PRIVATE_NATIVE_COPY_SOURCE','PRIVATE_NATIVE_COPY_REVIEW'])
+    fallback_summary=page.locator('#wordpress-code-fallback > summary')
+    fallback_summary.focus();page.keyboard.press('Enter')
+    expect(fallback_summary).to_be_focused()
+    assert page.locator('#wordpress-code-fallback').evaluate('el=>el.open')
+    expect(page.locator('#wordpress-code-fallback')).to_contain_text('Undo that paste, or use another empty draft')
+    expect(page.locator('#wordpress-code-fallback')).to_contain_text('Return to Visual editor')
+    assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()==draft['body']
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert Path(info.value.path()).read_text()==copied_blocks
+    assert page.evaluate('navigator.clipboard.readText()')==copied_blocks
+    layout(page,'wordpress-visual-paste');assert state['api']==[];context.close()
+    report['checks'].append('Direct WordPress handoff UI: native keyboard copy and clipboard bytes, success opens Visual-paste steps below stationary section controls, retained focus, keyboard Code-editor fallback, exact downloaded source, private-field exclusions, preserved writing/approval, and narrow layouts')
     # A complete held Enter must finish before restore can hand focus to writing.
     for recovery_route in ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']:
         page,context,state=open_page('/'+recovery_route+'/')
@@ -900,6 +934,10 @@ with sync_playwright() as p:
     page.locator('#browser-recovery-reviewed').focus();page.keyboard.press('Space');page.keyboard.press('Tab')
     expect(page.locator('#browser-recovery-restore')).to_be_focused()
     state['accept']=False;page.keyboard.press('Enter')
+    # The restore confirmation runs after its Web Lock arrives. Wait for the
+    # cancelled action before changing the answer and starting another gesture.
+    expect(page.locator('#browser-recovery-status')).to_contain_text('Restore cancelled.')
+    expect(page.locator('#browser-recovery-restore')).to_be_enabled()
     expect(page.locator('#browser-recovery-restore')).to_be_focused()
     assert page.locator('#body').input_value()=='Current fictional writing to protect.' and page.locator('#reviewed').is_checked()
     state['accept']=True;page.keyboard.press('Enter')
@@ -2427,7 +2465,7 @@ with sync_playwright() as p:
             context.close()
         report['checks'].append('All generated public pages readable without JavaScript at 1440, 390, and 320 pixels')
         page,context,state=open_page('/write/#template-progress')
-        assert 'What is completed:' in page.locator('#notes').input_value()
+        expect(page.locator('#notes')).to_have_value(re.compile('What is completed:'))
         assert page.locator('#profile').input_value()=='update'
         page.locator('.drafting-brief summary').click()
         page.click('#copy-brief'); expect(page.locator('#desk-status')).to_contain_text('Fill in the outline')

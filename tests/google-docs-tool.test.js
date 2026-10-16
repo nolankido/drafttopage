@@ -23,6 +23,9 @@ class P(HTMLParser):
   a=dict(a)
   if 'id' in a:self.nodes[a['id']]={'ancestors':[v[1].get('id') for v in self.stack],'attrs':a};self.order.append(a['id'])
   if t not in 'area base br col embed hr img input link meta param source track wbr'.split():self.stack.append((t,a))
+ def handle_startendtag(self,t,a):
+  assert t in 'area base br col embed hr img input link meta param source track wbr'.split()
+  self.handle_starttag(t,a)
  def handle_endtag(self,t):assert self.stack[-1][0]==t;self.stack.pop()
 p=P();p.feed(sys.stdin.read());assert not p.stack
 assert 'open' in p.nodes['import-panel']['attrs'];assert 'open' not in p.nodes['copied-import-alternatives']['attrs']
@@ -35,7 +38,14 @@ print(json.dumps({'pasteFirst':True,'closedFileAlternatives':True,'headersAndPre
 });
 test('The acquisition page explains clipboard limits, plain fallback, omissions, source retention and manual handoff', async () => {
   const page = await readFile('public/google-docs-to-wordpress/index.html', 'utf8');
-  for (const pattern of [/Ctrl\+V/, /Command\+V/, /512 KiB/, /60,000/, /Plain text only/, /Images become/, /[Bb]rowser recovery is off by default/, /no Google account connection/i, /cannot be applied until a selection converts successfully/, /Code editor/, /Return to Visual editor/, /No partnership is claimed/]) assert.match(page, pattern);
+  for (const pattern of [/Ctrl\+V/, /Command\+V/, /512 KiB/, /60,000/, /Plain text only/, /Images become/, /[Bb]rowser recovery is off by default/, /no Google account connection/i, /cannot be applied until a selection converts successfully/, /No partnership is claimed/]) assert.match(page, pattern);
+  const guide = page.match(/<section\b[^>]*aria-labelledby="google-docs-guide"[^>]*>([\s\S]*?)<\/section>/)?.[1] || '';
+  const primary = guide.match(/<ol>([\s\S]*?)<\/ol>/)?.[1] || '';
+  const pasteStep = [...primary.matchAll(/<li>([\s\S]*?)<\/li>/g)].find(([, step]) => /Visual editor/.test(step))?.[1] || '';
+  for (const pattern of [/empty paragraph/, /Ctrl\+V/, /Command\+V/]) assert.match(pasteStep, pattern);
+  assert.doesNotMatch(primary, /Code editor/);
+  const fallback = guide.match(/<\/ol>\s*<p\b[^>]*>([\s\S]*?)<\/p>/)?.[1] || '';
+  for (const pattern of [/source text/i, /undo.*empty draft/i, /post Options/, /Code editor/, /empty post body/, /Return to Visual editor/]) assert.match(fallback, pattern);
   assert.match(page, /support.google.com\/docs\/answer\/161768/); assert.match(page, /support.google.com\/docs\/answer\/49114/); assert.doesNotMatch(page, /\u2014|<img\b|contenteditable=/);
   const home = await readFile('public/index.html', 'utf8'); assert.match(home, /href="\/google-docs-to-wordpress\/" class="draft-start"/); assert.match(home, /Paste from Google Docs/);
 });

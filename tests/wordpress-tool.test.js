@@ -42,6 +42,12 @@ test('The educational example matches actual conversion and renders its block ma
 
 test('The guide discloses conversion, storage, and manual publishing limits', () => {
   for (const pattern of [/60,000/, /512 KiB/, /limited subset/, /Numbered lists preserve their first value/, /Standalone HTTPS images/, /Other images, embeds/, /[Bb]rowser recovery is off by default/, /six-file ZIP/, /Optional fields can remain empty/, /current handoff findings/, /publish the post in your own WordPress editor/]) assert.match(WORDPRESS_TOOL_GUIDE, pattern);
+  const primary = WORDPRESS_TOOL_GUIDE.match(/<ol>([\s\S]*?)<\/ol>/)?.[1] || '';
+  const pasteStep = [...primary.matchAll(/<li>([\s\S]*?)<\/li>/g)].find(([, step]) => /Visual editor/.test(step))?.[1] || '';
+  for (const pattern of [/empty paragraph/, /Ctrl\+V/, /Command\+V/]) assert.match(pasteStep, pattern);
+  assert.doesNotMatch(primary, /Code editor/);
+  const fallback = WORDPRESS_TOOL_GUIDE.match(/<\/ol>\s*<p\b[^>]*>([\s\S]*?)<\/p>/)?.[1] || '';
+  for (const pattern of [/source text/i, /undo.*empty draft/i, /post Options/, /Code editor/, /empty post body/, /Return to Visual editor/]) assert.match(fallback, pattern);
   assert.doesNotMatch(WORDPRESS_TOOL_GUIDE, /\u2014|<img\b|<script\b/);
 });
 

@@ -100,7 +100,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     const copied = await copies.run({ destination: 'wordpress', label: 'WordPress blocks', write: () => {
       approved(); const article = createWordPressArticle(getDraft(), getWordPressOptions());
       return navigator.clipboard.writeText(article.html);
-    }, success: 'WordPress blocks copied without a title or page fields. Paste into the Code editor of a new WordPress draft, return to Visual editor, and inspect the result. Selected linked image URLs can load there. Nothing was published.', fallback: 'WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks.' });
+    }, success: 'WordPress blocks copied without a title or page fields. In a new, empty WordPress draft, click the empty paragraph below the title in Visual editor and paste normally with Ctrl+V or Command+V. Inspect the blocks, save as a draft, then close and reopen it. Selected linked image URLs can load there. Nothing was published.', fallback: 'WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks.' });
     if (copied && $('wordpress-instructions')) $('wordpress-instructions').open = true;
   });
   $('download-wordpress').addEventListener('click', () => {
@@ -108,7 +108,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     try {
       approved(); const draft = getDraft(), article = createWordPressArticle(draft, getWordPressOptions());
       downloadText(article.html, suggestFilename(draft.title) + '-wordpress.html', 'text/html;charset=utf-8');
-      copies.notice('WordPress blocks download requested. Open the file in a text editor and paste its contents into the WordPress Code editor. Opening it in a browser shows its reading view' + (article.imageCount ? ' and can load linked images' : '') + '. Nothing was published.', 'wordpress');
+      copies.notice('WordPress blocks download requested. Open the file in a text editor, copy the complete source including block comments, then paste normally into the empty paragraph below the title of a new WordPress draft in Visual editor. If raw source appears, use the full post Code editor fallback, then return to Visual editor. Opening the file in a browser shows its reading view' + (article.imageCount ? ' and can load linked images' : '') + '. Nothing was published.', 'wordpress');
     } catch (error) { copies.notice(error.message, 'wordpress'); }
   });
   $('copy-wordpress-title').addEventListener('click', async () => {

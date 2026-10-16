@@ -4,23 +4,46 @@ import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { verifyRelease, validateWordPressEvidence } from '../scripts/verify-release.mjs';
 import { configuration } from '../scripts/wordpress-roundtrip-cases.mjs';
 
 const digest = 'a'.repeat(64);
-const complete = () => ({ result: 'PASS', scope: 'local WordPress save/reopen', playground: configuration.playground,
+const copiedDigest = 'b'.repeat(64), editedDigest = 'c'.repeat(64);
+const savedDigest = item => typeof item.expectedSavedSource === 'string'
+  ? createHash('sha256').update(item.expectedSavedSource).digest('hex') : digest;
+const complete = () => ({ result: 'PASS', scope: 'local WordPress native clipboard, Visual paste, save/reopen, and Code editor fallback', playground: configuration.playground,
   sourceSha256: digest, sourceUnchanged: true,
   environment: { wordpress: configuration.wordpress, php: configuration.php + '.33', marker: 'drafttopage-local-acceptance',
     databaseClass: 'WP_SQLite_DB', pdoDrivers: ['sqlite'], unfilteredHTMLDisabled: true },
   user: { roles: ['author'], unfilteredHTML: false }, negativeControl: true, runtimeErrors: [], unexpectedRequests: [],
   cases: configuration.cases.map((item, index) => ({ id: item.id, result: 'PASS', postId: index + 1, status: 'draft',
-    saveResponse: 200, savedSha256: digest, validAfterReopen: true,
+    saveResponse: 200, savedSha256: savedDigest(item), expectedSavedSha256: savedDigest(item), savedSourceExact: true, validAfterReopen: true,
+    source: 'native source fixture', sourceTransport: 'copy-wordpress-button', privateFieldsPopulated: true,
+    inputMode: item.inputMode, exportSha256: copiedDigest, clipboardSha256: copiedDigest,
+    paste: { trusted: true, textSha256: copiedDigest, htmlEmpty: true, types: ['text/plain'],
+      targetKind: item.inputMode === 'native-visual-paste' ? 'visual-paragraph' : 'code-textarea',
+      ...(item.inputMode === 'native-visual-paste' ? { emptyParagraph: true, editableTarget: true } : {}) },
     ...(item.strikes ? { strikethroughVerified: true } : {}),
     ...(item.formatSelection ? { toolbarVerified: true, source: 'native toolbar fixture' } : {}),
     ...(item.listPaths ? { listHierarchyVerified: true } : {}),
     ...(item.rawText ? { rawTextVerified: true } : {}),
-    ...(item.editAfterReopen ? { editedAndReopened: true, editedSha256: digest } : {}),
-    ...(item.inputMode ? { inputMode: item.inputMode } : {}), ...(item.file ? { source: 'native file fixture' } : {}) }))
+    ...(item.editAfterReopen ? { editedAndReopened: true, editedSha256: editedDigest, secondReopenExact: true } : {}),
+    ...(item.file ? { source: 'native file fixture' } : {}) }))
+});
+
+test('Every retained article shape uses native Visual paste and the Code-editor fallback has separate coverage', () => {
+  const primary = configuration.cases.filter(item => item.inputMode === 'native-visual-paste');
+  assert.deepEqual(primary.map(item => item.id), [
+    'paragraphs-inline', 'nested-lists', 'tables', 'quote-code-separator', 'unicode-literal',
+    'linked-image-enabled', 'linked-image-literal', 'word-footnotes-handoff', 'strikethrough-nested',
+    'toolbar-strikethrough-handoff', 'word-strikethrough-handoff', 'google-checklist-handoff'
+  ]);
+  assert.deepEqual(configuration.cases.filter(item => item.inputMode === 'code-editor').map(item => item.id),
+    ['paragraphs-inline-code-editor-fallback']);
+  const result = validateWordPressEvidence(complete(), configuration, digest);
+  assert.equal(result.nativePasteCases, 12);
+  assert.equal(result.codeEditorCases, 1);
 });
 
 test('WordPress acceptance requires the pinned environment, every saved/reopened draft, and a functioning invalid-block control', () => {
@@ -45,6 +68,44 @@ test('WordPress acceptance requires the pinned environment, every saved/reopened
     const evidence = complete(); corrupt(evidence);
     assert.throws(() => validateWordPressEvidence(evidence, configuration, digest), /WordPress evidence/);
   }
+});
+
+test('WordPress handoff evidence requires the copied bytes, a trusted plain-text paste, exact saved source, and a persistent real edit', () => {
+  const native = report => report.cases.find(item => item.inputMode === 'native-visual-paste');
+  const edited = report => report.cases.find(item => item.editedAndReopened);
+  const corruptions = [
+    ['missing source transport', x => delete native(x).sourceTransport],
+    ['parser seeding', x => native(x).sourceTransport = 'parser-store-seeding'],
+    ['private fields not exercised', x => native(x).privateFieldsPopulated = false],
+    ['missing exported bytes', x => delete native(x).exportSha256],
+    ['clipboard differs from export', x => native(x).clipboardSha256 = digest],
+    ['paste differs from clipboard', x => native(x).paste.textSha256 = digest],
+    ['missing native paste', x => delete native(x).paste],
+    ['synthetic paste', x => native(x).paste.trusted = false],
+    ['missing clipboard type', x => native(x).paste.types = []],
+    ['formatted clipboard', x => native(x).paste.types.push('text/html')],
+    ['HTML payload', x => native(x).paste.htmlEmpty = false],
+    ['nonempty Visual paragraph', x => native(x).paste.emptyParagraph = false],
+    ['noneditable target', x => native(x).paste.editableTarget = false],
+    ['Code textarea substituted for Visual paragraph', x => native(x).paste.targetKind = 'code-textarea'],
+    ['fallback substituted for primary path', x => native(x).inputMode = 'code-editor'],
+    ['save did not match expected source', x => native(x).savedSourceExact = false],
+    ['different saved bytes', x => native(x).savedSha256 = copiedDigest],
+    ['missing expected saved bytes', x => delete native(x).expectedSavedSha256],
+    ['no-op second edit', x => edited(x).editedSha256 = edited(x).savedSha256],
+    ['second reopen differs from second save', x => edited(x).secondReopenExact = false],
+    ['fallback mislabeled as native', x => x.cases.find(item => item.inputMode === 'code-editor').inputMode = 'native-visual-paste']
+  ];
+  for (const [label, corrupt] of corruptions) {
+    const evidence = complete(); corrupt(evidence);
+    assert.throws(() => validateWordPressEvidence(evidence, configuration, digest), /WordPress evidence/, label);
+  }
+  const pinned = configuration.cases.find(item => typeof item.expectedSavedSource === 'string');
+  assert.ok(pinned, 'WordPress list and table serialization changes require explicit reviewed saved-source fixtures');
+  const evidence = complete(), item = evidence.cases.find(item => item.id === pinned.id);
+  item.savedSha256 = item.expectedSavedSha256 = copiedDigest;
+  assert.throws(() => validateWordPressEvidence(evidence, configuration, digest), /WordPress evidence/,
+    'A self-consistent report cannot replace the pinned expected saved bytes');
 });
 
 test('The manual gate removes stale WordPress proof, records an explicit skip, and requires fresh proof when requested', () => {

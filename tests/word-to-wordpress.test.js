@@ -32,6 +32,9 @@ class P(HTMLParser):
   a=dict(a)
   if 'id' in a:self.nodes[a['id']]={'ancestors':[v[1].get('id') for v in self.stack],'attrs':a};self.order.append(a['id'])
   if t not in 'area base br col embed hr img input link meta param source track wbr'.split():self.stack.append((t,a))
+ def handle_startendtag(self,t,a):
+  assert t in 'area base br col embed hr img input link meta param source track wbr'.split()
+  self.handle_starttag(t,a)
  def handle_endtag(self,t):
   assert self.stack[-1][0]==t;self.stack.pop()
 p=P();p.feed(sys.stdin.read());assert not p.stack
@@ -62,7 +65,13 @@ test('Existing tools keep their original import layout and the new task is linke
 });
 test('The Word-specific guide explains the real conversion and manual publishing limits', async () => {
   const guide = await readFile('scripts/word-to-wordpress-guide.html.inc', 'utf8');
-  for (const pattern of [/8 MiB/, /60,000/, /six levels/, /twelve columns/, /100 data rows/, /Images and embedded objects/, /text placeholders/, /Tracked changes/, /No document upload/, /[Bb]rowser recovery is off by default/, /Code editor/, /Return to Visual editor/, /before publishing yourself/, /previews stay temporarily/, /not a complete Word layout conversion/]) assert.match(guide, pattern);
+  for (const pattern of [/8 MiB/, /60,000/, /six levels/, /twelve columns/, /100 data rows/, /Images and embedded objects/, /text placeholders/, /Tracked changes/, /No document upload/, /[Bb]rowser recovery is off by default/, /before publishing yourself/, /previews stay temporarily/, /not a complete Word layout conversion/]) assert.match(guide, pattern);
+  const primary = guide.match(/<ol>([\s\S]*?)<\/ol>/)?.[1] || '';
+  const pasteStep = [...primary.matchAll(/<li>([\s\S]*?)<\/li>/g)].find(([, step]) => /Visual editor/.test(step))?.[1] || '';
+  for (const pattern of [/empty paragraph/, /Ctrl\+V/, /Command\+V/]) assert.match(pasteStep, pattern);
+  assert.doesNotMatch(primary, /Code editor/);
+  const fallback = guide.match(/<\/ol>\s*<p\b[^>]*>([\s\S]*?)<\/p>/)?.[1] || '';
+  for (const pattern of [/source text/i, /undo.*empty draft/i, /post Options/, /Code editor/, /empty post body/, /Return to Visual editor/]) assert.match(fallback, pattern);
   assert.doesNotMatch(guide, /\u2014|<img\b|<script\b/);
   const intro = await readFile('scripts/word-to-wordpress-intro.html.inc', 'utf8');
   assert.match(intro, /sample is prewritten, not a Word-file import/);

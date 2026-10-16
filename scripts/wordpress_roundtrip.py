@@ -39,6 +39,13 @@ def rest_path(url):
     return parse_qs(parsed.query).get('rest_route', [parsed.path.removeprefix('/wp-json')])[0].rstrip('/')
 
 
+def expected_saved_source(copied, case):
+    # WordPress omits the export's single terminal LF. Other observed changes
+    # use reviewed, exact fixture strings, never a general HTML normalizer.
+    assert copied.endswith('\n') and not copied.endswith('\n\n'), 'Expected one final LF in copied block source'
+    return case.get('expectedSavedSource', copied[:-1])
+
+
 def check_post(post, case, markers, text=None):
     assert post['status'] == 'draft', 'Fixture must remain an unpublished draft'
     assert post['title']['raw'] == case['title'], 'Separate post title changed'
@@ -66,15 +73,25 @@ def check_post(post, case, markers, text=None):
 
 BLOCKS = """() => {
  const blocks=wp.data.select('core/block-editor').getBlocks();
- const flat=items=>items.flatMap(item=>[item,...flat(item.innerBlocks||[])]);
- return {top:blocks.map(item=>item.name),all:flat(blocks).map(item=>({name:item.name,valid:item.isValid,attributes:item.attributes}))};
+ const flat=(items,parent=[])=>items.flatMap((item,index)=>{
+  const path=[...parent,index];
+  return [{path,name:item.name,valid:item.isValid,attributes:item.attributes},...flat(item.innerBlocks||[],path)];
+ });
+ return {top:blocks.map(item=>item.name),all:flat(blocks)};
 }"""
 
 
-def check_blocks(page, case):
+def check_blocks(page, case, edited=False):
     blocks = page.evaluate(BLOCKS)
     assert blocks['top'] == case['top'], 'Top-level block types changed'
     assert all(block['valid'] is True for block in blocks['all']), 'WordPress reports an invalid block'
+    if 'blockPaths' in case:
+        assert [{'path': b['path'], 'name': b['name']} for b in blocks['all']] == case['blockPaths'], 'Ordered block hierarchy changed'
+    if 'headingLevels' in case:
+        assert [b['attributes']['level'] for b in blocks['all'] if b['name'] == 'core/heading'] == case['headingLevels'], 'Heading levels changed'
+    for item in case.get('editedInlineContents' if edited else 'inlineContents', []):
+        block = next((b for b in blocks['all'] if b['path'] == item['path']), None)
+        assert block is not None and block['attributes'].get('content') == item['content'], 'Inline marks or their nesting changed'
     if 'listStarts' in case:
         assert [b['attributes'].get('start') for b in blocks['all'] if b['name'] == 'core/list'] == case['listStarts']
         assert sum(b['name'] == 'core/list-item' for b in blocks['all']) == case['listItems']
@@ -85,12 +102,46 @@ def check_blocks(page, case):
     return blocks
 
 
+def visible_editor_control(page, selector):
+    # The current editor canvas is an iframe. Use actual controls in that frame
+    # rather than populating the editor store or dispatching a synthetic paste.
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        for frame in page.frames:
+            nodes = frame.locator(selector)
+            for index in range(nodes.count()):
+                node = nodes.nth(index)
+                if node.is_visible():
+                    return node
+        page.wait_for_timeout(100)
+    raise AssertionError('No visible WordPress editor control: ' + selector)
+
+
+def reveal_control(control):
+    control.evaluate("node=>{for(let current=node;current;current=current.parentElement)if(current.tagName==='DETAILS')current.open=true}")
+
+
+def observe_native_paste(control, target_kind):
+    control.evaluate("""(node,targetKind)=>{
+      const view=node.ownerDocument.defaultView;
+      view.DTP_NATIVE_PASTE=null;
+      node.ownerDocument.addEventListener('paste',event=>{
+        view.DTP_NATIVE_PASTE={trusted:event.isTrusted,targetKind,
+          editableTarget:(event.target===node||node.contains(event.target)) &&
+            (node.isContentEditable || (node.tagName==='TEXTAREA'&&!node.disabled&&!node.readOnly)),
+          types:Array.from(event.clipboardData.types),
+          text:event.clipboardData.getData('text/plain'),
+          htmlEmpty:event.clipboardData.getData('text/html')===''};
+      },{capture:true,once:true});
+    }""", target_kind)
+
+
 def main():
     from playwright.sync_api import sync_playwright, expect
     OUT.mkdir(exist_ok=True)
     report_file = OUT / 'wordpress-results.json'
     report_file.unlink(missing_ok=True)
-    report = {'result': 'RUNNING', 'scope': 'local WordPress save/reopen', 'cases': [],
+    report = {'result': 'RUNNING', 'scope': 'local WordPress native clipboard, Visual paste, save/reopen, and Code editor fallback', 'cases': [],
               'runtimeErrors': [], 'unexpectedRequests': [], 'fixtureAssets': [], 'negativeControl': False,
               'startedAt': datetime.now(timezone.utc).isoformat()}
     def save():
@@ -135,6 +186,7 @@ def main():
                 browser = playwright.chromium.launch(**launch)
                 report['browser'] = browser.version
                 context = browser.new_context(viewport={'width': 1440, 'height': 1000}, reduced_motion='reduce')
+                context.grant_permissions(['clipboard-read', 'clipboard-write'], origin='https://drafttopage.test')
                 def route(request):
                     url = request.request.url
                     if url.startswith(ORIGIN + '/'):
@@ -197,49 +249,113 @@ def main():
                     print('WordPress draft round trip: ' + case['id'], flush=True)
                     entry = {'id': case['id'], 'result': 'RUNNING'}
                     report['cases'].append(entry)
-                    if case.get('file') or case.get('formatSelection'):
-                        source_page = new_page()
-                        source_page.on('dialog', lambda dialog: dialog.accept())
-                        source_page.goto('https://drafttopage.test' + case.get('sourceRoute', '/word-to-wordpress/'))
-                        expect(source_page.locator('#desk-status')).to_contain_text('ready')
-                        if case.get('file'):
-                            source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
-                            expect(source_page.locator('#import-preview')).to_be_visible()
-                            source_page.check('#import-changes-ok')
-                            source_page.click('#apply-import')
-                            entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and actual block download')
-                        else:
-                            source_page.fill('#body', case['body'])
+                    source_page = new_page()
+                    source_page.goto('https://drafttopage.test' + case.get('sourceRoute', '/word-to-wordpress/' if case.get('file') else '/markdown-to-wordpress/'))
+                    expect(source_page.locator('#desk-status')).to_contain_text('ready')
+                    if case.get('file'):
+                        source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
+                        expect(source_page.locator('#import-preview')).to_be_visible()
+                        source_page.check('#import-changes-ok')
+                        source_page.click('#apply-import')
+                        entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and Copy WordPress blocks')
+                    else:
+                        source_page.fill('#body', case['body'])
+                        entry['source'] = 'actual Markdown-to-WordPress article fields and Copy WordPress blocks'
+                        if case.get('formatSelection'):
                             source_page.locator('#text-format-tools > summary').click()
-                            source_page.locator('#body').evaluate('(el,phrase)=>{const at=el.value.indexOf(phrase);el.setSelectionRange(at,at+phrase.length)}',case['formatSelection'])
+                            source_page.locator('#body').evaluate('(el,phrase)=>{const at=el.value.indexOf(phrase);el.setSelectionRange(at,at+phrase.length)}', case['formatSelection'])
                             source_page.locator('[data-format=strike]').click()
                             assert source_page.locator('#body').input_value() == case['formattedBody'], 'Toolbar changed unexpected source'
                             assert not source_page.locator('#reviewed').is_checked()
-                            entry['source'] = 'native strikethrough toolbar, review, and actual block download'
+                            entry['source'] = 'native strikethrough toolbar, review, and Copy WordPress blocks'
                             entry['toolbarVerified'] = True
-                        source_page.check('#reviewed')
-                        with source_page.expect_download() as download:
-                            source_page.click('#download-wordpress')
-                        case['html'] = Path(download.value.path()).read_text()
-                        source_page.close()
+                    source_page.fill('#title', case['title'])
+                    original_body = source_page.locator('#body').input_value()
+                    reveal_control(source_page.locator('#start-notes'))
+                    source_page.click('#start-notes')
+                    source_page.fill('#notes', config['privateMarkers'][0])
+                    reveal_control(source_page.locator('#add-question'))
+                    source_page.click('#add-question')
+                    source_page.fill('#review-question-0', config['privateMarkers'][1])
+                    assert source_page.locator('#notes').input_value() == config['privateMarkers'][0]
+                    assert source_page.locator('#review-question-0').input_value() == config['privateMarkers'][1]
+                    assert source_page.locator('#body').input_value() == original_body and source_page.locator('#title').input_value() == case['title']
+                    entry['privateFieldsPopulated'] = True
+                    if case.get('includeLinkedImages'):
+                        reveal_control(source_page.locator('#wordpress-linked-images'))
+                        source_page.check('#wordpress-linked-images')
+                    source_page.check('#reviewed')
+                    reveal_control(source_page.locator('#wordpress-code-preview'))
+                    expect(source_page.locator('#wordpress-code-preview')).to_have_value(re.compile(r'^<!-- wp:'))
+                    approved_source = source_page.locator('#wordpress-code-preview').input_value()
+                    with source_page.expect_download() as download:
+                        source_page.click('#download-wordpress')
+                    downloaded_bytes = Path(download.value.path()).read_bytes()
+                    exported = downloaded_bytes.decode('utf-8')
+                    assert exported == approved_source, 'Downloaded block file differs from approved source'
+                    if 'html' in case:
+                        assert exported == case['html'], 'Approved UI export differs from expected article source'
+                    assert not any(marker in exported for marker in config['privateMarkers']), 'Private field leaked into approved export'
+                    entry['exportSha256'] = hashlib.sha256(downloaded_bytes).hexdigest()
+                    source_page.click('#copy-wordpress')
+                    expect(source_page.locator('#wordpress-action-status')).to_contain_text('WordPress blocks copied')
+                    copied = source_page.evaluate('navigator.clipboard.readText()')
+                    assert copied == exported, 'Actual clipboard differs from approved export'
+                    clipboard_types = source_page.evaluate('navigator.clipboard.read().then(items=>items.flatMap(item=>item.types))')
+                    assert clipboard_types == ['text/plain'], 'Expected only the existing plain-text clipboard representation'
+                    entry.update({'sourceTransport': 'copy-wordpress-button', 'clipboardSha256': hashlib.sha256(copied.encode()).hexdigest()})
+                    expected_raw = expected_saved_source(copied, case)
+                    entry['expectedSavedSha256'] = hashlib.sha256(expected_raw.encode()).hexdigest()
                     page = open_editor()
-                    if case.get('inputMode') == 'code-editor':
+                    title = visible_editor_control(page, '.editor-post-title__input')
+                    title.fill(case['title'])
+                    title.press('Enter')
+                    selector = '[data-type="core/paragraph"][contenteditable="true"], [data-type="core/paragraph"] [contenteditable="true"]'
+                    editable = visible_editor_control(page, selector)
+                    empty_paragraph = page.evaluate("""() => {
+                      const blocks=wp.data.select('core/block-editor').getBlocks();
+                      return blocks.length===1 && blocks[0].name==='core/paragraph' &&
+                        String(blocks[0].attributes.content||'')==='' && blocks[0].innerBlocks.length===0;
+                    }""")
+                    assert empty_paragraph and editable.inner_text().replace('\ufeff', '').strip() == '', 'Destination must be an empty Visual paragraph'
+                    empty_source = page.evaluate("wp.data.select('core/editor').getEditedPostContent()")
+                    input_mode = case['inputMode']
+                    assert input_mode in ['native-visual-paste', 'code-editor'], 'Choose an explicit native input mode'
+                    entry['inputMode'] = input_mode
+                    if input_mode == 'code-editor':
                         page.keyboard.press('Control+Shift+Alt+M')
                         editor = page.locator('textarea.editor-post-text-editor')
                         expect(editor).to_be_visible()
-                        editor.fill(case['html'])
+                        observe_native_paste(editor, 'code-textarea')
+                        editor.click()
+                        editor.press('Control+A')
+                        editor.press('Control+V')
                         editor.press('Tab')
                         page.keyboard.press('Control+Shift+Alt+M')
-                        page.wait_for_function("count=>wp.data.select('core/block-editor').getBlocks().length===count", arg=len(case['top']))
-                        page.evaluate("title=>wp.data.dispatch('core/editor').editPost({title})", case['title'])
-                        entry['inputMode'] = 'code-editor'
                     else:
-                        page.evaluate("({html,title})=>{wp.data.dispatch('core/block-editor').resetBlocks(wp.blocks.parse(html));wp.data.dispatch('core/editor').editPost({title});}", case)
+                        observe_native_paste(editable, 'visual-paragraph')
+                        editable.click()
+                        editable.press('Control+V')
+                    page.wait_for_function("({count,previous})=>wp.data.select('core/block-editor').getBlocks().length===count && wp.data.select('core/editor').getEditedPostContent()!==previous", arg={'count': len(case['top']), 'previous': empty_source})
+                    events = [frame.evaluate('window.DTP_NATIVE_PASTE||null') for frame in page.frames]
+                    events = [event for event in events if event]
+                    assert len(events) == 1, 'Expected one observed native paste event'
+                    paste = events[0]
+                    entry['paste'] = {key: value for key, value in paste.items() if key != 'text'}
+                    entry['paste'].update({'emptyParagraph': empty_paragraph, 'textSha256': hashlib.sha256(paste['text'].encode()).hexdigest()})
+                    assert paste['trusted'] is True and paste['editableTarget'] is True, 'Paste did not reach the actual editable target'
+                    assert paste['types'] == ['text/plain'] and paste['htmlEmpty'] is True and paste['text'] == copied, 'Native paste payload changed'
                     check_blocks(page, case)
                     post_id = page.evaluate("wp.data.select('core/editor').getCurrentPostId()")
                     post = save_draft(page, post_id)
                     raw = check_post(post, case, config['privateMarkers'])
                     entry.update({'postId': post_id, 'saveResponse': 200, 'savedSha256': hashlib.sha256(raw.encode()).hexdigest()})
+                    if raw != expected_raw:
+                        mismatch = OUT / ('wordpress-source-mismatch-' + case['id'] + '.json')
+                        mismatch.write_text(json.dumps({'copied': copied, 'expected': expected_raw, 'saved': raw}, indent=2) + '\n')
+                        raise AssertionError('Saved source differs from the explicit pinned expectation; inspect ' + mismatch.name)
+                    entry['savedSourceExact'] = True
+                    source_page.close()
                     page.close()
                     page = open_editor(post_id)
                     check_blocks(page, case)
@@ -254,23 +370,23 @@ def main():
                         entry['typography'] = {'stored': case['rawText'], 'rendered': case['text']}
                     assert page.evaluate('window.DTP_FIXTURE_EXECUTED===undefined'), 'Literal source executed'
                     if case.get('editAfterReopen'):
-                        selector = '[data-type="core/paragraph"][contenteditable="true"], [data-type="core/paragraph"] [contenteditable="true"]'
-                        page.wait_for_function("selector=>[document,...Array.from(document.querySelectorAll('iframe')).map(frame=>frame.contentDocument)].filter(Boolean).some(doc=>doc.querySelector(selector))", arg=selector)
-                        editable = next((frame.locator(selector).first for frame in page.frames if frame.locator(selector).count()), None)
-                        assert editable is not None, 'No native editable paragraph found'
+                        assert case['text'].count('a link.') == 1, 'The native-edit fixture must have one exact replacement point'
+                        editable = visible_editor_control(page, selector)
                         editable.click()
                         editable.press('Control+End')
                         editable.press_sequentially(' Reopened edit.')
                         edited = save_draft(page, post_id)
                         edited_text = case['text'].replace('a link.', 'a link. Reopened edit.')
-                        check_post(edited, case, config['privateMarkers'], edited_text)
+                        edited_raw = check_post(edited, case, config['privateMarkers'], edited_text)
+                        assert edited_raw != raw, 'Native edit did not change the saved source'
                         page.close()
                         page = open_editor(post_id)
-                        check_blocks(page, case)
+                        check_blocks(page, case, edited=True)
                         edited = page.evaluate("id=>wp.apiFetch({path:'/wp/v2/posts/'+id+'?context=edit'})", post_id)
-                        check_post(edited, case, config['privateMarkers'], edited_text)
+                        assert check_post(edited, case, config['privateMarkers'], edited_text) == edited_raw, 'Edited source changed after the second reopen'
                         entry['editedAndReopened'] = True
-                        entry['editedSha256'] = hashlib.sha256(edited['content']['raw'].encode()).hexdigest()
+                        entry['editedSha256'] = hashlib.sha256(edited_raw.encode()).hexdigest()
+                        entry['secondReopenExact'] = True
                     entry.update({'result': 'PASS', 'status': reopened['status'], 'validAfterReopen': True})
                     page.close()
                     save()

@@ -80,6 +80,9 @@ class P(HTMLParser):
   if t=='label':self.labels.append(a.get('for'))
   if t=='option' and any(v[1].get('id')=='workspace-layout-choice' for v in self.stack):self.options.append(a['value'])
   if t not in 'area base br col embed hr img input link meta param source track wbr'.split():self.stack.append((t,a))
+ def handle_startendtag(self,t,a):
+  assert t in 'area base br col embed hr img input link meta param source track wbr'.split()
+  self.handle_starttag(t,a)
  def handle_endtag(self,t):assert self.stack[-1][0]==t;self.stack.pop()
 out=[]
 for route,html in json.load(sys.stdin).items():
