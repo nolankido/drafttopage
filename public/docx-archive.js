@@ -103,6 +103,21 @@ async function readEntry(bytes, entry, limit) {
   return content;
 }
 
+// Comment XML is read only by the explicit private-feedback recovery action.
+export async function readDocxCommentXML(input) {
+  const { bytes, entries } = inspectDocxArchive(input);
+  const selected = entries.filter(entry => ['[Content_Types].xml', 'word/_rels/document.xml.rels', 'word/comments.xml'].includes(entry.name));
+  if (selected.reduce((total, entry) => total + entry.length, 0) > 4 * 1024 * 1024) throw new Error('The selected comment XML exceeds the 4 MiB recovery limit.');
+  const parts = new Map();
+  for (const entry of selected) {
+    const raw = await readEntry(bytes, entry, MAX_PART);
+    let text;
+    try { text = new TextDecoder('utf-8', { fatal: true }).decode(raw); }
+    catch { throw new Error('Word comments must use valid UTF-8 XML.'); }
+    parts.set(entry.name, text);
+  }
+  return parts;
+}
 export const MAX_WORD_IMAGE_BYTES = 4 * 1024 * 1024;
 export const wordImagePartName = name => typeof name === 'string' && /^word\/media\/[a-z0-9][a-z0-9._-]{0,120}\.(?:png|jpe?g)$/i.test(name) && !name.includes('..');
 // Called only by the explicit image-recovery action, never by ordinary import.

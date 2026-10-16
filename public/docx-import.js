@@ -65,7 +65,7 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
   }
   const notes = createWordNotes(parts, rels, types, relationships);
   let activeRelationships = rels, activeNote = null, noteMarks = 0;
-  const notices = new Set(['The main article and supported referenced notes are imported. Headers, footers, comments, document metadata, fonts, colors, page layout, and embedded files are not retained. Keep your original Word file.']);
+  const notices = new Set(['The main article and supported referenced notes are imported. Headers, footers, document metadata, fonts, colors, page layout, and embedded files are not retained. Comments stay out of article text; use the separate comment recovery action to inspect or keep them privately. Keep your original Word file.']);
   const wordImages = []; let imageCount = 0;
   const warn = text => notices.add(text);
   const h = (name, content = [], attributes = {}) => {

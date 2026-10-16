@@ -5,12 +5,13 @@ import { MAX_DOCX_BYTES } from './docx-archive.js';
 import { installImportInsertion } from './import-insertion-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from './copied-writing.js';
 import { downloadText } from './download.js';
+import { installWordComments } from './word-comment-controls.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
 export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
   const $ = id => document.getElementById(id);
-  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null;
+  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null;
   const clearWordImages = () => {
     wordImageKit = null; $('word-image-private-ok').checked = false;
     $('word-image-kit-review').hidden = true; $('download-word-images').disabled = true;
@@ -25,6 +26,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   } });
   const clearPreview = () => {
     paste.clear();
+    commentRecovery?.clear();
     clearWordImages(); $('word-image-handoff').hidden = true;
     candidate = null;
     insertion.clear();
@@ -61,8 +63,6 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   }
   function stage(result) {
     clearPreview(); candidate = result;
-    const count = candidate.draft.body.trim() ? candidate.draft.body.trim().split(/\s+/u).length : 0;
-    $('import-summary').textContent = candidate.kind + ': ' + (candidate.draft.title || 'Untitled article') + '. ' + count + ' approximate words; ' + candidate.draft.questions.length + ' review question(s).';
     $('import-body-preview').value = candidate.draft.body;
     insertion.setCandidate(candidate.draft);
     renderPreview($('import-reading-preview'), candidate.draft.title, candidate.draft.body);
@@ -90,6 +90,11 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   const allowed = () => candidate && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
   function updateApply() {
     insertion.refresh();
+    commentRecovery?.update();
+    if (candidate) {
+      const count = candidate.draft.body.trim() ? candidate.draft.body.trim().split(/\s+/u).length : 0;
+      $('import-summary').textContent = candidate.kind + ': ' + (candidate.draft.title || 'Untitled article') + '. ' + count + ' approximate words; ' + (candidate.draft.questions.length + (commentRecovery?.selectedCount() || 0)) + ' review question(s).';
+    }
     $('apply-import').disabled = !allowed();
     if ($('start-word-file')) $('start-word-file').disabled = reading || isBusy();
     if ($('start-insert-import')) $('start-insert-import').disabled = reading || isBusy();
@@ -99,6 +104,9 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     $('discard-word-images').disabled = reading || isBusy();
     $('word-image-private-ok').disabled = reading || isBusy();
   }
+  commentRecovery = installWordComments({ getSource: () => wordFile, getCandidate: () => candidate, getMode: () => insertion.mode(), isBusy: () => reading || isBusy(),
+    setBusy: active => { reading = active; $('import-fields').disabled = active; $('cancel-import').disabled = active; updateApply(); busyChanged(); },
+    changed: () => { $('import-changes-ok').checked = false; updateApply(); workChanged(); }, report, download });
   $('prepare-word-images').addEventListener('click', async () => {
     if (reading || isBusy() || !wordFile || !candidate?.wordImages?.length) return;
     const source = wordFile, preview = candidate;
@@ -213,7 +221,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
     try {
-      apply(candidate.draft);
+      apply(commentRecovery?.draft(candidate.draft) || candidate.draft);
       clear(); $('import-text').value = ''; sourceName = '';
       report('Article imported locally. Source notes were kept and export approval was cleared. Review before exporting. Nothing was uploaded or sent to AI.');
     } catch (error) { report(error.message); }

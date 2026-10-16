@@ -24,6 +24,21 @@
 <label for="import-body-preview">Article body to import</label><textarea id="import-body-preview" rows="6" readonly></textarea>
 <details><summary>Page details to import</summary><dl id="import-page-details"></dl></details>
 <ul id="import-warnings"></ul>
+<section id="word-comment-handoff" class="word-comment-handoff" hidden aria-labelledby="word-comment-heading">
+<h3 id="word-comment-heading">Keep Word editorial comments private</h3>
+<p class="small">Comments stay out of the converted article. Recover their text separately before applying the import. The original document stays in this tab until you apply or clear it. <a href="/help/article-import/#word-comments" target="_blank" rel="noopener">Comment recovery limits (new tab)</a></p>
+<button id="prepare-word-comments" type="button" class="secondary">Recover Word comment text</button>
+<p id="word-comment-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
+<div id="word-comment-review" hidden>
+<p id="word-comment-guidance" class="small"></p>
+<details id="word-comment-details"><summary>Inspect recovered comment text</summary><ol id="word-comment-list" aria-label="Recovered private Word comments"></ol></details>
+<label class="check"><input id="word-comments-include" type="checkbox" disabled aria-describedby="word-comment-notes-status"><span>Include these comments as private review notes when replacing the article</span></label>
+<p id="word-comment-notes-status" class="small"></p>
+<label class="check"><input id="word-comment-private-ok" type="checkbox"><span>I reviewed this private report. It contains comment text, possibly including text hidden by Word styling. The downloaded file is unencrypted.</span></label>
+<div class="actions"><button id="download-word-comments" type="button" class="secondary" disabled>Download private comment report</button><button id="discard-word-comments" type="button" class="secondary">Discard recovered comment text</button></div>
+</div>
+<p class="small">Download before importing. Applying or clearing the import discards this temporary recovery. Explicitly included review notes stay in private workspace backups and are excluded from article exports. Insertion keeps existing review notes. Long or numerous comments can use the separate report instead of being cut down to fit.</p>
+</section>
 <section id="word-image-handoff" class="word-image-handoff" hidden aria-labelledby="word-image-heading">
 <h3 id="word-image-heading">Keep the Word images</h3>
 <p class="small">Recover embedded PNG and JPEG files with numbered placement notes and the alternative text supplied in Word. Images are not displayed here or uploaded. Linked images and other formats stay as placeholders.</p>
