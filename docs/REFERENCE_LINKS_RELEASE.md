@@ -1,6 +1,6 @@
 # Previewed reference-link conversion
 
-Release: `reference-links-20261016`.
+Release: `reference-links-20261016.1`.
 
 ## Problem and resulting behavior
 
