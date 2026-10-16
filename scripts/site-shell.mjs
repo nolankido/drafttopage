@@ -6,6 +6,7 @@ export function renderPage({ route, title, description, body, script = '', wide 
   const current = '<details class="nav-converters' + (converters.some(([href]) => route === href) ? ' current-converter' : '') + '"><summary>Convert</summary><div class="nav-tools-menu">' + converters.map(navLink).join('') + '</div></details>' + [['/write/', 'Writing desk'], ['/examples/', 'Examples'], ['/help/', 'Help']].map(navLink).join('');
   const canonical = 'https://drafttopage.com' + route;
   return '<!doctype html>\n<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+    '<meta name="msvalidate.01" content="C8901580367B9254B6493BF68534AF35" />' +
     '<title>' + escapeHTML(title) + ' | Draft to Page</title><meta name="description" content="' + escapeHTML(description) + '">' +
     '<meta name="theme-color" content="#244b40"><link rel="canonical" href="' + canonical + '">' +
     '<meta property="og:title" content="' + escapeHTML(title) + ' | Draft to Page"><meta property="og:description" content="' + escapeHTML(description) + '">' +
