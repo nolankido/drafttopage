@@ -25,6 +25,7 @@ ${readFileSync(new URL('./word-notes-help.html.inc', import.meta.url), 'utf8')}
 <p>This fictional document has headings, emphasis, a link, a numbered list, and a simple table. It is generated locally by this project's Word exporter. Download it, open it above, and compare your result. Word import can add escaping to keep literal punctuation and explicit bold from heading or table-header styles; equivalent Markdown can look different.</p>
 <p><a href="/samples/word-to-markdown.docx" download="drafttopage-fictional-sample.docx">Download the fictional .docx</a> · <a href="/samples/word-to-markdown.md" download="drafttopage-fictional-sample.md">Download the example Markdown</a></p>
 <pre class="code-sample"><code>${escapeHTML(createArticleMarkdown(WORD_MARKDOWN_SAMPLE, { includeTitle: true }))}</code></pre>
+<p>Starting with HTML instead? Use the <a href="/html-to-markdown/">HTML to Markdown converter</a>.</p>
 <h2 id="word-markdown-questions">Common questions</h2>
 <details><summary>Is this converter free?</summary><p>Yes. The public tool needs no account, subscription, API key, or AI credits. The private AI pilot is separate.</p></details>
 <details><summary>Does my Word file leave this page?</summary><p>Application code reads and converts the selected file locally. It does not upload the document. The original bytes and pending preview are discarded when you apply or clear the import, or leave the page. Save your writing explicitly.</p></details>

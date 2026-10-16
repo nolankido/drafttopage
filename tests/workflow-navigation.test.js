@@ -18,7 +18,7 @@ class Node {
 function withUI(run, source='text') {
   const original={document:globalThis.document,window:globalThis.window,style:globalThis.getComputedStyle,observer:globalThis.ResizeObserver};
   const nodes=new Map(), main=new Node('main','MAIN'), $=id=>{if(!nodes.has(id))nodes.set(id,new Node(id,'DIV',main));return nodes.get(id);};
-  const first=source==='word'?'start-word-file':source==='copied'?'start-copied-paste':'start-draft';
+  const first=source==='word'?'start-word-file':source==='copied'?'start-copied-paste':source==='html'?'start-html-source':'start-draft';
   $('workflow-steps').querySelector=()=>$(first);
   $('body').tagName='TEXTAREA';$('title').tagName='INPUT';$('publishing-destination').tagName='SELECT';$('publishing-destination').value='wordpress';
   $('preview-panel').tagName='DETAILS';$('article-preview').parentElement=$('preview-panel');$('article-preview').setAttribute('tabindex','0');
@@ -32,12 +32,19 @@ function withUI(run, source='text') {
 }
 
 test('Empty workspaces point to the correct input without approving, opening a picker, or exporting',()=>{
-  for(const source of ['text','word','copied'])withUI(({$,ui,moves})=>{
+  for(const source of ['text','word','copied','html'])withUI(({$,ui,moves})=>{
     assert.equal($('workflow-steps').dataset.step,'bring');assert.equal($('review-current-article').hidden,true);assert.equal($('continue-to-export').hidden,true);
-    ui.handoff();assert.equal(moves.at(-1)[0],source==='word'?'import-file':source==='copied'?'import-text':'body');
+    ui.handoff();assert.equal(moves.at(-1)[0],source==='word'?'import-file':source==='copied'||source==='html'?'import-text':'body');
     assert.equal($('reviewed').checked,false);assert.equal($('body').value,'');assert.equal($('publishing-destination').value,'wordpress');
   },source);
 });
+
+test('HTML first-step navigation keeps pending source and approved article untouched',()=>withUI(({$,ui,moves,setPending,setBusy})=>{
+  $('body').value='Current article';$('import-text').value='<p>Pending HTML</p>';$('reviewed').checked=true;setPending({pending:true,staged:true});ui.update();
+  $('start-html-source').fire();assert.equal(moves.at(-1)[0],'import-preview-heading');assert.equal($('import-text').value,'<p>Pending HTML</p>');assert.equal($('reviewed').checked,true);
+  setPending({pending:true,staged:false});ui.update();$('start-html-source').fire();assert.equal(moves.at(-1)[0],'import-text');
+  const count=moves.length;setBusy(true);ui.update();$('start-html-source').fire();assert.equal(moves.length,count);assert.equal($('body').value,'Current article');
+},'html'));
 
 test('Writing, reviewing, and choosing export move focus and scroll without changing data or approval',()=>withUI(({$,ui,moves,previewed})=>{
   $('title').value='Fictional title';$('body').value='An article to keep exactly.';ui.update();
@@ -126,7 +133,7 @@ test('Measured sticky offsets and nested disclosures make explicit targets reach
 }));
 
 test('Every workspace has a single compact step bar and reachable continuation controls in reading order',async()=>{
-  const routes=['write','word-to-wordpress', 'word-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
+  const routes=['write','word-to-wordpress', 'word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
   const pages=Object.fromEntries(await Promise.all(routes.map(async route=>[route,await readFile('public/'+route+'/index.html','utf8')])));
   const result=JSON.parse(execFileSync('python3',['-c',String.raw`
 import sys,json
@@ -145,7 +152,7 @@ for route,html in json.load(sys.stdin).items():
  p=P();p.feed(html);assert not p.stack
  assert p.ids['workflow-steps']['parentTag']=='main'
  assert p.order.index('workflow-steps')<p.order.index('import-panel')<p.order.index('body')
- first='start-word-file' if route in ['word-to-wordpress','word-to-markdown'] else 'start-copied-paste' if route=='google-docs-to-wordpress' else 'start-draft'
+ first='start-word-file' if route in ['word-to-wordpress','word-to-markdown'] else 'start-copied-paste' if route=='google-docs-to-wordpress' else 'start-html-source' if route=='html-to-markdown' else 'start-draft'
  for key in [first,'start-review','start-handoff']:assert 'workflow-steps' in p.ids[key]['parents']
  assert p.ids[first]['attrs']['aria-current']=='step'
  for key in ['review-current-article','continue-to-export']:

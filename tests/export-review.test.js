@@ -147,7 +147,7 @@ test('Empty or invalid articles clear findings and report text instead of retain
 }));
 
 test('Generated workspaces expose one accessible review with responsive controls and no persistent state', async () => {
-  for(const route of ['write','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']) {
+  for(const route of ['write','word-to-wordpress','word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']) {
     const html=await readFile('public/'+route+'/index.html','utf8');
     for(const id of ['export-format-review','export-title-handling','export-format-status','export-format-findings','copy-export-review','download-export-review','export-review-text']) assert.equal(html.split('id="'+id+'"').length,2);
     assert.match(html,/id="export-review-text"[^>]*readonly/); assert.match(html,/id="export-format-review"[^>]*hidden/); assert.ok(html.indexOf('id="export-format-review"')<html.indexOf('id="word-handoff"'));

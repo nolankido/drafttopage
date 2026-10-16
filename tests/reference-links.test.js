@@ -128,7 +128,7 @@ test('Discard, failed checkpoint, no-op preparation and full reset preserve the 
 }));
 
 test('Every public workspace includes one discoverable, labeled preparation flow and accurate guidance',async()=>{
-  for(const route of ['write','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']){
+  for(const route of ['write','word-to-wordpress','word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']){
     const html=await readFile('public/'+route+'/index.html','utf8');
     for(const id of ['reference-links-panel','reference-prepare','reference-after','reference-ack','reference-apply'])assert.equal((html.match(new RegExp('id="'+id+'"','g'))||[]).length,1);
     assert.ok(html.indexOf('id="reference-links-panel"')<html.indexOf('id="exports"'));assert.match(html,/aria-label="Reading preview of proposed reference conversion"/);assert.match(html,/for="reference-after"/);assert.match(html,/id="reference-links-panel"[^>]*hidden/);

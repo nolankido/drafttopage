@@ -6,6 +6,7 @@ import { installImportInsertion } from './import-insertion-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from './copied-writing.js';
 import { downloadText } from './download.js';
 import { installWordComments } from './word-comment-controls.js';
+import { HTML_SOURCE_SAMPLE } from './html-source-sample.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
@@ -66,7 +67,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   }
   function preview(text, name) {
     clear();
-    stage(parseArticleImport(text, name, $('import-format').value, { firstRowHeaders: $('import-first-row-headers').checked }));
+    const format = $('import-format').value === 'html-source' ? 'html' : $('import-format').value;
+    stage(parseArticleImport(text, name, format, { firstRowHeaders: $('import-first-row-headers').checked }));
   }
   function stage(result, wordKey = null) {
     clearPreview(); candidate = result; candidateWordKey = wordKey;
@@ -156,7 +158,16 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     if (reading || isBusy()) return;
     clearWordImages(); updateApply(); report('Prepared image package discarded. The selected Word file and article preview are kept for another preparation.');
   });
-  function updateFormat() { $('import-html-options').hidden = $('import-format').value !== 'html'; clear(); }
+  function showFormat() {
+    const source = $('import-format').value === 'html-source', formatted = $('import-format').value === 'html';
+    $('import-html-options').hidden = !source && !formatted;
+    $('import-html-help').hidden = source;
+    if ($('import-html-source-help')) $('import-html-source-help').hidden = !source;
+    $('import-text').setAttribute('aria-describedby', 'import-file-help ' + (source ? 'import-html-source-help' : 'import-html-help') + ' import-paste-status');
+    if ($('import-text-label')) $('import-text-label').textContent = source ? 'HTML source code' : formatted ? 'Paste copied formatted writing' : 'Or paste writing or article source';
+    $('import-html-example').textContent = source ? 'Preview an HTML source example' : 'Preview a formatted example';
+  }
+  function updateFormat() { showFormat(); clear(); }
   $('import-text').addEventListener('input', () => { sourceName = ''; clear(); });
   $('import-format').addEventListener('change', updateFormat);
   $('import-first-row-headers').addEventListener('change', clearPreview);
@@ -181,9 +192,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   $('import-html-example').addEventListener('click', () => {
     if (reading || isBusy()) return;
     if (($('import-text').value.trim() || copiedSource || wordFile) && !confirm('Replace only the pending import source with the fictional formatted example? Your current article and notes are unchanged.')) return;
-    if (pasteFirst) { try { previewCopied({ format: 'html', text: FORMATTED_EXAMPLE }); } catch (error) { report(error.message); } return; }
-    $('import-text').value = FORMATTED_EXAMPLE; $('import-text').dispatchEvent(new Event('input', { bubbles: true }));
-    try { preview(FORMATTED_EXAMPLE, ''); } catch (error) { clear(); report(error.message); }
+    if (pasteFirst && $('import-format').value !== 'html-source') { try { previewCopied({ format: 'html', text: FORMATTED_EXAMPLE }); } catch (error) { report(error.message); } return; }
+    const example = $('import-format').value === 'html-source' ? HTML_SOURCE_SAMPLE.html : FORMATTED_EXAMPLE;
+    $('import-text').value = example; $('import-text').dispatchEvent(new Event('input', { bubbles: true }));
+    try { preview(example, ''); } catch (error) { clear(); report(error.message); }
   });
   async function convertWord(source) {
     const options = wordOptions(), key = JSON.stringify(options);
@@ -223,7 +235,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       if (/\.(doc|docm|dotm)$/i.test(file.name)) throw new Error('Choose a plain .docx file. Old .doc and macro-enabled documents are not supported.');
       if (file.size > MAX_IMPORT_BYTES) throw new Error('Choose an article file no larger than 512 KiB. Current writing is unchanged.');
       const content = new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
-      if ($('import-format').value === 'auto' && /\.html?$/i.test(file.name)) { $('import-format').value = 'html'; updateFormat(); }
+      if ($('import-format').value === 'auto' && /\.html?$/i.test(file.name)) { $('import-format').value = 'html-source'; updateFormat(); }
       $('import-text').value = content; sourceName = file.name;
       preview(content, file.name);
     } catch (error) { clearPreview(); report(error instanceof TypeError && !wordFile ? 'Use a UTF-8 text file. Current writing is unchanged.' : error.message); }
@@ -254,9 +266,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     clear(); $('import-text').value = ''; sourceName = '';
     report('Import preview cleared. Current article and notes are unchanged.');
   });
+  showFormat();
   return { reading: () => reading, staged: () => Boolean(candidate && !copiedFailed), clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || copiedSource || $('import-text').value.trim()), openCopied: () => {
     if (reading || isBusy()) return;
-    $('import-panel').open = true; $('import-format').value = 'html'; $('import-html-options').hidden = false;
+    $('import-panel').open = true; $('import-format').value = 'html'; showFormat();
     if ($('copied-import-alternatives')) $('copied-import-alternatives').open = false;
     $('import-text').focus(); $('import-text').select();
     report('Copy writing in Google Docs or another editor, then paste here with Ctrl+V or Command+V. A conversion preview opens before anything changes.');

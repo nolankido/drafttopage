@@ -152,7 +152,7 @@ test('Private workspace files retain their existing schema without export-previe
 }));
 
 test('All seven workspaces include the accessible optional preview with local-only responsive rendering',async()=>{
-  for(const route of ['write','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']) {
+  for(const route of ['write','word-to-wordpress','word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']) {
     const html=await readFile('public/'+route+'/index.html','utf8');
     for(const id of ['export-content-panel','export-content-summary','export-content-preview','export-content-title','export-content-limit','export-content-status'])assert.equal(html.split('id="'+id+'"').length,2);
     assert.match(html,/id="export-content-preview"[^>]*role="region"[^>]*tabindex="0"/);assert.doesNotMatch(html,/id="export-content-panel"[^>]*open/);

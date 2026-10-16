@@ -143,7 +143,7 @@ test('Discard, failed recovery and late async completion preserve the article an
 });
 
 test('Shared import markup offers the private workflow in all seven tools without placing comments in article previews',async()=>{
-  for(const route of ['write','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']){
+  for(const route of ['write','word-to-wordpress','word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word']){
     const html=await readFile('public/'+route+'/index.html','utf8');
     assert.equal((html.match(/id="word-comment-handoff"/g)||[]).length,1);
     assert.match(html,/id="word-comment-handoff"[^>]* hidden/);assert.match(html,/id="word-comments-include"[^>]* disabled/);
