@@ -222,15 +222,19 @@
       "ui": true
     },
     {
-      "id": "word-strike-disclosure",
+      "id": "word-strike-preservation",
       "file": "word-strikethrough.docx",
       "expect": {
-        "category": "disclosed",
+        "category": "preserved",
         "text": "Today's Special: Salmon Sold out",
-        "warnings": [
+        "strikes": [
+          "Today's Special: Salmon"
+        ],
+        "forbiddenWarnings": [
           "Some inline formatting was simplified"
         ]
-      }
+      },
+      "ui": true
     },
     {
       "id": "word-image-placeholder",

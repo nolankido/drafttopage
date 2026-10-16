@@ -158,6 +158,8 @@ Word image reconciliation preserves original placeholder numbers after replaceme
 
 Destination formatting reviews now flag unresolved original/legacy Word image placeholders and route image and reference findings into the existing preparation controls. Opening a control preserves writing and approval; stale findings and unavailable tools keep safe manual inspection. Word and HTML retain their literal-image limitation. See [the actionable review release](docs/ACTIONABLE_FORMATTING_20261016.md).
 
+Ordinary single-line strikethrough is preserved through supported Word/HTML body import, double-tilde Markdown, inert preview, and HTML/Word/WordPress output. Code, links, literal plain clipboard punctuation, title metadata, unsupported double strike and tracked-change rejection keep their explicit boundaries. See [strikethrough fidelity](docs/STRIKETHROUGH_20261016.md) for scope and validation.
+
 ## Guided hyperlink editing
 
 All five writing workspaces offer Add or edit link and an article-wide inline link inventory. Choose selected plain text, a cursor, or a complete existing link; enter a descriptive label and HTTP(S) URL; inspect an exact change or unlink preview; then apply with a checkpoint. Source outside the selected range stays exact. Stale targets, partial formatting, code/table contexts, malformed URLs, and overflow are rejected. Pending preparation stays out of unchanged private formats; no-op/discard keeps approval. No URL is fetched or verified. See [the link editor release](docs/GUIDED_LINK_EDITOR_RELEASE.md).

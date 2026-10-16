@@ -54,13 +54,14 @@ export function wordDocumentParts(draft, { includeTitle = false } = {}) {
       const children = part.children || [{ type: 'text', text: part.text }];
       if (part.type === 'strong') return render(children, { ...flags, bold: true });
       if (part.type === 'em') return render(children, { ...flags, italic: true });
+      if (part.type === 's') return render(children, { ...flags, strike: true });
       if (part.type === 'a') {
         if (!links.has(part.href)) links.set(part.href, 'rIdLink' + (links.size + 1));
         return '<w:hyperlink r:id="' + links.get(part.href) + '">' + render(children, { ...flags, link: true }) + '</w:hyperlink>';
       }
       const code = part.type === 'code';
       const props = (flags.link ? '<w:rStyle w:val="Hyperlink"/>' : code ? '<w:rStyle w:val="CodeChar"/>' : '') +
-        (flags.bold ? '<w:b/>' : '') + (flags.italic ? '<w:i/>' : '') + (code && flags.link ? '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>' : '');
+        (flags.bold ? '<w:b/>' : '') + (flags.italic ? '<w:i/>' : '') + (flags.strike ? '<w:strike/>' : '') + (code && flags.link ? '<w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/>' : '');
       return textRuns(part.text, props);
     }).join('');
     return render(inlineParts(text));

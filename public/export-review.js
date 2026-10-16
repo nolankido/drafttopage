@@ -43,7 +43,8 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
       if (section.headingStyle === 'setext' && index === originals.length - 1) { start += original.length + 1; continue; }
       // Mask inline code and URLs before scanning unsupported syntax. Positions stay exact.
       let masked = '', offset = 0;
-      for (const token of walkInlineTokens(inlineTokens(text))) {
+      const lineTokens = inlineTokens(text);
+      for (const token of walkInlineTokens(lineTokens)) {
         if (token.start >= offset && ['code', 'link', 'image'].includes(token.type)) { masked += text.slice(offset, token.start) + ' '.repeat(token.end - token.start); offset = token.end; }
       }
       masked += text.slice(offset);
@@ -64,7 +65,11 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
       if (/^ {0,3}(?:-{3,}|_{3,}|(?:\*[ \t]*){3,})[ \t]*$/.test(masked) && !masked.includes('|')) flag('separator', wordpress ? 'This separator or setext heading marker stays text. Use a Markdown # heading or add a Separator block in WordPress.' : 'This separator or setext heading marker stays text. Use a Markdown # heading or add a horizontal rule in your destination editor.');
       if (setextLevel(masked)) flag('setext', 'This underline has no supported preceding heading paragraph. Check the surrounding blocks or use a Markdown # heading.');
       if (/^> ?(?:>|[-*+] +|\d+[.)] +|#{1,6} +)/.test(masked)) flag('quote-format', 'Nested block formatting in this quote stays text. Rebuild the intended list, heading, or nested quote in ' + target + '.');
-      if (/(^|[^\\])~~[^~]+~~/.test(masked)) flag('strike', 'Strike-through is outside this converter. Apply it in ' + target + ' if needed.');
+      let strikeMasked = masked.split('');
+      for (const token of walkInlineTokens(lineTokens)) if (token.type === 's') {
+        for (const at of [token.start, token.start + 1, token.end - 2, token.end - 1]) strikeMasked[at] = ' ';
+      }
+      if (/(^|[^\\])~~[^~]+~~/.test(strikeMasked.join(''))) flag('strike', 'This tilde formatting stays literal text. Use matching runs of exactly two tildes around nonempty text on one line, or apply the intended formatting in ' + target + '.');
       if (/^ {0,3}\[[^\]\n]+\]:|(^|[^\\])\[[^\[\]\n]+\]\[[^\[\]\n]*\]/.test(masked)) flag('reference', 'Reference links, reference images, or Markdown footnotes stay text. Use Convert reference-style links above the export for supported web references, or rebuild the remaining content in ' + target + '.');
       start += original.length + 1;
     }

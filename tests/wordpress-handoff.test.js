@@ -11,7 +11,7 @@ import { QUICK_SAMPLE } from '../public/quick-sample.js';
 import { installWordPressHandoff } from '../public/wordpress-handoff-controls.js';
 
 test('Handoff review identifies actual conversion limits and unfinished passages in source order', () => {
-  const body = '# Post title\n\nTODO: finish this.\n\n![image](https://example.test/image.png)\n\n[relative](/page/)\n\n## A list\n\n  - Nested\n+ Alternative marker\n9. Different start\n10. Continues\n- [x] Task\n\n| Name | Count |\n| --- | --- |\n| A | 2 | EXTRA |\n\n[ref]: https://example.test/\nRead [the reference][ref].\n\n~~removed~~\n\n---\n\n<div>Source HTML</div>';
+  const body = '# Post title\n\nTODO: finish this.\n\n![image](https://example.test/image.png)\n\n[relative](/page/)\n\n## A list\n\n  - Nested\n+ Alternative marker\n9. Different start\n10. Continues\n- [x] Task\n\n| Name | Count |\n| --- | --- |\n| A | 2 | EXTRA |\n\n[ref]: https://example.test/\nRead [the reference][ref].\n\nBefore ~~~removed~~~\n\n---\n\n<div>Source HTML</div>';
   const result = reviewWordPress({ title: 'Post title', body });
   for (const kind of ['title','title-level','placeholder','image','link','nested-list','task-list','table','reference','strike','html']) assert.ok(result.findings.some(item => item.kind === kind), kind);
   assert.ok(!result.findings.some(item => item.kind === 'separator'));

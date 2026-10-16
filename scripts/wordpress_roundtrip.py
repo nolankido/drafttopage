@@ -50,6 +50,9 @@ def check_post(post, case, markers, text=None):
         assert article.rows == case['rows'], 'Saved/rendered table structure changed'
     if 'links' in case:
         assert article.links == case['links'], 'Saved/rendered link targets changed'
+    if 'strikes' in case:
+        assert article.strikes == case['strikes'], 'Saved/rendered strikethrough changed'
+        assert ArticleHTML(post['content']['raw']).strikes == case['strikes'], 'Stored strikethrough changed'
     raw = post['content']['raw']
     assert not any(marker in raw or marker in post['content']['rendered'] for marker in markers), 'Private field leaked'
     return raw
@@ -226,6 +229,8 @@ def main():
                     check_blocks(page, case)
                     reopened = page.evaluate("id=>wp.apiFetch({path:'/wp/v2/posts/'+id+'?context=edit'})", post_id)
                     assert check_post(reopened, case, config['privateMarkers']) == raw, 'Stored block source changed after reopening'
+                    if 'strikes' in case:
+                        entry['strikethroughVerified'] = True
                     assert page.evaluate('window.DTP_FIXTURE_EXECUTED===undefined'), 'Literal source executed'
                     if case.get('editAfterReopen'):
                         selector = '[data-type="core/paragraph"][contenteditable="true"], [data-type="core/paragraph"] [contenteditable="true"]'

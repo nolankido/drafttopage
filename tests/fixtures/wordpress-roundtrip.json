@@ -72,8 +72,8 @@
     },
     {
       "id": "unicode-literal",
-      "body": "Café 日本語 😀. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and \\*stars\\*.",
-      "text": "Café 日本語 😀. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and *stars*.",
+      "body": "Caf\u00e9 \u65e5\u672c\u8a9e \ud83d\ude00. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and \\*stars\\*.",
+      "text": "Caf\u00e9 \u65e5\u672c\u8a9e \ud83d\ude00. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and *stars*.",
       "top": [
         "core/paragraph"
       ]
@@ -116,6 +116,35 @@
         "core/paragraph",
         "core/heading",
         "core/paragraph"
+      ]
+    },
+    {
+      "id": "strikethrough-nested",
+      "body": "~~Old **menu**~~ is replaced by [~~the earlier plan~~](https://example.test/plan). Literal \\~\\~text\\~\\~ and `~~code~~`.",
+      "text": "Old menu is replaced by the earlier plan. Literal ~~text~~ and ~~code~~.",
+      "top": [
+        "core/paragraph"
+      ],
+      "strikes": [
+        "Old menu",
+        "the earlier plan"
+      ],
+      "links": [
+        {
+          "text": "the earlier plan",
+          "href": "https://example.test/plan"
+        }
+      ]
+    },
+    {
+      "id": "word-strikethrough-handoff",
+      "file": "tests/fixtures/documents/word-strikethrough.docx",
+      "text": "Today's Special: Salmon Sold out",
+      "top": [
+        "core/paragraph"
+      ],
+      "strikes": [
+        "Today's Special: Salmon"
       ]
     }
   ]

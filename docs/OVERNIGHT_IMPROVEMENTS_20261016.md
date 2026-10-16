@@ -59,6 +59,14 @@ A reproduced Word placeholder previously received zero handoff findings despite 
 
 The targeted model/controller suite passed 37 tests, including thirteen new cases. Two browser journeys cover the actual shortcut flow and optional image-module failure, with second-occurrence targeting, unchanged approval on navigation, existing preview/checkpoint/apply ownership of edits, Word/HTML limitations, reference conversion, actual kit review, manual fallback and narrow layouts. The preliminary run exposed an incorrect test assertion for the kit's filename; the fixture now reads its actual existing article-body.md member. The corrected complete stable-source gate passed; the preliminary fixture failure is not counted as an acceptance pass. The block serializer and private formats are unchanged; PR #78 retains the latest eight genuine local WordPress cases.
 
+## Cycle 11: ordinary strikethrough fidelity
+
+Implementation is in [PR #81](https://github.com/nolankido/drafttopage/pull/81), from main `09b263993c7d851aa89746a82ee6bbc8451e5744`. Read [the fidelity scope](STRIKETHROUGH_20261016.md). This is active until its complete stable-source release gate and merge finish; do not duplicate it.
+
+The real pinned Word fixture now retains the actual struck text through ordinary Word/HTML body import, exact double-tilde Markdown, inert preview and HTML/Word/WordPress output. Direct on/off values and supported style toggles, code/URL protection, literal clipboard/title escaping, guided-edit guards, parser bounds and unsupported-format warnings are covered. H1/title fields, double strike, complex styling, multiline/deep structures and imported plain blockquotes retain explicit limits. HTML tracked-change ins/del remains rejected.
+
+Eighteen new model cases pass, and 10,000 deterministic non-tilde token arrays match starting main exactly. The preliminary 15-case real document corpus passed with three preserved, seven disclosed, four rejected and one sampled contract; mark preservation is checked independently in HTML and Word XML. The new browser journey checks visible marks, staged review, all three native downloads, plain/formatted paste fixtures and narrow layouts. The local WordPress gate adds two semantic save/reopen cases and rejects missing raw/rendered marks even when words match. Exact full-gate results, source/tree hashes, PR merge and native deployment outcomes are recorded in PR #81. No acceptance is claimed for a check before it actually passes.
+
 ## Release outcomes and continuation checkpoint
 
 | Cycle | GitHub outcome | Confirmed native Cloudflare production version |
@@ -85,7 +93,7 @@ PR #77 completed the bounded documentation-build retry successfully, merged as `
 
 Both feature trees passed `npm run verify:release` with the documented local Chromium and Playwright configuration. Cycle 9 also supplied `DRAFTTOPAGE_WORDPRESS_CLI` for the eight-case local WordPress gate. Cycle 10 deliberately omitted that separate gate and records NOT_RUN. Feature PRs #78 and #79 record exact validated trees, content hashes, counts, native preview/production build IDs and terminal outcomes. These are native Cloudflare Git builds, not GitHub Actions.
 
-This documentation checkpoint changes only repository Markdown. Build, static checks, Markdown links/fixture hash and diff scope are checked locally; the previously passed runtime suites are not claimed as rerun for documentation. The progress record now names the actual feature PRs and next reproducible case. No image upload, external-user session, physical-device/screen-reader acceptance, Word/Google Docs clipboard session or independently verified production rendering has been added. No new implementation is active at this checkpoint.
+This documentation checkpoint changes only repository Markdown. Build, static checks, Markdown links/fixture hash and diff scope are checked locally; the previously passed runtime suites are not claimed as rerun for documentation. The progress record now names the actual feature PRs and next reproducible case. No image upload, external-user session, physical-device/screen-reader acceptance, Word/Google Docs clipboard session or independently verified production rendering has been added. That checkpoint completed before the separate cycle 11 work described above.
 
 ## Continuation rules
 

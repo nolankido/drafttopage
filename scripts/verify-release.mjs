@@ -22,7 +22,8 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
         return !found || found.result !== 'PASS' || found.status !== 'draft' || found.validAfterReopen !== true || found.saveResponse !== 200 ||
           !Number.isInteger(found.postId) || found.postId <= 0 || !/^[a-f0-9]{64}$/.test(found.savedSha256 || '') ||
           item.editAfterReopen && (found.editedAndReopened !== true || !/^[a-f0-9]{64}$/.test(found.editedSha256 || '')) ||
-          item.inputMode && found.inputMode !== item.inputMode || item.file && !found.source;
+          item.inputMode && found.inputMode !== item.inputMode || item.file && !found.source ||
+          item.strikes && found.strikethroughVerified !== true;
       })) throw new Error('WordPress evidence is incomplete, contains failures, or targets a different environment.');
   return { result: 'PASS', version: evidence.environment.wordpress, cases: evidence.cases.length, role: 'author' };
 }

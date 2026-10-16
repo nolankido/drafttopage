@@ -8,7 +8,7 @@ function normalize(nodes, active = new Set()) {
   const append = node => {
     const previous = result.at(-1);
     if (previous && previous.type === node.type && ['text', 'code'].includes(node.type)) previous.text += node.text;
-    else if (previous && previous.type === node.type && (['strong', 'em'].includes(node.type) || node.type === 'a' && previous.href === node.href)) previous.children = normalize([...contents(previous), ...contents(node)], new Set([...active, node.type]));
+    else if (previous && previous.type === node.type && (['strong', 'em', 's'].includes(node.type) || node.type === 'a' && previous.href === node.href)) previous.children = normalize([...contents(previous), ...contents(node)], new Set([...active, node.type]));
     else result.push(node);
   };
   for (const source of nodes) {
@@ -16,7 +16,7 @@ function normalize(nodes, active = new Set()) {
     const repeated = active.has(source.type) && source.type !== 'a';
     const children = normalize(contents(source), new Set([...active, source.type]));
     if (repeated) { children.forEach(append); continue; }
-    if (['strong', 'em'].includes(source.type)) {
+    if (['strong', 'em', 's'].includes(source.type)) {
       const leading = children[0]?.type === 'text' ? children[0].text.match(/^\s*/)[0] : '';
       if (leading) { children[0].text = children[0].text.slice(leading.length); if (!children[0].text) children.shift(); append({ type: 'text', text: leading }); }
       const last = children.at(-1), trailing = last?.type === 'text' ? last.text.match(/\s*$/)[0] : '';
@@ -29,9 +29,9 @@ function normalize(nodes, active = new Set()) {
 }
 function signature(nodes, flags = {}, result = []) {
   for (const node of nodes) {
-    if (node.type === 'strong' || node.type === 'em' || node.type === 'a') signature(contents(node), { ...flags, [node.type]: node.type === 'a' ? node.href : true }, result);
+    if (['strong', 'em', 's', 'a'].includes(node.type)) signature(contents(node), { ...flags, [node.type]: node.type === 'a' ? node.href : true }, result);
     else {
-      const style = JSON.stringify({ strong: Boolean(flags.strong), em: Boolean(flags.em), a: (flags.a || '').replaceAll('(', '%28').replaceAll(')', '%29'), code: node.type === 'code' });
+      const style = JSON.stringify({ strong: Boolean(flags.strong), em: Boolean(flags.em), s: Boolean(flags.s), a: (flags.a || '').replaceAll('(', '%28').replaceAll(')', '%29'), code: node.type === 'code' });
       if (result.at(-1)?.style === style) result.at(-1).text += node.text;
       else if (node.text) result.push({ text: node.text, style });
     }
@@ -48,7 +48,7 @@ function serialize(nodes) {
     }
     const content = serialize(contents(node));
     if (node.type === 'a') return '[' + content + '](' + node.href.replaceAll('(', '%28').replaceAll(')', '%29') + ')';
-    const marker = node.type === 'strong' ? '**' : '*';
+    const marker = node.type === 's' ? '~~' : node.type === 'strong' ? '**' : '*';
     return marker + content + marker;
   }).join('');
 }
