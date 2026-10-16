@@ -10,6 +10,7 @@ import { installArticleImport } from '../public/import-controls.js';
 import { crc32 } from '../public/zip.js';
 import { imageFixture } from './word-image-fixtures.js';
 import { notesFixture, note as wordNote, ref as noteReference } from './word-note-fixtures.js';
+import { commentFixture } from './word-comment-fixtures.js';
 
 import { W, R, xml, run, para, word, fixture, python, zip, trees, create, convert, numbering, item } from './docx-fixtures.js';
 
@@ -168,6 +169,23 @@ test('Word notes remain staged with their conversion notices until acknowledgeme
   $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(true);
   await $('apply-import').fire(); assert.equal(applied.length, 1); assert.match(applied[0].body, /Imported Word footnotes/);
   assert.equal(ui.pending(), false); assert.equal($('import-body-preview').value, '');
+}));
+
+test('Word comment inclusion requires deliberate selection and renewed import acknowledgement, then purges temporary feedback', () => withUI(async ({ $, ui, applied, file, confirm }) => {
+  await file(zip(commentFixture()));
+  assert.equal($('word-comment-handoff').hidden,false);
+  assert.equal($('word-comment-list').childNodes.length,0);
+  $('import-changes-ok').checked=true;await $('import-changes-ok').fire('change');
+  await $('prepare-word-comments').fire();
+  assert.equal($('import-changes-ok').checked,false);assert.equal($('apply-import').disabled,true);
+  assert.equal($('word-comment-list').childNodes.length,1);assert.doesNotMatch($('import-body-preview').value,/PRIVATE_COMMENT/);
+  assert.match($('import-summary').textContent,/0 review question/);
+  $('word-comments-include').checked=true;await $('word-comments-include').fire('change');
+  assert.match($('import-summary').textContent,/1 review question/);await $('apply-import').fire();assert.equal(applied.length,0);
+  $('import-changes-ok').checked=true;await $('import-changes-ok').fire('change');confirm(true);await $('apply-import').fire();
+  assert.deepEqual(applied[0].questions,['Word comment ID 7\nPRIVATE_COMMENT: Check the source.']);
+  assert.equal(applied[0].body,'Fictional article');assert.equal(ui.pending(),false);
+  assert.equal($('word-comment-list').childNodes.length,0);assert.equal($('word-comments-include').checked,false);assert.equal($('word-comment-guidance').textContent,'');
 }));
 
 test('An unresolved Word note cannot replace current writing or leave a previously valid preview applicable', () => withUI(async ({ $, ui, applied, file, message }) => {
