@@ -2,7 +2,8 @@ import { createMarkdown } from './markdown.js';
 import { DRAFT_FIELDS } from './workspace.js';
 import { installRecovery } from './recovery.js';
 import { downloadText } from './download.js';
-import { renderPreview, suggestFilename } from './preview.js';
+import { suggestFilename } from './preview.js';
+import { installPreviewNavigation } from './preview-navigation.js';
 import { articleIssues, articleBody, makeDraftingBrief } from './authoring.js';
 import { createReadingPage } from './html-export.js';
 import { TEMPLATES } from './content-data.js';
@@ -26,7 +27,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewSnapshot = null;
+let questions = [], workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
@@ -77,12 +78,7 @@ function update() {
   $('preview-empty').hidden = hasBody; $('article-preview').hidden = !hasBody;
   try { $('drafting-brief').value = makeDraftingBrief(value.source); }
   catch (error) { $('drafting-brief').value = error.message; }
-  if ($('preview-panel').open) {
-    const snapshot = JSON.stringify([$('title').value, $('body').value]);
-    if (snapshot !== previewSnapshot) {
-      renderPreview($('article-preview'), $('title').value, $('body').value); previewSnapshot = snapshot;
-    }
-  }
+  previewNavigation?.refresh();
   draftReview?.refresh();
   wordPressImages?.refresh();
   publishingExports?.update();
@@ -115,7 +111,7 @@ function fill(value) {
   touched.clear(); renderQuestions(); setFocus(false);
   importer?.clear(); $('import-text').value = '';
   articleSearch?.clear();
-  $('article-preview').replaceChildren(); previewSnapshot = null;
+  $('article-preview').replaceChildren(); previewNavigation?.clear();
   $('notes-panel').open = Boolean($('notes').value || questions.length);
   $('export-format').value = 'page';
   wordPressImages?.reset();
@@ -123,7 +119,8 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); workflow?.update(); }, report });
+const recovery = installRecovery({ capture, restore: value => { revisions?.captureBefore('Before workspace restore'); fill(value); }, hasWork, isBusy: () => Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); workflow?.update(); }, report });
+previewNavigation = installPreviewNavigation({ getDraft: () => capture().draft, isBusy: () => recovery.reading() || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), report, selectReview: () => workflow?.select('review') });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
 $('profile').addEventListener('change', changed);
@@ -276,9 +273,9 @@ $('copy-questions').addEventListener('click', () => copy(questions.map(text => '
 importer = installArticleImport({
   focusPreview: wordImportTool || copiedPasteTool, pasteFirst: copiedPasteTool,
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
-  workChanged: () => { updateExitWarning(); workflow?.update(); },
+  workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); workflow?.update(); },
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
-  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); workflow?.update(); }, report,
+  isBusy: () => recovery.reading(), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); workflow?.update(); }, report,
   applyInsertion: plan => {
     revisions.captureBefore('Before article insertion');
     $('body').value = plan.body; touched.add('body'); changed();
@@ -287,7 +284,7 @@ importer = installArticleImport({
   apply: draft => {
     revisions?.captureBefore('Before article import');
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
-    articleSearch?.clear();
+    articleSearch?.clear(); previewNavigation?.clear();
     questions = [...draft.questions]; touched.clear(); renderQuestions(); setFocus(false);
     sourceReview?.clear();
     imageEditor?.clear();
