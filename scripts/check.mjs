@@ -13,7 +13,10 @@ const workflowFiles = await files('.github/workflows').catch(error => {
 });
 assert.ok(!workflowFiles.some(file => /\.ya?ml$/i.test(file)), 'GitHub Actions workflows are stopped by owner request. Run validation locally.');
 for (const file of sourceFiles.filter(p => /\.(m?js)$/.test(p))) execFileSync(process.execPath, ['--check', file]);
-const pages = [appPage, loginPage, unavailablePage, ...await Promise.all(sourceFiles.filter(p => p.endsWith('.html')).map(p => readFile(p, 'utf8')))];
+// Saved paste fragments are corpus data, not complete website pages. Their
+// parsing, output safety, and source hashes are checked by the document suite.
+const pageFiles = sourceFiles.filter(p => p.endsWith('.html') && !p.startsWith('tests/fixtures/'));
+const pages = [appPage, loginPage, unavailablePage, ...await Promise.all(pageFiles.map(p => readFile(p, 'utf8')))];
 for (const page of pages) {
   assert.equal((page.match(/<h1\b/g) || []).length, 1, 'One h1 per page');
   const ids = [...page.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]);

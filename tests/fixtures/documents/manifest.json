@@ -1,0 +1,331 @@
+{
+  "version": 1,
+  "scope": "Pinned application-origin microdocuments and upstream paste captures, plus one long authored Markdown sample. Exact-text contracts and sampled passages are separate. Not a real-user or destination-editor acceptance study.",
+  "fixtures": [
+    {
+      "file": "google-checklist.html",
+      "sha256": "1c38af3d1f3e2cc1eac2d3f86b94b7e97d90083820028d3b38d9acf220eb5e18",
+      "bytes": 7126,
+      "source": "https://github.com/facebook/lexical/blob/fd661f08c025c18593e0f1fbbcb503fe42b815e9/packages/lexical/src/__tests__/unit/HTMLCopyAndPaste.test.ts",
+      "revision": "fd661f08c025c18593e0f1fbbcb503fe42b815e9",
+      "license": "LEXICAL-LICENSE.txt",
+      "provenance": "Exact HTML template literal from upstream Google Docs checklist paste test. Capture date and application/browser version are not specified upstream; no fresh Google account session was used."
+    },
+    {
+      "file": "google-list.html",
+      "sha256": "61326b8ff4b335a63aa69268d466d94a563b205323dfb6612763871c2bbf0fd4",
+      "bytes": 1473,
+      "source": "https://github.com/facebook/lexical/blob/fd661f08c025c18593e0f1fbbcb503fe42b815e9/packages/lexical/src/__tests__/unit/HTMLCopyAndPaste.test.ts",
+      "revision": "fd661f08c025c18593e0f1fbbcb503fe42b815e9",
+      "license": "LEXICAL-LICENSE.txt",
+      "provenance": "Exact HTML template literal from upstream Google Docs list with right alignment paste test. Capture date and application/browser version are not specified upstream; no fresh Google account session was used."
+    },
+    {
+      "file": "google-table.html",
+      "sha256": "4b17ac7fe02016b3a3115cb9e2d3195750add46b81e9f9d0bf5445644b079acc",
+      "bytes": 3737,
+      "source": "https://github.com/facebook/lexical/blob/fd661f08c025c18593e0f1fbbcb503fe42b815e9/packages/lexical-playground/src/__tests__/browser/TablesHTMLCopyAndPaste.test.ts",
+      "revision": "fd661f08c025c18593e0f1fbbcb503fe42b815e9",
+      "license": "LEXICAL-LICENSE.txt",
+      "provenance": "Exact HTML template literal from upstream Google Docs table with custom widths paste test. Capture date and application/browser version are not specified upstream; no fresh Google account session was used."
+    },
+    {
+      "file": "mammoth-readme.md",
+      "sha256": "f251fea64a8e8d84129c1b0d9e404d535b962471f3df5a10cf188fa67cf66bac",
+      "bytes": 29981,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/README.md",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified authored project documentation; a long-form Markdown stress sample, not a Word/Google Docs article."
+    },
+    {
+      "file": "word-comments.docx",
+      "sha256": "adc9f524d176f562db830c346c1e9e21c6a6aa6768d9c09892a423f1257fe17c",
+      "bytes": 15526,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/comments.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-footnote-hyperlink.docx",
+      "sha256": "1024a9054d06dc14d69a59f3b0d9d98361f755d5aff93f7b4f27b4af27fa8295",
+      "bytes": 16271,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/footnote-hyperlink.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-footnotes.docx",
+      "sha256": "a3d786ba3ad53833dd3d5e01bd55e93b628c1287d8f9210eb94cb7533f270306",
+      "bytes": 15936,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/footnotes.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-simple-list.docx",
+      "sha256": "ed3c015cf411d07b08bf34264ff709363740b0747af355479088079d0796dfb3",
+      "bytes": 13887,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/simple-list.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-single-paragraph.docx",
+      "sha256": "7d89bf44b4d6940234efb6973d24706c881aa875bb794bfbe54efd92f9c6cf3e",
+      "bytes": 12773,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/single-paragraph.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-strict-format.docx",
+      "sha256": "86d90f50d8fd3310c4079291c6622878d8f4d8864d665d1e34841f407e7b7662",
+      "bytes": 11692,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/strict-format.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-strikethrough.docx",
+      "sha256": "1058370d03b42e797384e25b2142fce805f5520693e5ddbdf5e5ee64a3cf910c",
+      "bytes": 12652,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/strikethrough.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-tables.docx",
+      "sha256": "9f75a82d36530d91989a43fcb8940f2e753051787714cecbf6a1f49a22e58ded",
+      "bytes": 13087,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/tables.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    },
+    {
+      "file": "word-tiny-picture.docx",
+      "sha256": "791b57c038328560d710c33c5b53bc3ea67a6c08bd9fa0fce0770883e39228d8",
+      "bytes": 13699,
+      "source": "https://github.com/mwilliamson/mammoth.js/blob/5171a9072f8b7343ab1c9ed3a15d6d372cb59b67/test/test-data/tiny-picture.docx",
+      "revision": "5171a9072f8b7343ab1c9ed3a15d6d372cb59b67",
+      "license": "MAMMOTH-LICENSE.txt",
+      "provenance": "Unmodified upstream DOCX; docProps/app.xml records Microsoft Office Word. Metadata is evidence of origin, not independent verification of the authoring session."
+    }
+  ],
+  "cases": [
+    {
+      "id": "word-paragraph",
+      "file": "word-single-paragraph.docx",
+      "expect": {
+        "category": "preserved",
+        "text": "Walking on imported air"
+      },
+      "ui": true
+    },
+    {
+      "id": "word-bullets",
+      "file": "word-simple-list.docx",
+      "expect": {
+        "category": "preserved",
+        "text": "Apple Banana",
+        "listItems": [
+          "Apple",
+          "Banana"
+        ]
+      }
+    },
+    {
+      "id": "word-table-choice-required",
+      "file": "word-tables.docx",
+      "expect": {
+        "category": "rejected",
+        "error": "no explicit header row"
+      },
+      "ui": true
+    },
+    {
+      "id": "word-table-reviewed-header",
+      "file": "word-tables.docx",
+      "expect": {
+        "category": "disclosed",
+        "text": "Above Top left Top right Bottom left Bottom right Below",
+        "warnings": [
+          "first table row was used as headers"
+        ],
+        "rows": [
+          [
+            "Top left",
+            "Top right"
+          ],
+          [
+            "Bottom left",
+            "Bottom right"
+          ]
+        ]
+      },
+      "options": {
+        "firstRowHeaders": true
+      },
+      "ui": true
+    },
+    {
+      "id": "word-footnotes",
+      "file": "word-footnotes.docx",
+      "expect": {
+        "category": "disclosed",
+        "text": "Ouch[Word footnote 1].[Word footnote 2] Imported Word footnotes Word footnote 1 A tachyon walks into a bar. Word footnote 2 Fin.",
+        "warnings": [
+          "Converted 2 referenced footnotes",
+          "Notes are ordinary article text"
+        ]
+      }
+    },
+    {
+      "id": "word-note-link",
+      "file": "word-footnote-hyperlink.docx",
+      "expect": {
+        "category": "disclosed",
+        "text": "[Word footnote 1] Imported Word footnotes Word footnote 1 Example",
+        "warnings": [
+          "Converted 1 referenced footnote"
+        ],
+        "links": [
+          {
+            "text": "Example",
+            "href": "http://www.example.com/"
+          }
+        ]
+      }
+    },
+    {
+      "id": "word-comments-private",
+      "file": "word-comments.docx",
+      "expect": {
+        "category": "disclosed",
+        "text": "Ouch.",
+        "warnings": [
+          "Comments stay out of article text"
+        ],
+        "forbidden": [
+          "A tachyon walks into a bar.",
+          "Fin."
+        ]
+      },
+      "ui": true
+    },
+    {
+      "id": "word-strike-disclosure",
+      "file": "word-strikethrough.docx",
+      "expect": {
+        "category": "disclosed",
+        "text": "Today's Special: Salmon Sold out",
+        "warnings": [
+          "Some inline formatting was simplified"
+        ]
+      }
+    },
+    {
+      "id": "word-image-placeholder",
+      "file": "word-tiny-picture.docx",
+      "expect": {
+        "category": "disclosed",
+        "text": "[Word image 1]",
+        "warnings": [
+          "numbered text placeholders"
+        ],
+        "imageReferences": 1
+      }
+    },
+    {
+      "id": "word-strict-rejection",
+      "file": "word-strict-format.docx",
+      "expect": {
+        "category": "rejected",
+        "error": "Only standard WordprocessingML documents are supported"
+      },
+      "ui": true
+    },
+    {
+      "id": "google-list",
+      "file": "google-list.html",
+      "expect": {
+        "category": "disclosed",
+        "text": "Hello World",
+        "listItems": [
+          "Hello",
+          "World"
+        ],
+        "warnings": [
+          "Paragraph breaks inside a list item"
+        ]
+      },
+      "ui": true
+    },
+    {
+      "id": "google-table-choice-required",
+      "file": "google-table.html",
+      "expect": {
+        "category": "rejected",
+        "error": "no explicit header row"
+      },
+      "ui": true
+    },
+    {
+      "id": "google-table-reviewed-header",
+      "file": "google-table.html",
+      "expect": {
+        "category": "disclosed",
+        "text": "short wide default a b c",
+        "rows": [
+          [
+            "short",
+            "wide",
+            "default"
+          ],
+          [
+            "a",
+            "b",
+            "c"
+          ]
+        ],
+        "warnings": [
+          "first table row was used as headers"
+        ]
+      },
+      "options": {
+        "firstRowHeaders": true
+      },
+      "ui": true
+    },
+    {
+      "id": "google-checklist-rejection",
+      "file": "google-checklist.html",
+      "expect": {
+        "category": "rejected",
+        "error": "unsupported structure"
+      },
+      "ui": true
+    },
+    {
+      "id": "long-authored-markdown",
+      "file": "mammoth-readme.md",
+      "expect": {
+        "category": "sampled",
+        "passages": [
+          "Mammoth is designed to convert .docx documents, such as those created by Microsoft Word, Google Docs and LibreOffice, and convert them to HTML.",
+          "Mammoth performs no sanitisation of the source document, and should therefore be used extremely carefully with untrusted user input.",
+          "Supporting styles defined without names"
+        ],
+        "title": "Mammoth .docx to HTML converter"
+      }
+    }
+  ]
+}
