@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { revealDetails } from '../public/disclosure.js';
 
 test('Converter essentials stay reachable while optional tools share one closed disclosure', async () => {
-  const routes = ['markdown-to-wordpress', 'word-to-wordpress', 'google-docs-to-wordpress', 'markdown-to-html', 'markdown-to-word'];
+  const routes = ['markdown-to-wordpress', 'word-to-wordpress', 'word-to-markdown', 'google-docs-to-wordpress', 'markdown-to-html', 'markdown-to-word'];
   const pages = Object.fromEntries(await Promise.all(routes.map(async route => [route, await readFile('public/' + route + '/index.html', 'utf8')])));
   const report = JSON.parse(execFileSync('python3', ['-c', String.raw`
 import sys,json
@@ -23,7 +23,7 @@ out={}
 for route,html in json.load(sys.stdin).items():
  p=P();p.feed(html);assert not p.stack
  assert 'open' not in p.nodes['editing-tools']['attrs']
- for key in ['body','title','reviewed','publishing-destination','copy-wordpress','download-word','copy-html-source','backup-controls','import-panel','page-details','article-image-status']:
+ for key in ['body','title','reviewed','publishing-destination','copy-wordpress','download-word','copy-html-source','copy-article-markdown','download-article-markdown','markdown-handoff','backup-controls','import-panel','page-details','article-image-status']:
   assert 'editing-tools' not in p.nodes[key]['ancestors'],(route,key)
  for key in ['draft-check-panel','find-panel','image-editor-panel','link-editor-panel','table-editor-panel','source-review-panel','checkpoint-panel','draft-collection-panel']:
   assert 'editing-tools' in p.nodes[key]['ancestors'],(route,key)

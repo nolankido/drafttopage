@@ -17,7 +17,8 @@ import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
 import { revealDetails } from './disclosure.js';
 import { installWorkflowNavigation, focusWorkflowTarget } from './workflow-navigation.js';
-const wordImportTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
+const markdownTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-markdown';
+const wordImportTool = markdownTool || document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
 const copiedPasteTool = document.querySelector('.desk-intro')?.dataset.workspace === 'google-docs';
 const wordpressTool = wordImportTool || copiedPasteTool || document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
 const htmlTool = document.querySelector('.desk-intro')?.dataset.workspace === 'html';
@@ -52,8 +53,8 @@ function update() {
   const issues = articleIssues(value.draft);
   for (const id of DRAFT_FIELDS) {
     const error = $(id + '-error');
-    const optionalWordField = $('publishing-destination').value === 'word' && id !== 'body' && !(id === 'title' && $('word-include-title').checked) && !$(id).value.length;
-    const showError = !optionalWordField && Boolean(issues[id]) && (touched.has(id) || $(id).value.length > 0);
+    const optionalExportField = id !== 'body' && !$(id).value.length && ($('publishing-destination').value === 'markdown' || $('publishing-destination').value === 'word' && !(id === 'title' && $('word-include-title').checked));
+    const showError = !optionalExportField && Boolean(issues[id]) && (touched.has(id) || $(id).value.length > 0);
     error.textContent = issues[id] || ''; error.hidden = !showError;
     if (showError) $(id).setAttribute('aria-invalid', 'true'); else $(id).removeAttribute('aria-invalid');
   }
@@ -67,6 +68,7 @@ function update() {
   if (!issues.body) {
     const destination = $('publishing-destination').value;
     if (destination === 'word') $('export-readiness').textContent = 'Read the preview, choose whether to include the title, then review and download Word. Page metadata can remain empty.';
+    else if (destination === 'markdown') $('export-readiness').textContent = 'Read the preview, choose title handling, then review and copy or download article Markdown. Page metadata can remain empty.';
     else if (destination === 'html') $('export-readiness').textContent = 'Read the preview, choose title handling, then review and copy HTML source. Page metadata can remain empty.';
     else if (destination === 'wordpress') $('export-readiness').textContent = 'Read the preview and inspect the handoff findings, then review and copy WordPress blocks. Your title stays separate; page metadata is optional.';
   }
@@ -139,7 +141,7 @@ $('start-draft').addEventListener('click', () => {
   if (recovery.reading() || importer?.reading()) return;
   workflow?.select('bring');
   setFocus(true); $('notes-panel').open = false; focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
-  report(wordTool ? 'Paste simple Markdown into the article body. Review the preview, then download Word. The title is optional unless you include it.' : htmlTool ? 'Paste simple Markdown into the article body. Review the preview, then copy HTML source. The title is optional unless you include it.' : wordpressTool ? 'Paste simple Markdown into the article body. Keep the post title separate. The reading preview updates as you edit.' : 'Paste or write your article. Page details can wait until you need a full Markdown export.');
+  report(markdownTool ? 'Paste text or Markdown into the article body. Review, then copy or download the .md file. Page metadata is optional.' : wordTool ? 'Paste simple Markdown into the article body. Review the preview, then download Word. The title is optional unless you include it.' : htmlTool ? 'Paste simple Markdown into the article body. Review the preview, then copy HTML source. The title is optional unless you include it.' : wordpressTool ? 'Paste simple Markdown into the article body. Keep the post title separate. The reading preview updates as you edit.' : 'Paste or write your article. Page details can wait until you need a full Markdown export.');
 });
 function loadSample() {
   if (recovery.reading() || importer?.reading()) return;
@@ -148,7 +150,7 @@ function loadSample() {
   try { revisions?.captureBefore('Before fictional sample'); } catch (error) { report(error.message); return; }
   fill({ source: existing.source, draft: { ...QUICK_SAMPLE, questions: existing.draft.questions } });
   setFocus(true); $('preview-panel').open = true; update(); workflow?.review();
-  report('Fictional sample loaded. Try the reading preview, review the article, then ' + (wordTool ? 'download Word' : htmlTool ? 'copy HTML source' : 'copy WordPress blocks or choose another export') + '. Replace this sample before publishing.');
+  report('Fictional sample loaded. Try the reading preview, review the article, then ' + (markdownTool ? 'copy or download Markdown' : wordTool ? 'download Word' : htmlTool ? 'copy HTML source' : 'copy WordPress blocks or choose another export') + '. Replace this sample before publishing.');
 }
 $('start-sample').addEventListener('click', loadSample);
 function loadOutline(id) {
@@ -314,7 +316,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
 loadEditingTool(() => import('./wordpress-image-controls.js'), ({ installWordPressImages }) => {
   wordPressImages = installWordPressImages({ getDraft: () => capture().draft, changed, report, editImage: (start, end) => imageEditor?.editImage(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(importer?.reading()) });
 }, () => {
@@ -391,5 +393,5 @@ workflow = installWorkflowNavigation({
   isBusy: () => recovery.reading() || Boolean(importer?.reading()), refreshPreview: update, report
 });
 setFocus(true); update();
-report(copiedPasteTool ? 'Copied-writing tool ready. Paste a Google Docs selection into the import box to preview before applying. Save explicitly before leaving.' : wordImportTool ? 'Word to WordPress tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
+report(copiedPasteTool ? 'Copied-writing tool ready. Paste a Google Docs selection into the import box to preview before applying. Save explicitly before leaving.' : wordImportTool ? 'Word to ' + (markdownTool ? 'Markdown' : 'WordPress') + ' tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();

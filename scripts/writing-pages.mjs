@@ -7,6 +7,7 @@ import { HTML_TOOL_GUIDE } from './html-tool-guide.mjs';
 import { WORD_TOOL_GUIDE } from './word-tool-guide.mjs';
 import { googleDocsWorkspace } from './google-docs-tool.mjs';
 import { workflowNavigation } from './workflow-navigation.mjs';
+import { WORD_MARKDOWN_GUIDE } from './word-markdown-tool.mjs';
 const importPanel = readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8');
 const collectionPanel = readFileSync(new URL('./draft-collection.html.inc', import.meta.url), 'utf8');
 const revisionPanel = readFileSync(new URL('./revision-panel.html.inc', import.meta.url), 'utf8');
@@ -22,6 +23,7 @@ const deskBody = readFileSync(new URL('./writing-desk.html', import.meta.url), '
   .replace('<!--SOURCE_REVIEW-->', readFileSync(new URL('./source-review.html.inc', import.meta.url), 'utf8'))
   .replace('<!--ARTICLE_IMPORT-->', importPanel)
   .replace('<!--WORD_HANDOFF-->', readFileSync(new URL('./word-handoff.html.inc', import.meta.url), 'utf8'))
+  .replace('<!--MARKDOWN_HANDOFF-->', readFileSync(new URL('./markdown-handoff.html.inc', import.meta.url), 'utf8'))
   .replace('<!--WORDPRESS_IMAGES-->', readFileSync(new URL('./wordpress-images.html.inc', import.meta.url), 'utf8'))
   .replace('<!--PUBLISHING_CHECKLIST-->', readFileSync(new URL('./publishing-profile.html.inc', import.meta.url), 'utf8'))
   .replace('<!--PUBLISHING_PROFILE-->', readFileSync(new URL('./publishing-profile-editor.html.inc', import.meta.url), 'utf8'))
@@ -66,10 +68,13 @@ const wordFirstPanel = (importPanel.slice(0, alternativeStart) + importPanel.sli
   .replace('<summary>Import an article or drafting result</summary>', '<summary>1. Open your Word document</summary>');
 const wordToWordPressBody = readFileSync(new URL('./word-to-wordpress-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('word-import')) +
   wordFirstPanel + compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>') + readFileSync(new URL('./word-to-wordpress-guide.html.inc', import.meta.url), 'utf8');
+const wordToMarkdownBody = readFileSync(new URL('./word-to-markdown-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('word-markdown')) +
+  wordFirstPanel + compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>').replace('<details id="markdown-source-panel">', '<details id="markdown-source-panel" open>') + WORD_MARKDOWN_GUIDE;
 export const writingPages = [
   { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody.replace(workspaceMarker, ''), script: '/desk.js', wide: true, desk: true },
   { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown, tables, lists, and selected linked images to editable WordPress blocks. Free local preparation, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/word-to-wordpress/', title: 'Free Word to WordPress Converter', description: 'Open a Word .docx locally, preview its article conversion, and take editable WordPress blocks. Free, with no upload or account needed.', body: wordToWordPressBody, script: '/desk.js', wide: true, desk: true, converter: true },
+  { route: '/word-to-markdown/', title: 'Free Word to Markdown Converter', description: 'Convert Word .docx to Markdown locally. Preview headings, lists, links, and simple tables, then copy or download .md. Free, with no upload or account.', body: wordToMarkdownBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/google-docs-to-wordpress/', title: 'Free Google Docs to WordPress Converter', description: 'Paste a Google Docs selection, inspect its local conversion, and take editable WordPress blocks. Free, with no Google account connection or upload.', body: googleDocsWorkspace(importPanel, compactBody), script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-html/', title: 'Free Markdown to HTML Converter', description: 'Convert simple Markdown to article HTML. Preview, copy reviewed HTML source, or download a fragment. Free, local, and no account needed.', body: htmlBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-word/', title: 'Free Markdown to Word Converter', description: 'Convert simple Markdown to an editable Word document. Preview your article and download .docx locally, free, with no account or API credits.', body: wordBody, script: '/desk.js', wide: true, desk: true, converter: true },
