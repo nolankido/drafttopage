@@ -3,6 +3,8 @@ import { htmlTreeToMarkdown } from './html-import.js';
 import { parseArticleImport } from './article-import.js';
 import { safeWebLink } from './markdown-inline.js';
 import { wordImageReference } from './word-image-reference.js';
+import { createWordNotes } from './word-notes.js';
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 
 export const WORD_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -61,7 +63,9 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     const links = [...rels.values()].filter(r => r.type === OFFICE_REL + name);
     if (links.length > 1 || parts.has('word/' + name + '.xml') && links.length !== 1 || links.some(r => ![name + '.xml', '/word/' + name + '.xml'].includes(r.target) || r.mode && r.mode !== 'Internal' || !parts.has('word/' + name + '.xml'))) throw unsupported('This document uses unsupported ' + name + ' parts.');
   }
-  const notices = new Set(['Only the main article is imported. Headers, footers, comments, document metadata, fonts, colors, page layout, and embedded files are not retained. Keep your original Word file.']);
+  const notes = createWordNotes(parts, rels, types, relationships);
+  let activeRelationships = rels, activeNote = null, noteMarks = 0;
+  const notices = new Set(['The main article and supported referenced notes are imported. Headers, footers, comments, document metadata, fonts, colors, page layout, and embedded files are not retained. Keep your original Word file.']);
   const wordImages = []; let imageCount = 0;
   const warn = text => notices.add(text);
   const h = (name, content = [], attributes = {}) => {
@@ -121,13 +125,22 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     const name = node.localName;
     if (['pPr', 'rPr', 'bookmarkStart', 'bookmarkEnd', 'proofErr', 'lastRenderedPageBreak', 'commentRangeStart', 'commentRangeEnd', 'commentReference'].includes(name)) return [];
     if (['drawing', 'pict', 'object'].includes(name)) {
+      if (activeNote) throw unsupported('Images and embedded objects inside notes need review in Word first.');
       warn('Images and embedded objects became numbered text placeholders. No image or external resource was loaded. Recover supported Word images explicitly before applying the import.');
       const image = wordImageReference(node, rels, types, ++imageCount);
       if (wordImages.length < 200) wordImages.push(image);
       else warn('Image recovery maps only the first 200 visible image or object positions. Inspect the remaining placeholders in Word.');
       return [image.placeholder];
     }
-    if (['footnoteReference', 'endnoteReference', 'fldChar', 'instrText', 'fldSimple', 'altChunk', 'sym'].includes(name)) throw unsupported('Fields, footnotes, endnotes, and special symbols need review in Word first.');
+    if (['footnoteReference', 'endnoteReference'].includes(name)) {
+      if (activeNote) throw unsupported('Nested note references cannot be preserved.');
+      return [notes.reference(node)];
+    }
+    if (['footnoteRef', 'endnoteRef'].includes(name)) {
+      if (name !== activeNote + 'Ref' || ++noteMarks > 1 || elements(node).length) throw unsupported('Unexpected or repeated note reference marks cannot be preserved.');
+      return [];
+    }
+    if (['fldChar', 'instrText', 'fldSimple', 'altChunk', 'sym'].includes(name)) throw unsupported('Fields and special symbols need review in Word first.');
     if (name === 't') return [node.textContent];
     if (name === 'tab') { warn('Tabs were simplified to spaces.'); return [' ']; }
     if (name === 'br' || name === 'cr') { if (node.getAttributeNS(WORD_NS, 'type') && node.getAttributeNS(WORD_NS, 'type') !== 'textWrapping') warn('Page or column breaks became ordinary line breaks.'); return [h('br')]; }
@@ -144,7 +157,7 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     }
     if (name === 'hyperlink') {
       const content = elements(node).flatMap(n => inline(n, inherited));
-      const rel = rels.get(node.getAttributeNS(OFFICE_REL.slice(0, -1), 'id'));
+      const rel = activeRelationships.get(node.getAttributeNS(OFFICE_REL.slice(0, -1), 'id'));
       const url = rel?.type === OFFICE_REL + 'hyperlink' && rel.mode === 'External' && safeWebLink(rel.target);
       if (!url) { warn('Unsafe, internal, or unsupported links lost their targets; link text was kept.'); return content; }
       return [h('a', content, { href: url })];
@@ -214,7 +227,20 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     return result;
   }
   const converted = htmlTreeToMarkdown({ nodeType: 11, childNodes: blocks(body) }, options);
-  return { markdown: converted.markdown, warnings: [...notices, ...converted.warnings], wordImages };
+  const noteSections = notes.sections((paragraphs, group) => {
+    activeRelationships = group.relationships; activeNote = group.kind; noteMarks = 0;
+    try {
+      const content = paragraphs.map(node => {
+        const p = paragraph(node);
+        if (p.numId || p.tag !== 'p') throw unsupported('Lists and headings inside notes need review in Word first.');
+        return h('p', p.content);
+      });
+      return htmlTreeToMarkdown({ nodeType: 11, childNodes: content }, options);
+    } finally { activeRelationships = rels; activeNote = null; }
+  });
+  const markdown = converted.markdown + (noteSections.markdown ? '\n\n' + noteSections.markdown : '');
+  if (markdown.length > ARTICLE_BODY_LIMIT) throw unsupported('The article and its notes exceed 60,000 converted characters. Nothing was truncated.');
+  return { markdown, warnings: [...new Set([...notices, ...converted.warnings, ...noteSections.warnings])], wordImages };
 }
 
 export async function parseDocxArticle(bytes, filename = '', options = {}) {

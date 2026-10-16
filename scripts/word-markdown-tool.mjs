@@ -1,5 +1,6 @@
 import { createArticleMarkdown } from '../public/article-markdown.js';
 import { escapeHTML } from './site-shell.mjs';
+import { readFileSync } from 'node:fs';
 
 export const WORD_MARKDOWN_SAMPLE = {
   title: 'A small publishing plan',
@@ -15,9 +16,11 @@ export const WORD_MARKDOWN_GUIDE = `
 <tr><th scope="row">Bold, italic, and web hyperlinks</th><td>Supported single-line emphasis, combined bold and italic, and absolute HTTP(S) links. Unsupported styles can be simplified with notices.</td></tr>
 <tr><th scope="row">Ordinary lists and simple tables</th><td>Bullets, decimal numbering, supported nesting, and rectangular pipe tables. Unmarked table headers require your explicit choice before import. Complex layouts need simplification.</td></tr>
 <tr><th scope="row">Pictures and embedded objects</th><td>Numbered text placeholders. Before importing, you can separately recover supported PNG and JPEG files with their placement notes. This .md export does not contain or automatically link image files.</td></tr>
-<tr><th scope="row">Page design and document extras</th><td>Fonts, colors, page layout, headers, footers, comments, and document metadata are not retained. Tracked changes, fields, footnotes, equations, and complex structures must be resolved before import.</td></tr>
+<tr><th scope="row">Footnotes and endnotes</th><td>Supported referenced notes become labeled article sections, with visible markers. Review the numbering and text before importing. These sections are included in the .md export.</td></tr>
+<tr><th scope="row">Page design and document extras</th><td>Fonts, colors, page layout, headers, footers, comments, and document metadata are not retained. Tracked changes, fields, equations, and complex structures must be resolved before import.</td></tr>
 </tbody></table></div>
 <p>Articles are limited to 60,000 characters. .doc, macro-enabled, encrypted, damaged, and unusually packaged documents are unsupported. This is a limited article conversion, not a complete Word layout reproduction. <a href="/help/article-import/">Read the Word import limits</a>.</p>
+${readFileSync(new URL('./word-notes-help.html.inc', import.meta.url), 'utf8')}
 <h2 id="word-markdown-example">Try a real Word sample</h2>
 <p>This fictional document has headings, emphasis, a link, a numbered list, and a simple table. It is generated locally by this project's Word exporter. Download it, open it above, and compare your result. Word import can add escaping to keep literal punctuation and explicit bold from heading or table-header styles; equivalent Markdown can look different.</p>
 <p><a href="/samples/word-to-markdown.docx" download="drafttopage-fictional-sample.docx">Download the fictional .docx</a> · <a href="/samples/word-to-markdown.md" download="drafttopage-fictional-sample.md">Download the example Markdown</a></p>

@@ -9,6 +9,7 @@ import { parseArticleImport } from '../public/article-import.js';
 import { installArticleImport } from '../public/import-controls.js';
 import { crc32 } from '../public/zip.js';
 import { imageFixture } from './word-image-fixtures.js';
+import { notesFixture, note as wordNote, ref as noteReference } from './word-note-fixtures.js';
 
 import { W, R, xml, run, para, word, fixture, python, zip, trees, create, convert, numbering, item } from './docx-fixtures.js';
 
@@ -154,6 +155,30 @@ test('Word file selection stages only, acknowledgement gates apply, cancellation
   confirm(true); fail(true); await $('apply-import').fire(); assert.match(message(), /Checkpoint refused/); assert.equal(ui.pending(), true);
   fail(false); await $('apply-import').fire(); assert.equal(applied.length, 1); assert.equal(applied[0].body, 'Fictional writing');
   assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal($('import-reading-preview').childNodes.length, 0);
+}));
+
+test('Word notes remain staged with their conversion notices until acknowledgement and deliberate apply', () => withUI(async ({ $, ui, applied, file, confirm }) => {
+  $('body').value = 'CURRENT ARTICLE';
+  await file(zip(notesFixture()));
+  assert.equal($('body').value, 'CURRENT ARTICLE'); assert.equal(applied.length, 0);
+  assert.match($('import-body-preview').value, /Word footnote 1/); assert.match($('import-body-preview').value, /A source note/);
+  const warnings = $('import-warnings').childNodes.map(node => node.textContent).join(' ');
+  assert.match(warnings, /included in article exports/); assert.equal($('apply-import').disabled, true);
+  await $('apply-import').fire(); assert.equal(applied.length, 0);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(true);
+  await $('apply-import').fire(); assert.equal(applied.length, 1); assert.match(applied[0].body, /Imported Word footnotes/);
+  assert.equal(ui.pending(), false); assert.equal($('import-body-preview').value, '');
+}));
+
+test('An unresolved Word note cannot replace current writing or leave a previously valid preview applicable', () => withUI(async ({ $, ui, applied, file, message }) => {
+  $('body').value = 'CURRENT ARTICLE'; $('reviewed').checked = true;
+  await file(zip(notesFixture()));
+  const broken = notesFixture('<w:p>' + noteReference('footnote', 99) + '</w:p>', wordNote(7, para('An unrelated note')));
+  await file(zip(broken));
+  assert.equal($('body').value, 'CURRENT ARTICLE'); assert.equal($('reviewed').checked, true);
+  assert.equal($('apply-import').disabled, true); assert.equal($('import-body-preview').value, '');
+  assert.match(message(), /Unsupported Word notes/); await $('apply-import').fire(); assert.equal(applied.length, 0);
+  assert.equal(ui.staged(), false);
 }));
 
 test('Explicit image preparation gates downloads, keeps import approval and purges files after apply', async () => {

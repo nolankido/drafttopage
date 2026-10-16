@@ -3,7 +3,7 @@ import { crc32 } from './zip.js';
 
 export const MAX_DOCX_BYTES = 8 * 1024 * 1024;
 const MAX_EXPANDED = 32 * 1024 * 1024, MAX_PART = 2 * 1024 * 1024;
-export const DOCX_XML_PARTS = Object.freeze(['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/_rels/document.xml.rels', 'word/styles.xml', 'word/numbering.xml']);
+export const DOCX_XML_PARTS = Object.freeze(['[Content_Types].xml', '_rels/.rels', 'word/document.xml', 'word/_rels/document.xml.rels', 'word/styles.xml', 'word/numbering.xml', 'word/footnotes.xml', 'word/_rels/footnotes.xml.rels', 'word/endnotes.xml', 'word/_rels/endnotes.xml.rels']);
 const invalid = () => new Error('This Word archive is damaged or uses unsupported ZIP features. Save a new .docx or import a formatted selection.');
 
 export function inspectDocxArchive(input) {
