@@ -13,21 +13,25 @@ import mimetypes
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 from playwright.sync_api import sync_playwright, expect
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--desk-only', action='store_true')
+scope = parser.add_mutually_exclusive_group()
+scope.add_argument('--desk-only', action='store_true')
+scope.add_argument('--documents-only', action='store_true')
 args = parser.parse_args()
 root = Path.cwd()
 out = root / 'test-results'
 out.mkdir(exist_ok=True)
 (out/'browser-results.json').unlink(missing_ok=True)
+(out/'document-benchmark.json').unlink(missing_ok=True)
 origin = 'https://drafttopage.test'
 csp = next(line.split(':', 1)[1].strip() for line in (root/'public/_headers').read_text().splitlines() if 'Content-Security-Policy:' in line)
 app_html = subprocess.check_output(['node','--input-type=module','-e',"import {appPage} from './src/pages.js'; process.stdout.write(appPage)"], text=True)
-report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}, 'motion':'reduced for deterministic fixture geometry'}
+report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'documents-only' if args.documents_only else 'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}, 'motion':'reduced for deterministic fixture geometry'}
 source = {'profile':'update','notes':'Fictional source notes, not part of the article.','audience':'Readers','purpose':'Explain the experiment.'}
 draft = {'title':'An edited local article','excerpt':'A brief summary.','description':'A factual description.','slug':'edited-local-article','body':'An article paragraph.\n\n## A heading\n\n- One\n- Two','questions':['Does this preserve uncertainty?']}
 backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':draft}
@@ -120,6 +124,18 @@ with sync_playwright() as p:
         expect(page.locator('#apply-restore')).to_be_disabled()
         page.check('#restore-reviewed')
         page.click('#apply-restore')
+    if args.documents_only:
+        from document_benchmark import run_document_benchmark
+        corpus = run_document_benchmark(open_page,root,out)
+        report['document_benchmark'] = {'result':corpus['result'],'cases':len(corpus['cases']),'counts':corpus['counts']}
+        report['layout'].update(corpus['layout'])
+        report['checks'].append('Pinned document corpus: exact and sampled text, structure, disclosures, rejections, independent Word bytes, and native file import/export')
+        browser.close()
+        assert not report['errors'] and not report['unexpected_requests'], report
+        report['result']='PASS'
+        (out/'browser-results.json').write_text(json.dumps(report,indent=2))
+        print(json.dumps(report,indent=2))
+        sys.exit(0)
     # Linked WordPress images are explicit; no image requests occur in this app.
     page,context,state=open_page('/markdown-to-wordpress/')
     image_body='## A fictional workshop\n\n![Participants at the workshop](https://example.test/photo.jpg?a=1&b=2)\n\nInline ![Inline example](https://example.test/inline.jpg) stays text.'
@@ -1357,6 +1373,11 @@ with sync_playwright() as p:
         assert state['calls']==calls and page.locator('#body').input_value()==old
         layout(page,'pilot'); context.close()
         report['checks'].append('Pilot: outline guard, generation focus, backup/restore without AI, consent reset, failed/expired-session preservation and local backup, session recheck')
+        from document_benchmark import run_document_benchmark
+        corpus = run_document_benchmark(open_page,root,out)
+        report['document_benchmark'] = {'result':corpus['result'],'cases':len(corpus['cases']),'counts':corpus['counts']}
+        report['layout'].update(corpus['layout'])
+        report['checks'].append('Pinned document corpus: exact and sampled text, structure, disclosures, rejections, independent Word bytes, and native file import/export')
     browser.close()
 assert not report['errors'], report['errors']
 assert not report['unexpected_requests'], report['unexpected_requests']
