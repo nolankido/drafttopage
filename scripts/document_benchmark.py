@@ -31,10 +31,27 @@ class ArticleHTML(HTMLParser):
         self.active = []
         self.unsafe = []
         self.images = 0
+        self.list_paths = []
+        self.list_stack = []
+        self.list_item_stack = []
+        self.top_lists = 0
         self.feed(html)
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag in ['ul', 'ol']:
+            if self.list_stack and self.list_item_stack:
+                parent = self.list_item_stack[-1]['path']
+            else:
+                parent = [self.top_lists]
+                self.top_lists += 1
+            self.list_stack.append({'parent': parent, 'next': 0})
+        if tag == 'li' and self.list_stack:
+            current = self.list_stack[-1]
+            item = {'path': current['parent'] + [current['next']], 'text': ''}
+            current['next'] += 1
+            self.list_paths.append(item)
+            self.list_item_stack.append(item)
         if tag in ['script', 'iframe', 'object', 'embed', 'style'] or any(k.startswith('on') for k in attrs):
             self.unsafe.append(tag)
         if tag == 'a' and not re.match(r'^https?://', attrs.get('href', ''), re.I):
@@ -50,10 +67,17 @@ class ArticleHTML(HTMLParser):
 
     def handle_data(self, text):
         self.text.append(text)
+        if self.list_item_stack:
+            self.list_item_stack[-1]['text'] += text
         for node in self.active:
             node['text'].append(text)
 
     def handle_endtag(self, tag):
+        if tag == 'li' and self.list_item_stack:
+            item = self.list_item_stack.pop()
+            item['text'] = normalized(item['text'])
+        if tag in ['ul', 'ol'] and self.list_stack:
+            self.list_stack.pop()
         if tag in ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'th', 'td', 'pre']:
             self.text.append(' ')
         for i in range(len(self.active) - 1, -1, -1):
@@ -112,9 +136,20 @@ def check_conversion(result, wanted):
         assert not any(warning in text for text in result['warnings']), 'Unexpected loss disclosure: ' + warning
     for article in articles:
         assert not article.unsafe and not article.images, 'Unexpected active HTML or image load'
-        for key, actual in [('rows', article.rows), ('listItems', article.items), ('links', article.links), ('strikes', article.strikes)]:
+        for key, actual in [('rows', article.rows), ('listItems', article.items), ('listPaths', article.list_paths), ('links', article.links), ('strikes', article.strikes)]:
             if key in wanted:
                 assert actual == wanted[key], key + ' structure changed'
+    if 'listPaths' in wanted:
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
+            document = ET.fromstring(archive.read('word/document.xml'))
+            ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+            items = []
+            for paragraph in document.iter(ns + 'p'):
+                level = paragraph.find(ns + 'pPr/' + ns + 'numPr/' + ns + 'ilvl')
+                if level is not None:
+                    items.append({'depth': int(level.get(ns + 'val')), 'text': normalized(''.join(node.text or '' for node in paragraph.iter(ns + 't')))})
+            assert items == [{'depth': len(item['path']) - 2, 'text': item['text']} for item in wanted['listPaths']], 'Word list hierarchy or item text changed'
+        checked['listHierarchy'] = 'exact HTML parent paths and Word paragraph levels checked'
     if 'strikes' in wanted:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
             document = ET.fromstring(archive.read('word/document.xml'))

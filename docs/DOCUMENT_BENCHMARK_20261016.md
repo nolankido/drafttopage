@@ -1,5 +1,7 @@
 # Application-origin document benchmark
 
+Follow-up: [Google Docs checklist conversion](GOOGLE_DOCS_CHECKLISTS_20261016.md) changes the retained checklist case to a disclosed conversion with explicit state labels, exact parent-path checks and Word list levels. The original baseline table below records what was observed before that change and before the strikethrough preservation release. Current contracts are in the [manifest](../tests/fixtures/documents/manifest.json).
+
 This cycle adds a repeatable corpus to the release baseline from PR #70. It tests actual upstream application output alongside the hand-built regression fixtures. It is an initial conversion benchmark, not evidence of customer adoption or universal Word/Google Docs compatibility.
 
 ## Corpus and provenance

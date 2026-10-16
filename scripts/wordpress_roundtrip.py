@@ -51,6 +51,9 @@ def check_post(post, case, markers, text=None):
         assert article.rows == case['rows'], 'Saved/rendered table structure changed'
     if 'links' in case:
         assert article.links == case['links'], 'Saved/rendered link targets changed'
+    if 'listPaths' in case:
+        assert article.list_paths == case['listPaths'], 'Saved/rendered list hierarchy or states changed'
+        assert ArticleHTML(post['content']['raw']).list_paths == case['listPaths'], 'Stored list hierarchy or states changed'
     if 'strikes' in case:
         assert article.strikes == case['strikes'], 'Saved/rendered strikethrough changed'
         assert ArticleHTML(post['content']['raw']).strikes == case.get('rawStrikes', case['strikes']), 'Stored strikethrough changed'
@@ -197,14 +200,14 @@ def main():
                     if case.get('file') or case.get('formatSelection'):
                         source_page = new_page()
                         source_page.on('dialog', lambda dialog: dialog.accept())
-                        source_page.goto('https://drafttopage.test/word-to-wordpress/')
+                        source_page.goto('https://drafttopage.test' + case.get('sourceRoute', '/word-to-wordpress/'))
                         expect(source_page.locator('#desk-status')).to_contain_text('ready')
                         if case.get('file'):
                             source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
                             expect(source_page.locator('#import-preview')).to_be_visible()
                             source_page.check('#import-changes-ok')
                             source_page.click('#apply-import')
-                            entry['source'] = 'native Word file import, review, apply, and actual block download'
+                            entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and actual block download')
                         else:
                             source_page.fill('#body', case['body'])
                             source_page.locator('#text-format-tools > summary').click()
@@ -244,6 +247,8 @@ def main():
                     assert check_post(reopened, case, config['privateMarkers']) == raw, 'Stored block source changed after reopening'
                     if 'strikes' in case:
                         entry['strikethroughVerified'] = True
+                    if 'listPaths' in case:
+                        entry['listHierarchyVerified'] = True
                     if 'rawText' in case:
                         entry['rawTextVerified'] = True
                         entry['typography'] = {'stored': case['rawText'], 'rendered': case['text']}

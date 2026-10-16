@@ -310,11 +310,64 @@
       "ui": true
     },
     {
-      "id": "google-checklist-rejection",
+      "id": "google-checklist-preservation",
       "file": "google-checklist.html",
       "expect": {
-        "category": "rejected",
-        "error": "unsupported structure"
+        "category": "disclosed",
+        "text": "[Checked] done [Unchecked] todo [Checked] done [Unchecked] todo [Unchecked] todo",
+        "warnings": [
+          "[Checked]",
+          "[Unchecked]",
+          "not interactive"
+        ],
+        "strikes": [
+          "done",
+          "done"
+        ],
+        "listPaths": [
+          {
+            "path": [
+              0,
+              0
+            ],
+            "text": "[Checked] done"
+          },
+          {
+            "path": [
+              0,
+              1
+            ],
+            "text": "[Unchecked] todo"
+          },
+          {
+            "path": [
+              0,
+              1,
+              0
+            ],
+            "text": "[Checked] done"
+          },
+          {
+            "path": [
+              0,
+              1,
+              1
+            ],
+            "text": "[Unchecked] todo"
+          },
+          {
+            "path": [
+              0,
+              2
+            ],
+            "text": "[Unchecked] todo"
+          }
+        ],
+        "forbidden": [
+          "data:image",
+          "[Image: checked]",
+          "[Image: unchecked]"
+        ]
       },
       "ui": true
     },
