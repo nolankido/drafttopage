@@ -43,7 +43,8 @@ def check_post(post, case, markers, text=None):
     assert post['status'] == 'draft', 'Fixture must remain an unpublished draft'
     assert post['title']['raw'] == case['title'], 'Separate post title changed'
     article = ArticleHTML(post['content']['rendered'])
-    assert normalized(''.join(article.text)) == (text or case['text']), 'Saved/rendered article text changed'
+    actual_text, expected_text = normalized(''.join(article.text)), text or case['text']
+    assert actual_text == expected_text, 'Saved/rendered article text changed: expected ' + repr(expected_text) + '; received ' + repr(actual_text)
     assert not article.unsafe, 'Rendered article contains active markup'
     assert article.images == len(case.get('images', [])), 'Rendered image count changed'
     if 'rows' in case:
@@ -52,7 +53,9 @@ def check_post(post, case, markers, text=None):
         assert article.links == case['links'], 'Saved/rendered link targets changed'
     if 'strikes' in case:
         assert article.strikes == case['strikes'], 'Saved/rendered strikethrough changed'
-        assert ArticleHTML(post['content']['raw']).strikes == case['strikes'], 'Stored strikethrough changed'
+        assert ArticleHTML(post['content']['raw']).strikes == case.get('rawStrikes', case['strikes']), 'Stored strikethrough changed'
+    if 'rawText' in case:
+        assert normalized(''.join(ArticleHTML(post['content']['raw']).text)) == case['rawText'], 'Stored article text changed'
     raw = post['content']['raw']
     assert not any(marker in raw or marker in post['content']['rendered'] for marker in markers), 'Private field leaked'
     return raw
@@ -231,6 +234,9 @@ def main():
                     assert check_post(reopened, case, config['privateMarkers']) == raw, 'Stored block source changed after reopening'
                     if 'strikes' in case:
                         entry['strikethroughVerified'] = True
+                    if 'rawText' in case:
+                        entry['rawTextVerified'] = True
+                        entry['typography'] = {'stored': case['rawText'], 'rendered': case['text']}
                     assert page.evaluate('window.DTP_FIXTURE_EXECUTED===undefined'), 'Literal source executed'
                     if case.get('editAfterReopen'):
                         selector = '[data-type="core/paragraph"][contenteditable="true"], [data-type="core/paragraph"] [contenteditable="true"]'

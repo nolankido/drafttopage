@@ -72,8 +72,8 @@
     },
     {
       "id": "unicode-literal",
-      "body": "Caf\u00e9 \u65e5\u672c\u8a9e \ud83d\ude00. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and \\*stars\\*.",
-      "text": "Caf\u00e9 \u65e5\u672c\u8a9e \ud83d\ude00. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and *stars*.",
+      "body": "Café 日本語 😀. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and \\*stars\\*.",
+      "text": "Café 日本語 😀. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and *stars*.",
       "top": [
         "core/paragraph"
       ]
@@ -139,13 +139,18 @@
     {
       "id": "word-strikethrough-handoff",
       "file": "tests/fixtures/documents/word-strikethrough.docx",
-      "text": "Today's Special: Salmon Sold out",
+      "text": "Today’s Special: Salmon Sold out",
       "top": [
         "core/paragraph"
       ],
       "strikes": [
+        "Today’s Special: Salmon"
+      ],
+      "rawText": "Today's Special: Salmon Sold out",
+      "rawStrikes": [
         "Today's Special: Salmon"
-      ]
+      ],
+      "renderingNote": "WordPress renders the apostrophe typographically; stored text and its mark remain checked separately and exactly."
     }
   ]
 }

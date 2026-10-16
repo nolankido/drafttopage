@@ -159,6 +159,10 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
       const props = { ...inherited, ...properties(style.map(s => child(s, 'rPr')).concat(rp)) };
       Object.assign(props, strikeProperties(inherited, style.map(s => child(s, 'rPr')), rp));
       if (props.vanish || props.webHidden) { warn('Explicitly hidden text was omitted.'); return []; }
+      for (const [key, defaultKey, styledKey] of [['strike', '_defaultStrike', '_styledStrike'], ['dstrike', '_defaultDstrike', '_styledDstrike']]) {
+        const styled = inherited[styledKey] || style.some(s => child(child(s, 'rPr'), key));
+        if (inherited[defaultKey] && styled && !child(rp, key)) throw unsupported('Document-default strikethrough combined with style toggles needs explicit on/off formatting on the affected Word runs.');
+      }
       let content = elements(node).flatMap(n => inline(n, props));
       if (props.b) content = [h('strong', content)];
       if (props.i) content = [h('em', content)];
@@ -179,7 +183,11 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     const pp = child(p, 'pPr'), id = val(child(pp, 'pStyle')) || defaultParagraph, styles = chain(id);
     const props = properties([defaultPara, ...styles.map(s => child(s, 'pPr')), pp]);
     const run = properties([defaultRun, ...styles.map(s => child(s, 'rPr')), child(pp, 'rPr')]);
-    Object.assign(run, strikeProperties(strikeProperties({}, [], defaultRun), styles.map(s => child(s, 'rPr')), null));
+    const strikeDefaults = strikeProperties({}, [], defaultRun), styleRuns = styles.map(s => child(s, 'rPr'));
+    Object.assign(run, strikeProperties(strikeDefaults, styleRuns, null), {
+      _defaultStrike: strikeDefaults.strike, _defaultDstrike: strikeDefaults.dstrike,
+      _styledStrike: styleRuns.some(p => child(p, 'strike')), _styledDstrike: styleRuns.some(p => child(p, 'dstrike'))
+    });
     const content = elements(p).filter(n => !is(n, 'pPr')).flatMap(n => inline(n, run));
     let tag = 'p';
     if (props.outline !== undefined && props.outline !== '9') { if (!/^[0-5]$/.test(props.outline)) throw unsupported('Headings deeper than level six cannot be preserved.'); tag = 'h' + (Number(props.outline) + 1); }

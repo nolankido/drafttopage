@@ -88,10 +88,17 @@ test('Word paragraph/character style toggles and direct overrides resolve before
   const body='<w:p><w:pPr><w:pStyle w:val="Cross"/></w:pPr>'+run('Inherited')+run(' normal','<w:strike w:val="false"/>')+run(' toggled','<w:rStyle w:val="Again"/>')+run(' direct','<w:rStyle w:val="Again"/><w:strike/>')+'</w:p>';
   const result=convert(fixture(body,{'word/styles.xml':styles}));assert.equal(inlineHTML(result.markdown),'<s>Inherited</s> normal toggled <s>direct</s>');
 });
-test('Document defaults and nested style false values keep inheritance without applying paragraph-mark formatting',()=>{
-  const styles=word('styles','<w:docDefaults><w:rPrDefault><w:rPr><w:strike/></w:rPr></w:rPrDefault></w:docDefaults><w:style w:type="paragraph" w:styleId="Base"><w:rPr><w:strike w:val="false"/></w:rPr></w:style>');
-  const body='<w:p><w:pPr><w:pStyle w:val="Base"/><w:rPr><w:strike w:val="false"/></w:rPr></w:pPr>'+run('Default')+run(' off','<w:strike w:val="0"/>')+'</w:p>';
-  assert.equal(inlineHTML(convert(fixture(body,{'word/styles.xml':styles})).markdown),'<s>Default</s> off');
+test('Document defaults preserve unambiguous marks and reject default-on style combinations without direct decisions',()=>{
+  const defaults='<w:docDefaults><w:rPrDefault><w:rPr><w:strike/></w:rPr></w:rPrDefault></w:docDefaults>';
+  const body='<w:p><w:pPr><w:rPr><w:strike w:val="false"/></w:rPr></w:pPr>'+run('Default')+run(' off','<w:strike w:val="0"/>')+'</w:p>';
+  assert.equal(inlineHTML(convert(fixture(body,{'word/styles.xml':word('styles',defaults)})).markdown),'<s>Default</s> off');
+  for(const value of ['true','false']){
+    const styles=word('styles',defaults+'<w:style w:type="paragraph" w:styleId="Base"><w:rPr><w:strike w:val="'+value+'"/></w:rPr></w:style>');
+    const prefix='<w:p><w:pPr><w:pStyle w:val="Base"/></w:pPr>';
+    assert.throws(()=>convert(fixture(prefix+run('Ambiguous')+'</w:p>',{'word/styles.xml':styles})),/Document-default strikethrough combined/);
+    const direct=convert(fixture(prefix+run('Normal','<w:strike w:val="false"/>')+run(' old','<w:strike/>')+'</w:p>',{'word/styles.xml':styles}));
+    assert.equal(inlineHTML(direct.markdown),'Normal <s>old</s>');
+  }
 });
 test('Double-strike Word runs retain text and disclose the loss instead of inventing a single line',()=>{
   const result=convert(fixture(xmlText('Double','<w:dstrike/>')));assert.equal(inlineHTML(result.markdown),'Double');assert.match(result.warnings.join(' '),/Double strikethrough/);

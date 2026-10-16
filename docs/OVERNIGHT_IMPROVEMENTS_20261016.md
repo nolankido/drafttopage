@@ -67,6 +67,10 @@ The real pinned Word fixture now retains the actual struck text through ordinary
 
 Eighteen new model cases pass, and 10,000 deterministic non-tilde token arrays match starting main exactly. The preliminary 15-case real document corpus passed with three preserved, seven disclosed, four rejected and one sampled contract; mark preservation is checked independently in HTML and Word XML. The new browser journey checks visible marks, staged review, all three native downloads, plain/formatted paste fixtures and narrow layouts. The local WordPress gate adds two semantic save/reopen cases and rejects missing raw/rendered marks even when words match. Exact full-gate results, source/tree hashes, PR merge and native deployment outcomes are recorded in PR #81. No acceptance is claimed for a check before it actually passes.
 
+Document-default-on strikethrough combined with paragraph or character style strike declarations is conservatively rejected unless each affected run supplies an explicit on/off value. Microsoft documents compatibility differences for this combination; the converter does not guess which appearance was intended. Unambiguous defaults and ordinary direct formatting remain supported. See [the Microsoft toggle compatibility note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/f7130225-2368-48f3-acae-a9d278d0fb25).
+
+A preliminary genuine WordPress run exposed a rendering difference in the new Word fixture: the stored straight apostrophe is displayed as a typographic apostrophe. The case now checks exact original stored text/marks and the separately specified rendered text/marks. Only this observed fixture expectation changes; punctuation is not normalized across the suite. A separate raw-text evidence flag is required. The initial full gate failed on that newly added expectation and is not counted as an acceptance pass. A final full stable-source rerun is required.
+
 ## Release outcomes and continuation checkpoint
 
 | Cycle | GitHub outcome | Confirmed native Cloudflare production version |
