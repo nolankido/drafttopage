@@ -21,3 +21,9 @@ Thirteen new model/controller cases cover original and legacy labels, duplicate 
 Two browser journeys exercise the actual current controls and optional-module fallback. They cover second-occurrence targeting, approval-preserving navigation, previewed/checkpointed image and reference changes, Word/HTML limitation messages, current image loading into preparation, a downloaded kit with the remaining placeholder warning, manual source selection, and narrow layouts. The release PR records exact final gate results, tree/hash and deployment checks.
 
 This is local fixture evidence, not a new user study, real-device/screen-reader acceptance, external image upload, production rendering or expanded destination-compatibility claim. The existing block serializer and file formats are unchanged. GitHub Actions remain off and native Cloudflare Git deployment is preserved.
+
+## Completed release evidence
+
+Released in [PR #79](https://github.com/nolankido/drafttopage/pull/79), merged as `e37fa7c1276b0f6424af94c8232699c8eb6fdcf0`. The full stable-source gate passed 769 tests, 42 browser journeys, 274 layout checks and 15 document benchmark cases. WordPress save/reopen was NOT_RUN for this unchanged serializer; PR #78 retains the latest eight genuine local cases. Validated tree: `e8e4d124b52a24c6b6d76ea3cc2e72a211c42f04`. Source SHA-256: `d654b2e69498056415c620a1f72773009d5860b968991eabdd88fb2b6d91c372`.
+
+Native Cloudflare preview build `d2cb103b-c36e-4c75-86ae-d6c756f2b7a2` and production build `9817d5e6-0c13-409e-a645-30aa52bb2503` succeeded. Production version: `075fd122-f315-487b-9dab-1fc2f24d8d78`. Deployment confirmation is separate from the unverified independent public rendering and user/device limits above.
