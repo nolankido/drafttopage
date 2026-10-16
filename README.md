@@ -2,6 +2,8 @@
 
 Your ideas. Ready for your website.
 
+The [original twenty-item roadmap status](docs/ROADMAP_STATUS_20261016.md) distinguishes shipped source work from unfinished real-user, device, repeat-use and demand evidence. The public [conversion checks walkthrough](https://drafttopage.com/help/conversion-checks/) is prepared on the continuation branch; it is not claimed live before merge/deployment.
+
 Run `npm run verify:release` for the complete manually invoked build, regression, static, and routed-browser gate. It rejects stale or incomplete browser evidence. Branch integration decisions and tool setup are recorded in [the release baseline](docs/RELEASE_BASELINE_20261016.md).
 
 The full gate also includes a [pinned application-origin document benchmark](docs/DOCUMENT_BENCHMARK_20261016.md): 13 licensed inputs, 15 explicit conversion/disclosure/rejection contracts, independent exported-file readers, and staged UI checks. Run `npm run benchmark:documents` after building for the focused corpus; that partial run does not replace the full release gate.

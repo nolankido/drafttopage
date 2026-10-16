@@ -167,6 +167,8 @@ Cycles 18, 19 and 20 are merged with exact validated trees and successful termin
 
 ## Next items
 
+Post-window continuation: [original-roadmap status](ROADMAP_STATUS_20261016.md) maps all twenty recommendations to current evidence. The continuation prepares a public conversion walkthrough, dated compatibility scope and source-specific troubleshooting, plus [remaining evidence protocols](VALIDATION_AND_DEMAND_PROTOCOL_20261016.md). These are candidate source/doc changes, not a renewed overnight merge authorization, completed research or live deployment. Validation and the reviewable PR are recorded below when complete.
+
 1. The highest-value acceptance gate is owner-authorized real-writer use: actual Word-saved files and Google Docs selections, supported conversions, deliberate recovery, destination draft save/reopen and observed repeat use. The ten-writer kit is prepared, but real-user research is NOT_RUN. No outreach or response collection is authorized; completed private records belong outside this public repository.
 2. Physical-device and actual assistive-technology acceptance remain outstanding, including clipboard permissions, file pickers, recovery focus and table-choice/preparation clarity. Native accessibility-tree evidence is not a screen-reader or mobile-device certification. Hosted WordPress versions/plugins and actual Word/Google Docs applications are not covered by the local fixture's eleven cases.
 3. Independent public rendering remains unverified. Native Cloudflare build success is not a live interaction check. The execution environment's earlier HTTP 403 is not proof of a public outage; do not bypass access restrictions or infer successful live rendering from the build alone.
