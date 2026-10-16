@@ -215,3 +215,5 @@ The optional [long-article editing benchmark](docs/LONG_ARTICLE_PERFORMANCE_2026
 ## Manual public alpha study
 
 The [ten-writer public alpha kit](docs/PUBLIC_ALPHA_STUDY_20261016.md) provides fictional material, six task cards and a blank private session-record template. It tests first conversion through actual handoff, voluntary recovery and observed repeat use. The study is prepared, **NOT_RUN**. No participants were contacted or counted. Completed records stay outside this public repository; the private AI pilot remains separate and inactive.
+
+The [local paired-study runner](docs/alpha/RUNNER.md) now initializes ten blank private records with `npm run study:init -- /absolute/private-study/sessions` and summarizes them with `npm run study:report -- /absolute/private-study/sessions`. It keeps human observations separate from synthetic fixtures, compares complete workflows, preserves failures and unknowns, separates release cohorts, and omits private notes from summaries. Fresh records report NOT_RUN and zero participants. See [the execution-tooling release](docs/STUDY_RUNNER_RELEASE_20261016.md); actual sessions remain unrun.

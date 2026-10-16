@@ -22,6 +22,8 @@ Use anonymous session IDs such as P01 through P10. Store completed records priva
 
 Copy [session-record-template.json](alpha/session-record-template.json) into the owner's private notes for each session. Leave unobserved values null or NOT_RUN. Suggested task statuses are PASS_UNAIDED, PASS_ASSISTED, FAIL, DECLINED and NOT_RUN. A recovery privacy opt-out is a valid preference, not a failed conversion. Record assisted completion separately from unaided success.
 
+The [local study runner](alpha/RUNNER.md) can create ten blank version 2 records outside the repository and summarize supplied observations. It records a paired comparison with the participant's usual workflow, including image work and actual destination save/reopen. Explicit human evidence, qualification and consent keep synthetic fixtures or unrun tasks out of participant counts. Different release cohorts remain separate. Initializing the records does not run the study.
+
 ## Tasks and observation rules
 
 Read only the prompt column aloud. The observation column is for the facilitator. Avoid pointing to a control or naming the expected path before the participant acts. A procedural hint changes that task's result to assisted. After five minutes of unsuccessful work, offer help, keep the original failure/time record, and continue if the participant wants to. Do not interrupt to fix cosmetic issues.
