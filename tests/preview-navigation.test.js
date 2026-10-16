@@ -85,6 +85,15 @@ test('The return action follows the edited cursor and focuses its updated readin
   assert.equal($('reviewed').checked,false);
 }));
 
+test('Heading and separator passage actions select complete original Markdown source', () => withUI(({ $, buttons, enable }) => {
+  const body = $('body').value; enable();
+  assert.equal(buttons()[0].textContent, 'Edit heading (lines 1 to 3)');
+  buttons()[0].fire(); assert.equal(body.slice($('body').selectionStart, $('body').selectionEnd), 'Café 😀\r\nsecond line\r\n===\r');
+  assert.equal(buttons()[1].textContent, 'Edit separator (line 5)');
+  buttons()[1].fire(); assert.equal(body.slice($('body').selectionStart, $('body').selectionEnd), '***\r');
+  assert.equal($('body').value, body); assert.equal($('reviewed').checked, true);
+}, 'Café 😀\r\nsecond line\r\n===\r\n\r\n***\r\n\r\nEnding.'));
+
 test('Stale controls never reuse old positions and file or pending-import states block every jump', () => withUI(({ $, ui, buttons, enable, moves, setBusy, setPending, message }) => {
   enable(); const stale = buttons()[1];
   $('body').value = 'Different article.'; $('body').setSelectionRange(2,2); stale.fire();

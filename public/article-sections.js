@@ -1,6 +1,6 @@
 import { articleStructure } from './draft-review.js';
 
-// Sections start at an ATX heading and include every deeper subsection.
+// Sections start at a supported heading and include every deeper subsection.
 export function articleSections(body) {
   const blocks = articleStructure(body);
   const headings = blocks.filter(block => block.kind === 'heading');
@@ -38,6 +38,11 @@ export function moveArticleSection(body, headingStart, direction) {
   const a = split(first), b = split(second);
   const result = body.slice(0, first.start) + b.text + a.gap + a.text + b.gap + body.slice(second.sectionEnd);
   const start = direction === 'up' ? first.start : first.start + b.text.length + a.gap.length;
+  const movedHeadings = articleSections(result).sections;
+  if (sections.some(item => item.headingStyle === 'setext')) {
+    const labels = items => items.map(item => JSON.stringify([item.level, item.text, item.headingStyle || 'atx'])).sort().join('\n');
+    if (labels(sections) !== labels(movedHeadings)) throw new Error('This move would change how an underlined heading is interpreted. Add blank lines between sections, then try again. Current writing is unchanged.');
+  }
   const lineEnd = result.indexOf('\n', start);
-  return { body: result, selectionStart: start, selectionEnd: lineEnd < 0 ? result.length : lineEnd, heading: section.text };
+  return { body: result, selectionStart: start, selectionEnd: movedHeadings.find(item => item.start === start)?.end ?? (lineEnd < 0 ? result.length : lineEnd), heading: section.text };
 }

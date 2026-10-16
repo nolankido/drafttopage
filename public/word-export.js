@@ -82,6 +82,7 @@ export function wordDocumentParts(draft, { includeTitle = false } = {}) {
   };
   const blocks = previewBlocks(draft.body);
   const body = (includeTitle ? paragraph(textRuns(draft.title.trim()), '<w:pStyle w:val="Title"/>') : '') + blocks.map(block => {
+    if (block.type === 'hr') return paragraph('', '<w:pBdr><w:bottom w:val="single" w:sz="6" w:space="1" w:color="D8DED4"/></w:pBdr><w:spacing w:before="160" w:after="160"/>');
     if (block.items) return list(block);
     if (block.type === 'table') return table(block) + paragraph('', '<w:spacing w:before="0" w:after="0" w:line="120" w:lineRule="exact"/>');
     if (block.type === 'pre') return paragraph(textRuns(block.text), '<w:pStyle w:val="Code"/>');

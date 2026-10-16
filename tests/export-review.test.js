@@ -15,7 +15,8 @@ test('Word and HTML checks disclose their actual unsupported formatting and pres
   const value = draft(findingsBody), before = structuredClone(value);
   for (const destination of ['word', 'html']) {
     const review = reviewExport(value, { destination });
-    for (const kind of ['placeholder','image','link','strike','html','task-list','reference','separator']) assert.ok(review.findings.some(item => item.kind === kind), destination + ': ' + kind);
+    for (const kind of ['placeholder','image','link','strike','html','task-list','reference']) assert.ok(review.findings.some(item => item.kind === kind), destination + ': ' + kind);
+    assert.ok(!review.findings.some(item => item.kind === 'separator'));
     assert.ok(review.findings.every((item, i, all) => !i || all[i - 1].start <= item.start));
     assert.ok(review.findings.every(item => item.start >= 0 && item.end <= value.body.length));
     assert.ok(review.findings.every(item => !item.message.includes('WordPress')));

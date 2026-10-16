@@ -18,6 +18,20 @@ const tree = (...nodes) => ({ nodeType: 11, childNodes: nodes });
 const convert = (...nodes) => htmlTreeToMarkdown(tree(...nodes));
 const output = (...nodes) => createHTMLSource({ body: convert(...nodes).markdown });
 
+test('HTML thematic breaks survive import, including at the start of an article', () => {
+  const result = convert(element('hr', [], { onclick: 'bad()', style: 'color:red' }), element('p', ['Ending.']));
+  assert.equal(result.markdown, '***\n\nEnding\\.');
+  const imported = parseArticleImport(result.markdown);
+  assert.match(createHTMLSource(imported.draft), /^<hr>\n<p>Ending\.<\/p>/);
+  assert.doesNotMatch(result.markdown, /onclick|bad|color/);
+});
+test('Multiline HTML headings retain their level by normalizing line breaks with a notice', () => {
+  const result = convert(element('h2', ['First', element('br'), 'second']), element('p', ['Ending.']));
+  assert.match(result.markdown, /^## First second\n\n/);
+  assert.match(result.warnings.join(' '), /Line breaks in a heading became spaces/);
+  assert.match(createHTMLSource({ body: result.markdown }), /^<h2>First second<\/h2>/);
+});
+
 test('Document wrappers preserve headings, paragraphs, span emphasis, and line breaks', () => {
   const root = element('b', [element('h1', ['A fictional title']), element('p', ['One ', element('span', ['important'], { style: 'font-weight:700' }), ' and ', element('span', ['quiet'], { style: 'font-style:italic' }), '.', element('br'), 'Next line.'])], { style: 'font-weight:normal', id: 'docs-internal-guid-example' });
   const result = convert(root);

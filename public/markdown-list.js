@@ -1,4 +1,5 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
+import { thematicBreak } from './markdown-block-syntax.js';
 // Single-line items, bounded nesting, and no silent loss when a candidate fails.
 export const LIST_LIMITS = Object.freeze({ depth: 6, items: 200 });
 const marker = line => {
@@ -7,6 +8,7 @@ const marker = line => {
 };
 
 export function readMarkdownList(lines, index) {
+  if (thematicBreak(lines[index])) return null;
   const first = marker(lines[index]?.replace(/\r$/, '') || '');
   if (!first || first.indent) return null;
   const blocks = [], stack = [], numbered = [];
@@ -25,6 +27,7 @@ export function readMarkdownList(lines, index) {
   while (end < lines.length) {
     const line = lines[end].replace(/\r$/, ''), token = marker(line);
     if (!line.trim()) break;
+    if (!/^[ \t]/.test(line) && thematicBreak(line)) break;
     if (!token) {
       const malformed = /^ *(?:[-*+]|\d+[.)])(?:[ \t]|$)/.test(line);
       if (!malformed && !/^[ \t]+\S/.test(line)) break;

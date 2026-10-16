@@ -4,6 +4,7 @@ import { inlineTokens, walkInlineTokens } from './markdown-inline.js';
 import { markdownTableRanges } from './markdown-table.js';
 import { markdownListRanges } from './markdown-list.js';
 import { analyzeWordPressImages } from './wordpress-images.js';
+import { setextLevel } from './markdown-block-syntax.js';
 
 export const EXPORT_REVIEW_LIMIT = REVIEW_LIMIT;
 export function reviewExport(draft, { destination = 'wordpress', includeLinkedImages = false, includeTitle = false } = {}) {
@@ -33,12 +34,13 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
   for (const list of lists) if (!list.supported) add('list', 'This list group stays text. ' + list.reason + ' Edit its Markdown or rebuild it in ' + target + '.', list.start, list.headerEnd, list.line);
   for (const table of markdownTableRanges(body)) if (!table.supported) add('table', 'This table stays text. ' + table.reason + ' Edit its Markdown or rebuild it in ' + target + '.', table.start, table.headerEnd, table.line);
   for (const section of articleStructure(body)) {
-    if (section.kind === 'code') continue;
+    if (section.kind === 'code' || section.kind === 'separator') continue;
     if (section.kind === 'heading' && section.level === 1 && destination !== 'word') add('title-level', wordpress ? 'This body H1 becomes H2 in WordPress. Keep the post title in its separate title field.' : 'This body H1 becomes H2 in HTML source. The separate title becomes H1 only when Include the article title is selected.', section.start, section.end, section.line);
     const originals = body.slice(section.start, section.end).split('\n');
     let start = section.start;
     for (let index = 0; index < originals.length; index++) {
       const original = originals[index], text = original.replace(/\r$/, ''), end = start + text.length, line = section.line + index;
+      if (section.headingStyle === 'setext' && index === originals.length - 1) { start += original.length + 1; continue; }
       // Mask inline code and URLs before scanning unsupported syntax. Positions stay exact.
       let masked = '', offset = 0;
       for (const token of walkInlineTokens(inlineTokens(text))) {
@@ -54,7 +56,7 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
       else if (!inList && /^(?: {4}|\t)\S/.test(masked)) flag('indented-code', 'Indented text is not converted to a Code block. Use a fenced code block if this is code.');
       if (/^\s*(?:[-*+]|\d+[.)]) +\[[ xX]\]/.test(masked)) flag('task-list', wordpress ? 'Task checkboxes stay literal text inside the list. Rebuild them if your post needs checkboxes.' : 'Task checkbox markers remain literal text inside the list. Add real checkboxes in your destination if needed.');
       if (/^ {0,3}(?:-{3,}|_{3,}|(?:\*[ \t]*){3,})[ \t]*$/.test(masked) && !masked.includes('|')) flag('separator', wordpress ? 'This separator or setext heading marker stays text. Use a Markdown # heading or add a Separator block in WordPress.' : 'This separator or setext heading marker stays text. Use a Markdown # heading or add a horizontal rule in your destination editor.');
-      if (/^ {0,3}={3,}[ \t]*$/.test(masked)) flag('setext', 'This setext heading marker stays text. Use a Markdown # heading for the intended heading.');
+      if (setextLevel(masked)) flag('setext', 'This underline has no supported preceding heading paragraph. Check the surrounding blocks or use a Markdown # heading.');
       if (/^> ?(?:>|[-*+] +|\d+[.)] +|#{1,6} +)/.test(masked)) flag('quote-format', 'Nested block formatting in this quote stays text. Rebuild the intended list, heading, or nested quote in ' + target + '.');
       if (/(^|[^\\])~~[^~]+~~/.test(masked)) flag('strike', 'Strike-through is outside this converter. Apply it in ' + target + ' if needed.');
       if (/^ {0,3}\[[^\]\n]+\]:|(^|[^\\])\[[^\[\]\n]+\]\[[^\[\]\n]*\]/.test(masked)) flag('reference', 'Reference links, reference images, or Markdown footnotes stay text. Use Convert reference-style links above the export for supported web references, or rebuild the remaining content in ' + target + '.');

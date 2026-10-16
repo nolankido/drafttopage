@@ -13,7 +13,8 @@ import { installWordPressHandoff } from '../public/wordpress-handoff-controls.js
 test('Handoff review identifies actual conversion limits and unfinished passages in source order', () => {
   const body = '# Post title\n\nTODO: finish this.\n\n![image](https://example.test/image.png)\n\n[relative](/page/)\n\n## A list\n\n  - Nested\n+ Alternative marker\n9. Different start\n10. Continues\n- [x] Task\n\n| Name | Count |\n| --- | --- |\n| A | 2 | EXTRA |\n\n[ref]: https://example.test/\nRead [the reference][ref].\n\n~~removed~~\n\n---\n\n<div>Source HTML</div>';
   const result = reviewWordPress({ title: 'Post title', body });
-  for (const kind of ['title','title-level','placeholder','image','link','nested-list','task-list','table','reference','strike','separator','html']) assert.ok(result.findings.some(item => item.kind === kind), kind);
+  for (const kind of ['title','title-level','placeholder','image','link','nested-list','task-list','table','reference','strike','html']) assert.ok(result.findings.some(item => item.kind === kind), kind);
+  assert.ok(!result.findings.some(item => item.kind === 'separator'));
   assert.equal(result.findings.filter(item => ['list-start', 'list-style'].includes(item.kind)).length, 0);
   assert.equal(result.findings.filter(item => item.kind === 'table').length, 1);
   assert.ok(result.findings.every((item, index, all) => !index || item.start >= all[index - 1].start));
@@ -27,7 +28,9 @@ test('Fenced and inline code, URLs, and escaped syntax do not produce unsupporte
 test('Additional Markdown block forms are disclosed without rewriting the draft', () => {
   const draft = { body: 'An underlined heading\n===\n\n    const literal = 1;\n\n> ## Quote heading\n> > Nested quote' };
   const before = JSON.stringify(draft), result = reviewWordPress(draft);
-  for (const kind of ['setext','indented-code','quote-format']) assert.ok(result.findings.some(item => item.kind === kind), kind);
+  for (const kind of ['title-level','indented-code','quote-format']) assert.ok(result.findings.some(item => item.kind === kind), kind);
+  assert.ok(!result.findings.some(item => item.kind === 'setext'));
+  assert.ok(reviewWordPress({ body: '===\n\nEnding.' }).findings.some(item => item.kind === 'setext'));
   assert.equal(JSON.stringify(draft), before);
 });
 test('CRLF and Unicode findings select the exact current editor line without altering it', () => {

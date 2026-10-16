@@ -1,5 +1,5 @@
 import { DRAFT_FIELDS, validateDraft } from './workspace.js';
-import { suggestFilename } from './preview.js';
+import { suggestFilename, previewPassages } from './preview.js';
 import { decodeMarkdownEscapes } from './markdown-inline.js';
 import { parseHTMLArticle } from './html-import.js';
 
@@ -33,7 +33,11 @@ function scalar(value) {
 }
 function firstHeading(body) {
   const match = /^# +([^\n]+)(?:\n|$)/.exec(body);
-  if (!match) return null;
+  if (!match) {
+    const first = previewPassages(body)[0], block = first?.blocks[0];
+    if (first?.start !== 0 || block?.level !== 1 || block.headingStyle !== 'setext') return null;
+    return { title: decodeMarkdownEscapes(block.text).replace(/\r?\n/g, ' ').trim(), length: first.end + (body[first.end] === '\n' ? 1 : 0) };
+  }
   const title = decodeMarkdownEscapes(match[1]).trim();
   return { title, length: match[0].length };
 }
