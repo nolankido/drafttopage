@@ -101,7 +101,8 @@ function withUI(run){
   globalThis.document={getElementById:$,createElement:tag=>new Node(tag),createDocumentFragment:()=>new Node('fragment'),createTextNode:text=>{const node=new Node('text');node.textContent=text;return node;}};
   $('body').value='A [source][x].\n\n[x]: https://example.com/';$('reference-remove-definitions').checked=true;$('reviewed').checked=true;
   let busy=false,pending=false,fail=false,applied=0,returned=0,message='';const checkpoints=[];
-  const ui=installReferenceLinks({getBody:()=>$('body').value,getTitle:()=>'Fictional title',isBusy:()=>busy,hasPendingImport:()=>pending,report:text=>{message=text;},apply:(body,label)=>{if(fail)throw new Error('Checkpoint unavailable');checkpoints.push($('body').value);$('body').value=body;$('reviewed').checked=false;applied++;},onApplied:()=>{returned++;}});
+  let ui;
+  ui=installReferenceLinks({getBody:()=>$('body').value,getTitle:()=>'Fictional title',isBusy:()=>busy,hasPendingImport:()=>pending,report:text=>{message=text;},apply:(body,label)=>{if(fail)throw new Error('Checkpoint unavailable');checkpoints.push($('body').value);$('body').value=body;$('reviewed').checked=false;applied++;ui.refresh();},onApplied:()=>{returned++;}});
   try{return run({$,ui,checkpoints,applied:()=>applied,returned:()=>returned,message:()=>message,setBusy:v=>{busy=v;},setPending:v=>{pending=v;},setFail:v=>{fail=v;}});}finally{globalThis.document=original;}
 }
 
@@ -110,7 +111,7 @@ test('Preparation stays staged, acknowledgement gates apply, and apply checkpoin
   assert.match($('reference-after').value,/\[source\]\(https:\/\/example.com\/\)/);assert.equal($('reference-result').hidden,false);
   $('reference-apply').fire();assert.equal(applied(),0);
   $('reference-ack').checked=true;$('reference-ack').fire('change');assert.equal($('reference-apply').disabled,false);$('reference-apply').fire();
-  assert.equal(applied(),1);assert.deepEqual(checkpoints,[before]);assert.equal($('reviewed').checked,false);assert.equal(returned(),1);assert.equal($('reference-after').value,'');assert.equal($('reference-ack').checked,false);assert.equal($('reference-result').hidden,true);assert.equal($('reference-links-panel').hidden,true);
+  assert.equal(applied(),1);assert.deepEqual(checkpoints,[before]);assert.equal($('reviewed').checked,false);assert.equal(returned(),1);assert.equal($('reference-after').value,'');assert.equal($('reference-ack').checked,false);assert.equal($('reference-result').hidden,true);assert.equal($('reference-links-panel').hidden,true);assert.match($('reference-status').textContent,/Conversion applied/);
 }));
 
 test('Article edits, option changes, pending imports and file reads prevent stale conversion',()=>withUI(({$,ui,applied,setBusy,setPending})=>{

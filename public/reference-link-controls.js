@@ -58,6 +58,7 @@ export function installReferenceLinks({ getBody, getTitle = () => '', apply, isB
     try {
       apply(prepared.body, 'Before reference-link conversion');
       purge(); refresh(); onApplied();
+      $('reference-status').textContent = 'Conversion applied. Inspect any remaining reference syntax before preparing another conversion.';
       report('Expanded ' + prepared.converted + ' reference link(s) and removed ' + prepared.removed + ' definition line(s). The previous article is in Revisions in this tab. Review approval was cleared. Inspect remaining literal references before exporting.');
     } catch (error) { $('reference-status').textContent = error.message; report(error.message); }
   });
