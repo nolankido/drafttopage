@@ -24,7 +24,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
   const buttons = { bring, review: $('start-review'), export: $('start-handoff') };
   const source = bring.id === 'start-word-file' ? 'word' : bring.id === 'start-copied-paste' ? 'copied' : 'text';
   let selected = 'bring', lastBody, lastTitle, lastReviewed;
-  const destination = () => ({ wordpress: 'WordPress', html: 'HTML source', word: 'Word', other: 'another export' })[$('publishing-destination').value] || 'your export';
+  const destination = () => ({ wordpress: 'WordPress', markdown: 'Markdown', html: 'HTML source', word: 'Word', other: 'another export' })[$('publishing-destination').value] || 'your export';
   function update() {
     const draft = getDraft(), hasBody = Boolean(draft.body.trim()), pending = getImportState(), busy = isBusy();
     if (draft.body !== lastBody || draft.title !== lastTitle) selected = hasBody ? 'review' : 'bring';

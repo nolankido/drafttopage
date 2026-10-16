@@ -7,6 +7,7 @@ import { suggestFilename } from './preview.js';
 import { installWordPressHandoff } from './wordpress-handoff-controls.js';
 import { installHTMLSource } from './html-source-controls.js';
 import { installWordDocument } from './word-controls.js';
+import { installMarkdownHandoff } from './markdown-handoff-controls.js';
 
 export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), defaultDestination = 'wordpress', compact = false }) {
   const $ = id => document.getElementById(id);
@@ -15,6 +16,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
   const handoff = installWordPressHandoff({ getDraft, approved, report, isBusy, getWordPressOptions });
   const html = installHTMLSource({ getDraft, approved, changed, report, isBusy });
   const word = installWordDocument({ getDraft, approved, changed, report, isBusy });
+  const markdown = installMarkdownHandoff({ getDraft, approved, changed, report, isBusy, defaultIncludeTitle: defaultDestination === 'markdown' });
   let kitSnapshot = null;
   const options = () => ({ includeTitleHeading: $('export-format').value === 'document' });
   function update() {
@@ -32,6 +34,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     handoff.update();
     html.update();
     word.update();
+    markdown.update();
     $('copy-formatted').disabled = !reviewed || Object.keys(articleIssues(draft, $('copy-title').checked ? 'html' : 'body')).length > 0;
     let kit = null, error = '';
     try { if ($('additional-exports').open) kit = publishingKitFiles(draft, options()); }
@@ -95,5 +98,5 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     try { approved(); const draft = getDraft(); if (articleIssues(draft, 'html').title) throw new Error('Add a valid title first.'); await navigator.clipboard.writeText(draft.title.trim()); report('Title copied separately. Paste into the WordPress title field. Nothing was published.'); }
     catch (error) { report('Title copy unavailable. Select the article title and copy it manually. ' + error.message); }
   });
-  return { update, reset: () => { handoff.reset(); html.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; word.reset(); $('wordpress-code-preview').value = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
+  return { update, reset: () => { handoff.reset(); html.reset(); markdown.reset(); $('copy-title').checked = false; $('publishing-destination').value = defaultDestination; $('additional-exports').open = !compact; word.reset(); $('wordpress-code-preview').value = ''; kitSnapshot = null; $('kit-files').replaceChildren(); } };
 }

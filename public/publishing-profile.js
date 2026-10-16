@@ -1,6 +1,6 @@
 // Portable choices and reminders only. Article writing never enters this format.
 export const MAX_PROFILE_BYTES = 16 * 1024;
-export const PROFILE_DESTINATIONS = { wordpress: 'WordPress block editor', html: 'HTML source for a website', word: 'Word document (.docx)', other: 'Another editor or Markdown site' };
+export const PROFILE_DESTINATIONS = { wordpress: 'WordPress block editor', markdown: 'Markdown article (.md)', html: 'HTML source for a website', word: 'Word document (.docx)', other: 'Other exports and page Markdown' };
 const preferenceKeys = ['destination', 'formattedTitle', 'htmlTitle', 'wordTitle', 'markdownTitle'];
 function object(value, keys) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length !== keys.length || !keys.every(key => Object.hasOwn(value, key))) throw new Error('Choose a supported Draft to Page publishing profile, not a workspace backup or article file.');

@@ -83,7 +83,7 @@ test('File-operation busy state disables every navigation path and ignores progr
 
 test('Destination changes update continuation and accessible labels while keeping manual approval intact',()=>withUI(({$,ui})=>{
   $('body').value='An article';$('reviewed').checked=true;ui.update();
-  for(const [value,label] of [['wordpress','WordPress'],['word','Word'],['html','HTML source'],['other','another export']]){
+  for(const [value,label] of [['markdown','Markdown'],['wordpress','WordPress'],['word','Word'],['html','HTML source'],['other','another export']]){
     $('publishing-destination').value=value;ui.update();assert.equal($('continue-to-export').textContent,'Continue to '+label);
     assert.match($('start-handoff').attrs['aria-label'],/export/i);assert.equal($('reviewed').checked,true);
   }
@@ -101,7 +101,7 @@ test('Measured sticky offsets and nested disclosures make explicit targets reach
 }));
 
 test('Every workspace has a single compact step bar and reachable continuation controls in reading order',async()=>{
-  const routes=['write','word-to-wordpress','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
+  const routes=['write','word-to-wordpress', 'word-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
   const pages=Object.fromEntries(await Promise.all(routes.map(async route=>[route,await readFile('public/'+route+'/index.html','utf8')])));
   const result=JSON.parse(execFileSync('python3',['-c',String.raw`
 import sys,json
@@ -120,7 +120,7 @@ for route,html in json.load(sys.stdin).items():
  p=P();p.feed(html);assert not p.stack
  assert p.ids['workflow-steps']['parentTag']=='main'
  assert p.order.index('workflow-steps')<p.order.index('import-panel')<p.order.index('body')
- first='start-word-file' if route=='word-to-wordpress' else 'start-copied-paste' if route=='google-docs-to-wordpress' else 'start-draft'
+ first='start-word-file' if route in ['word-to-wordpress','word-to-markdown'] else 'start-copied-paste' if route=='google-docs-to-wordpress' else 'start-draft'
  for key in [first,'start-review','start-handoff']:assert 'workflow-steps' in p.ids[key]['parents']
  assert p.ids[first]['attrs']['aria-current']=='step'
  for key in ['review-current-article','continue-to-export']:
