@@ -18,6 +18,9 @@ class Parser(HTMLParser):
   if 'id' in node['attrs']:
    key=node['attrs']['id'];assert key not in self.ids;self.ids[key]=node;self.order.append(key)
   if tag not in void:self.stack.append(node)
+ def handle_startendtag(self,tag,attrs):
+  assert tag in void
+  self.handle_starttag(tag,attrs)
  def handle_endtag(self,tag):
   assert self.stack[-1]['tag']==tag,(tag,self.stack[-1]['tag']);self.stack.pop()
 def inside(node,parent):

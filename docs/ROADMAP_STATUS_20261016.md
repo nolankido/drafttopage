@@ -9,7 +9,7 @@ Checked October 16, 2026 against main `814bfa5d89ff13f50c4abc3aa80f21632335fab9`
 | 1. Plain-text clipboard correctness | PR #69; [literal punctuation contract](PLAIN_CLIPBOARD_RELEASE.md) | Current application/device selections in item 8 |
 | 2. Release baseline | PR #70; [manual stable-source gate](RELEASE_BASELINE_20261016.md) | Run on each release; Actions remain off |
 | 3. Application-origin document benchmark | PR #71; [13 inputs, 15 contracts](DOCUMENT_BENCHMARK_20261016.md) | Extend with consented current full-length source-app captures |
-| 4. WordPress round trips | PR #72 plus later additions; [real local save/reopen](WORDPRESS_ROUNDTRIP_20261016.md), eleven cases at PR #93 | Actual hosted versions/plugins and source-app handoff |
+| 4. WordPress round trips | PR #72 plus later additions; [real local save/reopen](WORDPRESS_ROUNDTRIP_20261016.md), extended to [twelve native Visual paste cases and a separate Code editor fallback](WORDPRESS_VISUAL_PASTE_20261016.md) | Actual hosted versions/plugins, physical-device clipboards, and current source-app handoff |
 | 5. Simpler first conversion | PR #73; untitled first-conversion browser journey | Unassisted human completion |
 | 6. Explicit opt-in recovery | PR #74; opt-in, lock, comparison, deletion and failure fixtures | Actual browser/device recovery sessions |
 | 7. Copy and handoff feedback | PR #75; current/pending/stale/failure fixtures | Actual device permission and destination behavior |
@@ -34,5 +34,7 @@ The continuation can improve reproducible product defects, source clarity and va
 Keep completed records and raw source-app captures outside this public repository unless they are deliberately fictional, licensed for public retention and separately reviewed. Do not add a tracking system to work around the measurement restriction. Do not convert a protocol, public guide or local test into a claim that its real-world acceptance gate passed.
 
 Nolan subsequently granted standing authorization for routine validated merges and deployments in PR #98, as recorded in [AGENTS.md](../AGENTS.md). The [paired study runner](alpha/RUNNER.md) shipped in PR #99. Participant sessions remain NOT_RUN. Checklist source work continues from main `8509a62df078615c58ef855a9ee1ee89d7550f04`; its exact release outcome is recorded in its PR.
+
+The [direct WordPress paste continuation](WORDPRESS_VISUAL_PASTE_20261016.md) follows checklist release PR #100, starting from main `f99004dafcefdb11114da7fc773b4a1630699a0b`. It makes ordinary Visual-editor paste the primary instructions, aligns the kit and help, and requires actual clipboard-to-saved-draft evidence for every retained WordPress case. The release PR records its exact tested source, merge, and native deployment outcome. This does not complete the unrun participant, hosted installation, or device gates.
 
 A later [independent public browser observation](LIVE_SITE_CHECK_20261016.md) verifies the actual homepage and one fictional Markdown-to-WordPress sample path, including copy feedback and approval clearing after an edit. It does not cover unmerged candidates or prove source-app, destination or device acceptance. No Search Console report was available. The unrun research, distribution, four-week return and commitment gates remain unrun; replacing them with more features would not complete their original recommendations.

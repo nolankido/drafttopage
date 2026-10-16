@@ -6,28 +6,43 @@ import { createHash } from 'node:crypto';
 
 export function validateWordPressEvidence(evidence, configuration, sourceSha256) {
   const expected = configuration.cases;
-  if (evidence.result !== 'PASS' || evidence.scope !== 'local WordPress save/reopen' ||
+  const isDigest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+  const nativeCases = expected.filter(item => item.inputMode === 'native-visual-paste');
+  if (evidence.result !== 'PASS' || evidence.scope !== 'local WordPress native clipboard, Visual paste, save/reopen, and Code editor fallback' ||
       evidence.environment?.wordpress !== configuration.wordpress || evidence.environment?.unfilteredHTMLDisabled !== true ||
       evidence.playground !== configuration.playground || !evidence.environment?.php?.startsWith(configuration.php + '.') ||
       evidence.environment?.marker !== 'drafttopage-local-acceptance' || evidence.environment?.databaseClass !== 'WP_SQLite_DB' ||
       !evidence.environment?.pdoDrivers?.includes('sqlite') || evidence.sourceUnchanged !== true ||
-      !/^[a-f0-9]{64}$/.test(evidence.sourceSha256 || '') || sourceSha256 && sourceSha256 !== evidence.sourceSha256 ||
+      !isDigest(evidence.sourceSha256) || sourceSha256 && sourceSha256 !== evidence.sourceSha256 ||
       evidence.user?.roles?.length !== 1 || evidence.user.roles[0] !== 'author' || evidence.user.unfilteredHTML !== false ||
       evidence.negativeControl !== true || !Array.isArray(evidence.runtimeErrors) || evidence.runtimeErrors.length ||
       !Array.isArray(evidence.unexpectedRequests) || evidence.unexpectedRequests.length ||
-      !Array.isArray(evidence.cases) || evidence.cases.length !== expected.length ||
+      !nativeCases.length || !Array.isArray(evidence.cases) || evidence.cases.length !== expected.length ||
       new Set(evidence.cases.map(item => item.id)).size !== expected.length ||
       expected.some(item => {
         const found = evidence.cases.find(result => result.id === item.id);
+        const native = item.inputMode === 'native-visual-paste', paste = found?.paste;
+        const pinnedSavedSha256 = typeof item.expectedSavedSource === 'string'
+          ? createHash('sha256').update(item.expectedSavedSource).digest('hex') : null;
         return !found || found.result !== 'PASS' || found.status !== 'draft' || found.validAfterReopen !== true || found.saveResponse !== 200 ||
-          !Number.isInteger(found.postId) || found.postId <= 0 || !/^[a-f0-9]{64}$/.test(found.savedSha256 || '') ||
-          item.editAfterReopen && (found.editedAndReopened !== true || !/^[a-f0-9]{64}$/.test(found.editedSha256 || '')) ||
-          item.inputMode && found.inputMode !== item.inputMode || item.file && !found.source ||
+          !Number.isInteger(found.postId) || found.postId <= 0 || !isDigest(found.savedSha256) ||
+          !['native-visual-paste', 'code-editor'].includes(item.inputMode) || found.inputMode !== item.inputMode ||
+          typeof found.source !== 'string' || !found.source.trim() || found.sourceTransport !== 'copy-wordpress-button' ||
+          found.privateFieldsPopulated !== true || !isDigest(found.exportSha256) || found.clipboardSha256 !== found.exportSha256 ||
+          paste?.trusted !== true || paste.textSha256 !== found.exportSha256 || paste.htmlEmpty !== true ||
+          !Array.isArray(paste.types) || paste.types.length !== 1 || paste.types[0] !== 'text/plain' ||
+          paste.targetKind !== (native ? 'visual-paragraph' : 'code-textarea') ||
+          native && (paste.emptyParagraph !== true || paste.editableTarget !== true) ||
+          found.savedSourceExact !== true || found.expectedSavedSha256 !== found.savedSha256 ||
+          pinnedSavedSha256 && found.expectedSavedSha256 !== pinnedSavedSha256 ||
+          item.editAfterReopen && (found.editedAndReopened !== true || found.secondReopenExact !== true ||
+            !isDigest(found.editedSha256) || found.editedSha256 === found.savedSha256) ||
           item.strikes && found.strikethroughVerified !== true || item.rawText && found.rawTextVerified !== true ||
           item.listPaths && found.listHierarchyVerified !== true ||
-          item.formatSelection && (found.toolbarVerified !== true || !found.source);
+          item.formatSelection && found.toolbarVerified !== true;
       })) throw new Error('WordPress evidence is incomplete, contains failures, or targets a different environment.');
-  return { result: 'PASS', version: evidence.environment.wordpress, cases: evidence.cases.length, role: 'author' };
+  return { result: 'PASS', version: evidence.environment.wordpress, cases: evidence.cases.length,
+    nativePasteCases: nativeCases.length, codeEditorCases: expected.length - nativeCases.length, role: 'author' };
 }
 
 // A deliberately invoked local gate. It never installs tools, starts Actions,

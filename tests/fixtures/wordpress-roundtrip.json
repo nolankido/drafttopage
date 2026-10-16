@@ -20,7 +20,53 @@
           "href": "https://example.test/?a=1&b=2"
         }
       ],
-      "inputMode": "code-editor"
+      "inputMode": "native-visual-paste",
+      "headingLevels": [
+        2,
+        3
+      ],
+      "inlineContents": [
+        {
+          "path": [
+            1
+          ],
+          "content": "Keep <strong>bold <em>inside</em></strong> and <a href=\"https://example.test/?a=1&amp;b=2\" target=\"_blank\" rel=\"noopener noreferrer\">a link</a>."
+        }
+      ],
+      "editedInlineContents": [
+        {
+          "path": [
+            1
+          ],
+          "content": "Keep <strong>bold <em>inside</em></strong> and <a href=\"https://example.test/?a=1&amp;b=2\" target=\"_blank\" rel=\"noopener noreferrer\">a link</a>. Reopened edit."
+        }
+      ],
+      "blockPaths": [
+        {
+          "path": [
+            0
+          ],
+          "name": "core/heading"
+        },
+        {
+          "path": [
+            1
+          ],
+          "name": "core/paragraph"
+        },
+        {
+          "path": [
+            2
+          ],
+          "name": "core/heading"
+        },
+        {
+          "path": [
+            3
+          ],
+          "name": "core/paragraph"
+        }
+      ]
     },
     {
       "id": "nested-lists",
@@ -33,7 +79,90 @@
         4,
         7
       ],
-      "listItems": 4
+      "listItems": 4,
+      "inputMode": "native-visual-paste",
+      "expectedSavedSource": "<!-- wp:list {\"ordered\":true,\"start\":4} -->\n<ol start=\"4\" class=\"wp-block-list\"><!-- wp:list-item -->\n<li>First<!-- wp:list {\"ordered\":true,\"start\":7} -->\n<ol start=\"7\" class=\"wp-block-list\"><!-- wp:list-item -->\n<li>Child</li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Next child</li>\n<!-- /wp:list-item --></ol>\n<!-- /wp:list --></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>Second</li>\n<!-- /wp:list-item --></ol>\n<!-- /wp:list -->",
+      "savedSourceNote": "Pinned WordPress 7.1.3 save output: ordered-list start precedes class, sibling List Item blocks have an extra separating newline, and the export's final LF is omitted. Numbering and exact parent-child paths remain checked.",
+      "listPaths": [
+        {
+          "path": [
+            0,
+            0
+          ],
+          "text": "First"
+        },
+        {
+          "path": [
+            0,
+            0,
+            0
+          ],
+          "text": "Child"
+        },
+        {
+          "path": [
+            0,
+            0,
+            1
+          ],
+          "text": "Next child"
+        },
+        {
+          "path": [
+            0,
+            1
+          ],
+          "text": "Second"
+        }
+      ],
+      "blockPaths": [
+        {
+          "path": [
+            0
+          ],
+          "name": "core/list"
+        },
+        {
+          "path": [
+            0,
+            0
+          ],
+          "name": "core/list-item"
+        },
+        {
+          "path": [
+            0,
+            0,
+            0
+          ],
+          "name": "core/list"
+        },
+        {
+          "path": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "name": "core/list-item"
+        },
+        {
+          "path": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "name": "core/list-item"
+        },
+        {
+          "path": [
+            0,
+            1
+          ],
+          "name": "core/list-item"
+        }
+      ]
     },
     {
       "id": "tables",
@@ -57,7 +186,10 @@
           "Only",
           "Head"
         ]
-      ]
+      ],
+      "inputMode": "native-visual-paste",
+      "expectedSavedSource": "<!-- wp:table -->\n<figure class=\"wp-block-table\"><table class=\"has-fixed-layout\"><thead><tr><th class=\"has-text-align-left\" data-align=\"left\" scope=\"col\">Name</th><th class=\"has-text-align-right\" data-align=\"right\" scope=\"col\">Count</th></tr></thead><tbody><tr><td class=\"has-text-align-left\" data-align=\"left\"><strong>Alpha</strong></td><td class=\"has-text-align-right\" data-align=\"right\">2</td></tr></tbody></table></figure>\n<!-- /wp:table -->\n\n<!-- wp:table -->\n<figure class=\"wp-block-table\"><table class=\"has-fixed-layout\"><thead><tr><th scope=\"col\">Only</th><th scope=\"col\">Head</th></tr></thead></table></figure>\n<!-- /wp:table -->\n\n<!-- wp:paragraph -->\n<p>Tables ending.</p>\n<!-- /wp:paragraph -->",
+      "savedSourceNote": "Pinned WordPress 7.1.3 save output: default hasFixedLayout:true is omitted from block comments, aligned header attributes are reordered, and the export's final LF is omitted. Header scope, alignment, cell emphasis, rows and cells stay exact."
     },
     {
       "id": "quote-code-separator",
@@ -68,7 +200,10 @@
         "core/code",
         "core/separator",
         "core/paragraph"
-      ]
+      ],
+      "inputMode": "native-visual-paste",
+      "expectedSavedSource": "<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\"><!-- wp:paragraph -->\n<p>A quoted observation.</p>\n<!-- /wp:paragraph --></blockquote>\n<!-- /wp:quote -->\n\n<!-- wp:code -->\n<pre class=\"wp-block-code\"><code>&lt;script&gt;window.DTP_FIXTURE_EXECUTED=true&lt;/script&gt;</code></pre>\n<!-- /wp:code -->\n\n<!-- wp:separator -->\n<hr class=\"wp-block-separator has-alpha-channel-opacity\" />\n<!-- /wp:separator -->\n\n<!-- wp:paragraph -->\n<p>Ending.</p>\n<!-- /wp:paragraph -->",
+      "savedSourceNote": "Pinned WordPress 7.1.3 Visual save output: the separator's hr tag includes a space before its closing slash, and the export's final LF is omitted. Quote, code, separator class and block order stay exact."
     },
     {
       "id": "unicode-literal",
@@ -76,7 +211,8 @@
       "text": "Caf\u00e9 \u65e5\u672c\u8a9e \ud83d\ude00. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and *stars*.",
       "top": [
         "core/paragraph"
-      ]
+      ],
+      "inputMode": "native-visual-paste"
     },
     {
       "id": "linked-image-enabled",
@@ -93,7 +229,10 @@
           "src": "https://example.test/roundtrip.png?a=1&b=2",
           "alt": "Fictional workshop"
         }
-      ]
+      ],
+      "inputMode": "native-visual-paste",
+      "expectedSavedSource": "<!-- wp:paragraph -->\n<p>Opening.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:image -->\n<figure class=\"wp-block-image\"><img src=\"https://example.test/roundtrip.png?a=1&amp;b=2\" alt=\"Fictional workshop\" /></figure>\n<!-- /wp:image -->\n\n<!-- wp:paragraph -->\n<p>Ending.</p>\n<!-- /wp:paragraph -->",
+      "savedSourceNote": "Pinned WordPress 7.1.3 Visual save output: the img tag includes a space before its closing slash, and the export's final LF is omitted. Image URL, query parameters, alt text and surrounding blocks stay exact."
     },
     {
       "id": "linked-image-literal",
@@ -103,7 +242,8 @@
         "core/paragraph",
         "core/paragraph",
         "core/paragraph"
-      ]
+      ],
+      "inputMode": "native-visual-paste"
     },
     {
       "id": "word-footnotes-handoff",
@@ -116,7 +256,8 @@
         "core/paragraph",
         "core/heading",
         "core/paragraph"
-      ]
+      ],
+      "inputMode": "native-visual-paste"
     },
     {
       "id": "strikethrough-nested",
@@ -134,7 +275,8 @@
           "text": "the earlier plan",
           "href": "https://example.test/plan"
         }
-      ]
+      ],
+      "inputMode": "native-visual-paste"
     },
     {
       "id": "toolbar-strikethrough-handoff",
@@ -149,7 +291,8 @@
       ],
       "strikes": [
         "Old plan"
-      ]
+      ],
+      "inputMode": "native-visual-paste"
     },
     {
       "id": "word-strikethrough-handoff",
@@ -165,13 +308,16 @@
       "rawStrikes": [
         "Today's Special: Salmon"
       ],
-      "renderingNote": "WordPress renders the apostrophe typographically; stored text and its mark remain checked separately and exactly."
+      "renderingNote": "WordPress renders the apostrophe typographically; stored text and its mark remain checked separately and exactly.",
+      "inputMode": "native-visual-paste",
+      "expectedSavedSource": "<!-- wp:paragraph -->\n<p><s>Today's Special: Salmon</s> Sold out</p>\n<!-- /wp:paragraph -->",
+      "savedSourceNote": "Pinned WordPress 7.1.3 Visual save output: the apostrophe is stored as a literal character instead of the equivalent &#39; entity inside the unchanged s element, and the export's final LF is omitted. Raw text, rendered text and strikethrough remain independently checked."
     },
     {
       "id": "google-checklist-handoff",
       "file": "tests/fixtures/documents/google-checklist.html",
       "sourceRoute": "/google-docs-to-wordpress/",
-      "sourceLabel": "native HTML file import of the pinned Google Docs checklist, review, apply, and actual block download",
+      "sourceLabel": "native HTML file import of the pinned Google Docs checklist, review, apply, and Copy WordPress blocks",
       "text": "[Checked] done [Unchecked] todo [Checked] done [Unchecked] todo [Unchecked] todo",
       "top": [
         "core/list"
@@ -224,7 +370,122 @@
           "text": "[Unchecked] todo"
         }
       ],
-      "inputMode": "code-editor"
+      "inputMode": "native-visual-paste",
+      "expectedSavedSource": "<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>[Checked] <s>done</s></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>[Unchecked] todo<!-- wp:list -->\n<ul class=\"wp-block-list\"><!-- wp:list-item -->\n<li>[Checked] <s>done</s></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>[Unchecked] todo</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list --></li>\n<!-- /wp:list-item -->\n\n<!-- wp:list-item -->\n<li>[Unchecked] todo</li>\n<!-- /wp:list-item --></ul>\n<!-- /wp:list -->",
+      "savedSourceNote": "Pinned WordPress 7.1.3 save output: sibling List Item blocks have an extra separating newline and the export's final LF is omitted. Repeated labels, strike marks and exact parent-child paths stay exact.",
+      "blockPaths": [
+        {
+          "path": [
+            0
+          ],
+          "name": "core/list"
+        },
+        {
+          "path": [
+            0,
+            0
+          ],
+          "name": "core/list-item"
+        },
+        {
+          "path": [
+            0,
+            1
+          ],
+          "name": "core/list-item"
+        },
+        {
+          "path": [
+            0,
+            1,
+            0
+          ],
+          "name": "core/list"
+        },
+        {
+          "path": [
+            0,
+            1,
+            0,
+            0
+          ],
+          "name": "core/list-item"
+        },
+        {
+          "path": [
+            0,
+            1,
+            0,
+            1
+          ],
+          "name": "core/list-item"
+        },
+        {
+          "path": [
+            0,
+            2
+          ],
+          "name": "core/list-item"
+        }
+      ]
+    },
+    {
+      "id": "paragraphs-inline-code-editor-fallback",
+      "body": "## Fictional section\n\nKeep **bold _inside_** and [a link](https://example.test/?a=1&b=2).\n\n### Detail\n\nAn ending.",
+      "text": "Fictional section Keep bold inside and a link. Detail An ending.",
+      "top": [
+        "core/heading",
+        "core/paragraph",
+        "core/heading",
+        "core/paragraph"
+      ],
+      "links": [
+        {
+          "text": "a link",
+          "href": "https://example.test/?a=1&b=2"
+        }
+      ],
+      "inputMode": "code-editor",
+      "headingLevels": [
+        2,
+        3
+      ],
+      "inlineContents": [
+        {
+          "path": [
+            1
+          ],
+          "content": "Keep <strong>bold <em>inside</em></strong> and <a href=\"https://example.test/?a=1&amp;b=2\" target=\"_blank\" rel=\"noopener noreferrer\">a link</a>."
+        }
+      ],
+      "blockPaths": [
+        {
+          "path": [
+            0
+          ],
+          "name": "core/heading"
+        },
+        {
+          "path": [
+            1
+          ],
+          "name": "core/paragraph"
+        },
+        {
+          "path": [
+            2
+          ],
+          "name": "core/heading"
+        },
+        {
+          "path": [
+            3
+          ],
+          "name": "core/paragraph"
+        }
+      ],
+      "expectedSavedSource": "<!-- wp:heading -->\n<h2 class=\"wp-block-heading\">Fictional section</h2>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>Keep <strong>bold <em>inside</em></strong> and <a href=\"https://example.test/?a=1&amp;b=2\" target=\"_blank\" rel=\"noopener noreferrer\">a link</a>.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:heading {\"level\":3} -->\n<h3 class=\"wp-block-heading\">Detail</h3>\n<!-- /wp:heading -->\n\n<!-- wp:paragraph -->\n<p>An ending.</p>\n<!-- /wp:paragraph -->\n",
+      "savedSourceNote": "Pinned WordPress 7.1.3 Code editor fallback save output: the exact copied source is preserved, including its final LF. Headings, inline marks, links and block order stay exact."
     }
   ]
 }

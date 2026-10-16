@@ -76,6 +76,7 @@ for (const id of ['copy-wordpress', 'copy-wordpress-title', 'copy-wordpress-exce
   test('Pending ' + id + ' locks every publishing copy while keeping downloads available and feedback nearby', () => withUI(async ({ $, ui, writes, messages }) => {
     let finish; navigator.clipboard.writeText = text => { writes.push(text); return new Promise(resolve => { finish = resolve; }); };
     const first = $(id).fire(); assert.equal(writes.length, 1);
+    assert.equal($('wordpress-instructions').open, false);
     for (const button of copyButtons) assert.equal($(button).disabled, true, button);
     for (const button of ['copy-wordpress', 'copy-wordpress-title', 'copy-wordpress-excerpt']) await $(button).fire();
     assert.equal(writes.length, 1); assert.equal($('download-wordpress').disabled, false); assert.equal($('download-wordpress-kit').disabled, false);
@@ -84,6 +85,13 @@ for (const id of ['copy-wordpress', 'copy-wordpress-title', 'copy-wordpress-exce
     finish(); await first; assert.equal($('wordpress-actions').attributes['aria-busy'], 'false');
     assert.equal($('copy-wordpress').disabled, false); assert.equal($('wordpress-action-status').textContent, messages.at(-1));
     assert.equal($('wordpress-fields-action-status').textContent, messages.at(-1)); assert.match(messages.at(-1), /copied/);
+    assert.equal($('wordpress-instructions').open, id === 'copy-wordpress');
+    if (id === 'copy-wordpress') {
+      assert.match(messages.at(-1), /new, empty WordPress draft.*empty paragraph below the title in Visual editor/);
+      assert.match(messages.at(-1), /paste normally with Ctrl\+V or Command\+V/);
+      assert.match(messages.at(-1), /save as a draft, then close and reopen/);
+      assert.doesNotMatch(messages.at(-1), /Code editor/);
+    }
     assert.doesNotMatch(writes.join('\n'), /PRIVATE_(?:SOURCE|REVIEW)_SENTINEL/); assert.equal($('reviewed').checked, true);
     ui.update(); assert.equal($('wordpress-action-status').textContent, messages.at(-1));
   }));
@@ -99,12 +107,15 @@ test('A WordPress request cannot overlap a later HTML or Markdown copy, and stal
   }
   assert.equal(writes.length, 1); finish(); await first;
   assert.match(messages.at(-1), /earlier export/); assert.equal($('wordpress-action-status').textContent, ''); assert.equal($('markdown-action-status').textContent, '');
+  assert.equal($('wordpress-instructions').open, false);
   assert.equal($('copy-article-markdown').disabled, false);
 }));
 test('Permission failures show a nearby fallback, clear on editing, and do not disable downloads', () => withUI(async ({ $, ui, messages, edit }) => {
   navigator.clipboard.writeText = async () => { throw new Error('PRIVATE_ERROR_DETAILS'); };
   await $('copy-wordpress').fire(); assert.match($('wordpress-action-status').textContent, /Download the blocks/);
   assert.equal($('copy-wordpress').disabled, false); assert.equal($('download-wordpress').disabled, false);
+  assert.equal($('wordpress-instructions').open, false);
+  assert.doesNotMatch($('wordpress-action-status').textContent, /WordPress blocks copied/);
   assert.doesNotMatch(messages.join('\n'), /PRIVATE_ERROR_DETAILS/);
   edit({ body: 'An updated article.' }); $('reviewed').checked = false; ui.update();
   assert.equal($('wordpress-action-status').textContent, ''); assert.equal($('copy-wordpress').disabled, true);

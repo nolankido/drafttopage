@@ -57,6 +57,14 @@ test('A WordPress kit is destination-specific, deterministic, and safe with opti
   assert.equal(JSON.parse(files['page-details.json']).excerpt, ''); assert.equal(JSON.parse(files['page-details.json']).slug, 'untitled-article');
   assert.match(kit.notices.join(' '), /editor filename is unchanged/); assert.match(kit.notices.join(' '), /left empty/);
   assert.match(files['README.txt'], /TEXT EDITOR/); assert.match(files['README.txt'], /Excerpt setting/); assert.match(files['README.txt'], /not an automatic WordPress import/);
+  const [primary, fallback] = files['README.txt'].split('If the paste appears as raw source text:');
+  assert.match(primary, /empty paragraph below the title and paste normally with Ctrl\+V or Command\+V/);
+  assert.doesNotMatch(primary, /Code editor/);
+  assert.match(fallback, /Undo that paste or use another new, empty draft/);
+  assert.match(fallback, /full post Code editor, not a Code block or Custom HTML block/);
+  assert.match(fallback, /Return to Visual editor/);
+  assert.match(files['REVIEW.txt'], /Save as a draft, close and reopen the post/);
+  assert.doesNotMatch(files['REVIEW.txt'], /after returning to Visual editor/);
   assert.equal(JSON.stringify(draft), before); assert.deepEqual(createWordPressKit(draft).bytes, createWordPressKit(draft).bytes);
 });
 test('WordPress article files exclude private workspace data and preserve hostile material as inert text', () => {

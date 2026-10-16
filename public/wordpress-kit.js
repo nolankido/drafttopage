@@ -24,7 +24,7 @@ export function wordPressKitFiles(draft, options = {}) {
   const fields = JSON.parse(original('page-details.json').content);
   const { filename, notices } = wordPressKitSummary(draft, options);
   const files = [
-    { name: 'wordpress-blocks.html', content: article.html, purpose: 'Paste this source into the full WordPress Code editor, then inspect in Visual editor.' },
+    { name: 'wordpress-blocks.html', content: article.html, purpose: 'Open in a text editor, copy all source, and paste into the empty paragraph below the title in WordPress Visual editor.' },
     { ...original('article-body.md'), content: draft.body, purpose: 'Exact original Markdown body for further editing and review line numbers; not the WordPress block source.' },
     { ...original('reading-page.html'), purpose: 'Open in a browser to review. Your WordPress theme can render differently.' },
     { ...original('page-details.json'), purpose: 'Title and optional excerpt, slug, and description for separate fields. Not a CMS import file.' },
@@ -41,11 +41,14 @@ export function wordPressKitFiles(draft, options = {}) {
     '   REVIEW.txt line numbers refer to the exact original body in article-body.md, not to generated HTML.',
     '2. Create a new, empty draft post in the WordPress block editor. Enter page-details.json title in the title field.',
     '3. Open wordpress-blocks.html in a TEXT EDITOR. Copy all source, including block comments. Opening it in a browser only shows a reading view.',
-    '4. In WordPress, open Options > Code editor and paste the source in the post body. Do not paste into a Custom HTML block or the Classic Editor.',
-    '5. Return to Visual editor. Check headings, lists, quotes, code, tables, links, and image blocks. Rebuild images left as text, malformed or oversized tables or lists, and unsupported syntax yourself.',
+    '4. In WordPress Visual editor, click the empty paragraph below the title and paste normally with Ctrl+V or Command+V.',
+    '5. Inspect the editable headings, lists, quotes, code, tables, links, and image blocks. Rebuild images left as text, malformed or oversized tables or lists, and unsupported syntax yourself.',
     '6. Add optional page fields: excerpt goes in the post Excerpt setting; slug goes in the post Slug/permalink setting when available; description goes in your SEO tool only if it offers that field. Do not paste these fields into the article body.',
     '7. Save as a draft, close and reopen the post, and confirm the blocks remain editable without unexpected-content warnings. Keep your original writing and fix any block WordPress cannot recognize.',
     '8. Choose categories, featured image, and other site settings yourself. Preview the actual post and its mobile view. Publish only after your own review.', '',
+    'If the paste appears as raw source text:',
+    'Undo that paste or use another new, empty draft. Open Options > Code editor for the full post and paste the complete source, including block comments. This fallback uses the full post Code editor, not a Code block or Custom HTML block. Return to Visual editor and repeat the inspection, save, and reopen checks. The Classic Editor is outside this handoff.',
+    'If unexpected-content warnings remain, keep the post unpublished and compare it with your original writing. Do not assume an editor recovery action preserved every block.', '',
     'Body H1 headings become H2. Numbered lists preserve their starting value. Single-line nested lists support six levels and 200 items per continuous group, with two or four additional spaces per level. Inconsistent numbering, indentation, and multiline item blocks stay intact as text. Source HTML, unselected or unsupported images, and unsupported Markdown stay text. Safe absolute HTTP(S) links and simple pipe tables are supported. Tables allow 12 columns and 100 data rows, with matching cell counts; malformed or oversized tables stay complete as text.',
     'Image mode: ' + (options.includeLinkedImages ? article.imageCount + ' supported standalone HTTPS image reference(s) became linked Image blocks.' : 'Image conversion is off. Every image reference stays literal text in the blocks.'),
     'Linked images are URL references, not uploaded files. Opening wordpress-blocks.html in a browser or WordPress can request those URLs. No image was loaded, verified, or uploaded by Draft to Page. Use public files you have permission to publish. In WordPress, inspect alternative text, including empty decorative text, and use Upload to Media Library if you want a copy on your site.',

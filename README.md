@@ -8,7 +8,7 @@ Run `npm run verify:release` for the complete manually invoked build, regression
 
 The full gate also includes a [pinned application-origin document benchmark](docs/DOCUMENT_BENCHMARK_20261016.md): 13 licensed inputs, 15 explicit conversion/disclosure/rejection contracts, independent exported-file readers, and staged UI checks. Run `npm run benchmark:documents` after building for the focused corpus; that partial run does not replace the full release gate.
 
-For actual WordPress save-and-reopen acceptance, [use the local WordPress gate](docs/WORDPRESS_ROUNDTRIP_20261016.md). Supply an explicitly installed `DRAFTTOPAGE_WORDPRESS_CLI` when running the release gate to require its fresh evidence. Without it, WordPress acceptance is explicitly `NOT_RUN`.
+For actual WordPress clipboard, paste, and save-and-reopen acceptance, [use the local WordPress gate](docs/WORDPRESS_ROUNDTRIP_20261016.md) and its [direct Visual paste extension](docs/WORDPRESS_VISUAL_PASTE_20261016.md). Supply an explicitly installed `DRAFTTOPAGE_WORDPRESS_CLI` when running the release gate to require its fresh evidence. Without it, WordPress acceptance is explicitly `NOT_RUN`.
 
 Plain-text clipboard selections now keep Markdown-looking punctuation literal instead of extracting page details or headings. Intentional Markdown remains available through its explicit import format. Oversized escaped selections are rejected in full. See [the plain clipboard correction](docs/PLAIN_CLIPBOARD_RELEASE.md).
 
@@ -48,6 +48,8 @@ The article outline and optional local draft checks help locate unfinished place
 ## Publishing handoff
 
 Public workspaces coordinate clipboard requests across publishing formats and private writing tools. Pending copies disable overlapping copy controls while approved downloads remain available. Nearby handoff feedback reports browser completion, permission fallback, and earlier-version results after writing or options change. Successful current WordPress block copies open the paste instructions. Copy state stays in memory and no clipboard read or automatic publication is added. See [the overnight progress record](docs/OVERNIGHT_IMPROVEMENTS_20261016.md).
+
+**Copy WordPress blocks** now leads directly to an empty paragraph in a new WordPress draft's Visual editor. The shared workspace, converter guides, help, and downloaded kit give the same paste, inspect, save, and reopen steps. A separate full-post Code editor fallback explains how to retry if source text appears. The release fixture requires twelve real button-to-clipboard-to-Visual-editor handoffs and one distinct Code editor fallback, with exact saved-source checks and a real second edit/save/reopen. [Direct-paste release notes](docs/WORDPRESS_VISUAL_PASTE_20261016.md).
 
 
 Copy formatted article writes safe article HTML and a plain-text representation in one explicit clipboard action. The default excludes the title; the author can include it deliberately. Supported formatting uses the same renderer as the reading page. A blocked or unsupported clipboard keeps writing intact and points to the existing body/HTML alternatives. Browser and destination-editor support varies; no CMS integration is claimed.
