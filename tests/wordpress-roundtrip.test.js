@@ -16,6 +16,7 @@ const complete = () => ({ result: 'PASS', scope: 'local WordPress save/reopen', 
   cases: configuration.cases.map((item, index) => ({ id: item.id, result: 'PASS', postId: index + 1, status: 'draft',
     saveResponse: 200, savedSha256: digest, validAfterReopen: true,
     ...(item.strikes ? { strikethroughVerified: true } : {}),
+    ...(item.formatSelection ? { toolbarVerified: true, source: 'native toolbar fixture' } : {}),
     ...(item.rawText ? { rawTextVerified: true } : {}),
     ...(item.editAfterReopen ? { editedAndReopened: true, editedSha256: digest } : {}),
     ...(item.inputMode ? { inputMode: item.inputMode } : {}), ...(item.file ? { source: 'native file fixture' } : {}) }))
@@ -34,7 +35,9 @@ test('WordPress acceptance requires the pinned environment, every saved/reopened
     x => x.runtimeErrors.push('fixture failure'), x => x.unexpectedRequests.push('https://example.invalid/'),
     x => delete x.cases.find(item => item.source).source,
     x => delete x.cases.find(item => item.strikethroughVerified).strikethroughVerified,
-    x => delete x.cases.find(item => item.rawTextVerified).rawTextVerified
+    x => delete x.cases.find(item => item.rawTextVerified).rawTextVerified,
+    x => delete x.cases.find(item => item.toolbarVerified).toolbarVerified,
+    x => delete x.cases.find(item => item.toolbarVerified).source
   ];
   for (const corrupt of corruptions) {
     const evidence = complete(); corrupt(evidence);
