@@ -14,13 +14,16 @@ function boundary(body, offset) {
 }
 // Escape literal label text, including punctuation that could form blocks on unlink.
 const literalMarkdown = text => text.replace(/[!"#$%&'()*+,\-./:;<=>?@[\\\]^_`{|}~]/g, '\\$&');
-export function articleLinks(body) {
+export function articleLinks(body, { readTokens = inlineTokens } = {}) {
   validBody(body);
+  // A recognized inline link needs a literal opening bracket. Any candidate
+  // retains the complete original structure, table and inline inspection.
+  if (!body.includes('[')) return [];
   const tables = markdownTableRanges(body), links = [];
   for (const block of articleStructure(body)) {
     if (block.kind === 'code') continue;
     let line = block.line, offset = 0, emphasisEnd = 0;
-    for (const token of walkInlineTokens(inlineTokens(block.text))) {
+    for (const token of walkInlineTokens(readTokens(block.text))) {
       if (['strong', 'em', 's'].includes(token.type)) emphasisEnd = Math.max(emphasisEnd, token.end);
       if (token.type !== 'link') continue;
       line += (block.text.slice(offset, token.start).match(/\n/g) || []).length; offset = token.end;
