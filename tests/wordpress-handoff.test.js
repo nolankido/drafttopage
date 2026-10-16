@@ -88,6 +88,47 @@ function node(value = '') {
   const handlers = {};
   return { value, checked:false, open:false, disabled:false, children:[], textContent:'', focus(){this.focused=true;}, setSelectionRange(start,end){this.selection=[start,end];}, addEventListener(name,fn){handlers[name]=fn;}, fire(name){return handlers[name]?.();}, append(...children){this.children.push(...children);}, replaceChildren(...children){this.children=children;} };
 }
+const handoffIds=['publishing-destination','reviewed','wordpress-review-status','wordpress-review-panel','wordpress-findings','copy-wordpress-excerpt','copy-wordpress-slug','copy-wordpress-description','wordpress-fields-status','download-wordpress-kit','wordpress-kit-status','wordpress-kit-panel','wordpress-kit-files','wordpress-edit-fields','page-details','excerpt','body'];
+async function handoffFixture(run) {
+  const nodes=Object.fromEntries(handoffIds.map(id=>[id,node()])), previous=globalThis.document;
+  nodes['publishing-destination'].value='wordpress';nodes['wordpress-review-panel'].open=true;nodes['wordpress-kit-panel'].open=true;
+  const state={draft:{...QUICK_SAMPLE,body:'Original [Word image 2].'},reads:0,optionReads:0,opened:[],messages:[],busy:false};
+  globalThis.document={getElementById:id=>nodes[id],createElement:()=>node()};
+  const control=installWordPressHandoff({getDraft:()=>{state.reads++;return state.draft;},getWordPressOptions:()=>{state.optionReads++;return {};},approved:()=>{if(!nodes.reviewed.checked)throw Error('Review first.');},report:message=>state.messages.push(message),isBusy:()=>state.busy,reveal:()=>{},openFinding:item=>{state.opened.push(item);return true;}});
+  try {await run({nodes,state,control});} finally {globalThis.document=previous;}
+}
+test('Inactive WordPress handoff does not capture writing or options and clears hidden derived output',()=>handoffFixture(({nodes,state,control})=>{
+  for(const destination of ['html','word','markdown','other']){
+    nodes['publishing-destination'].value=destination;state.reads=0;state.optionReads=0;
+    nodes['wordpress-findings'].children=[node('Old finding')];nodes['wordpress-kit-files'].children=[node('Old file')];
+    control.update();control.update();
+    assert.equal(state.reads,0,destination);assert.equal(state.optionReads,0,destination);
+    for(const id of ['wordpress-review-status','wordpress-fields-status','wordpress-kit-status'])assert.equal(nodes[id].textContent,'');
+    assert.equal(nodes['wordpress-findings'].children.length,0);assert.equal(nodes['wordpress-kit-files'].children.length,0);
+    for(const id of ['download-wordpress-kit','copy-wordpress-excerpt','copy-wordpress-slug','copy-wordpress-description'])assert.equal(nodes[id].disabled,true);
+    control.reset();assert.equal(state.reads,0);
+  }
+}));
+test('Returning to WordPress recomputes current Unicode/CRLF findings and rejects saved old actions',()=>handoffFixture(({nodes,state,control})=>{
+  control.update();const old=nodes['wordpress-findings'].children[0].children[2];
+  nodes['publishing-destination'].value='markdown';control.update();state.draft={...state.draft,title:'A changed title',body:'日本語 😀\r\n\r\n[Word image 7]'};
+  old.fire('click');assert.equal(state.opened.length,0);assert.equal(nodes.body.selection,undefined);
+  nodes['publishing-destination'].value='wordpress';control.update();
+  assert.equal(nodes['wordpress-findings'].children.length,1);assert.equal(nodes['wordpress-kit-files'].children.length,6);
+  const row=nodes['wordpress-findings'].children[0];assert.match(row.children[0].textContent,/Line 3:/);
+  row.children[1].fire('click');assert.equal(state.draft.body.slice(...nodes.body.selection),'[Word image 7]');
+  nodes.body.selection=null;old.fire('click');assert.equal(nodes.body.selection,null);assert.equal(state.opened.length,0);
+  row.children[2].fire('click');assert.equal(state.opened.length,1);assert.equal(state.draft.body.slice(state.opened[0].start,state.opened[0].end),'[Word image 7]');
+}));
+test('Inactive toggles and guarded actions cannot read writing, copy fields or approve a kit',()=>handoffFixture(async({nodes,state,control})=>{
+  nodes['publishing-destination'].value='html';nodes.reviewed.checked=true;
+  await nodes['wordpress-review-panel'].fire('toggle');await nodes['wordpress-kit-panel'].fire('toggle');
+  for(const key of ['excerpt','slug','description'])await nodes['copy-wordpress-'+key].fire('click');
+  await nodes['download-wordpress-kit'].fire('click');
+  assert.equal(state.reads,0);assert.equal(state.optionReads,0);assert.equal(nodes.reviewed.checked,true);
+  nodes['publishing-destination'].value='wordpress';state.draft={title:'',body:''};control.update();
+  assert.match(nodes['wordpress-review-status'].textContent,/Add an article/);assert.equal(nodes['download-wordpress-kit'].disabled,true);assert.equal(nodes['wordpress-findings'].children.length,0);
+}));
 test('Handoff controls refresh findings, keep inspection read-only, reject stale positions, and gate field copies', async () => {
   const ids=['publishing-destination','reviewed','wordpress-review-status','wordpress-review-panel','wordpress-findings','copy-wordpress-excerpt','copy-wordpress-slug','copy-wordpress-description','wordpress-fields-status','download-wordpress-kit','wordpress-kit-status','wordpress-kit-panel','wordpress-kit-files','wordpress-edit-fields','page-details','excerpt','body'];
   const nodes=Object.fromEntries(ids.map(id=>[id,node()])); nodes['publishing-destination'].value='wordpress'; nodes['wordpress-review-panel'].open=true; nodes['wordpress-kit-panel'].open=true;
@@ -109,6 +150,7 @@ test('Handoff controls refresh findings, keep inspection read-only, reject stale
     draft={...draft,body:'  - Current issue'}; control.update(); assert.equal(nodes['wordpress-findings'].children.length,1);
     nodes['wordpress-review-panel'].open=false; await nodes['wordpress-review-panel'].fire('toggle'); assert.equal(nodes['wordpress-findings'].children.length,0);
     nodes['publishing-destination'].value='other'; control.update(); assert.equal(nodes['wordpress-kit-files'].children.length,0); assert.equal(nodes['download-wordpress-kit'].disabled,true);
-    control.reset(); draft={title:'',body:''}; control.update(); assert.equal(nodes['wordpress-findings'].children.length,0); assert.match(nodes['wordpress-review-status'].textContent,/Add an article/);
+    control.reset(); draft={title:'',body:''}; control.update(); assert.equal(nodes['wordpress-findings'].children.length,0); assert.equal(nodes['wordpress-review-status'].textContent,'');
+    nodes['publishing-destination'].value='wordpress';control.update();assert.match(nodes['wordpress-review-status'].textContent,/Add an article/);
   } finally {globalThis.document=oldDocument;if(oldNavigator)Object.defineProperty(globalThis,'navigator',oldNavigator);else delete globalThis.navigator;}
 });

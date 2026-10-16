@@ -200,6 +200,8 @@ The free [HTML to Markdown converter](https://drafttopage.com/html-to-markdown/)
 
 HTML imports can now preserve safe relative links through an explicit, temporary **Source page URL**. Local resolution, conversion notices, stale-preview protection, and source cleanup apply to typed HTML, HTML files, and copied formatted selections across all eight workspaces. No source URL is fetched or inferred from imported markup. Resolved URLs become article content for existing exports. See [the relative HTML links release](docs/HTML_RELATIVE_LINKS_RELEASE.md).
 
+The optional [long-article editing benchmark](docs/LONG_ARTICLE_PERFORMANCE_20261016.md) measures local fictional input paths across all four export destinations. It does not run automatically, install dependencies, contact production or establish real-user latency. Inactive WordPress handoff review is skipped while another destination is selected; returning recomputes its current findings.
+
 ## Manual public alpha study
 
 The [ten-writer public alpha kit](docs/PUBLIC_ALPHA_STUDY_20261016.md) provides fictional material, six task cards and a blank private session-record template. It tests first conversion through actual handoff, voluntary recovery and observed repeat use. The study is prepared, **NOT_RUN**. No participants were contacted or counted. Completed records stay outside this public repository; the private AI pilot remains separate and inactive.
