@@ -3,9 +3,11 @@ import { reviewWordPress } from './wordpress-review.js';
 import { wordPressKitFiles, wordPressKitSummary, createWordPressKit } from './wordpress-kit.js';
 import { revealArticleSelection } from './editing.js';
 import { downloadText } from './download.js';
+import { createCopyActions } from './copy-actions.js';
 
-export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection }) {
+export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection, copyActions = null, reportAction = report }) {
   const $ = id => document.getElementById(id);
+  const copies = copyActions || createCopyActions({ snapshot: () => JSON.stringify([getDraft(), getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked]), report, changed: update });
   let signature = '', review = null, rendered = '', kitRendered = '';
   const draftSignature = draft => JSON.stringify([draft.title, draft.body]);
   const fieldValid = (draft, key) => typeof draft[key] === 'string' && Boolean(draft[key].trim()) && draft[key].length <= ARTICLE_LIMITS[key] && !draft[key].includes('\u0000') && (key !== 'slug' || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft[key]));
@@ -34,7 +36,7 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
         li.append(text, button); return li;
       }));
     }
-    for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).disabled = !visible || !$('reviewed').checked || !fieldValid(draft, key);
+    for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).disabled = copies.state().pending || isBusy() || !visible || !$('reviewed').checked || !fieldValid(draft, key);
     const available = ['excerpt', 'slug', 'description'].filter(key => fieldValid(draft, key));
     $('wordpress-fields-status').textContent = available.length ? 'Optional fields available: ' + available.join(', ') + '. Copy each into its separate destination field after review.' : 'Optional post fields are empty or need editing. They are not required for copying blocks.';
     let kit = null, error = '';
@@ -53,17 +55,17 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
   $('wordpress-kit-panel').addEventListener('toggle', update);
   $('wordpress-edit-fields').addEventListener('click', () => { $('page-details').open = true; $('excerpt').focus(); report('Edit optional post fields here, then review again. WordPress uses its own title, excerpt, and slug fields; an SEO description depends on your SEO tool.'); });
   for (const key of ['excerpt', 'slug', 'description']) $('copy-wordpress-' + key).addEventListener('click', async () => {
-    try {
+    if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
+    await copies.run({ destination: 'wordpress', label: 'the ' + key, write: () => {
       approved(); const draft = getDraft();
       if (!fieldValid(draft, key)) throw new Error('Add a valid ' + key + ' first.');
-      await navigator.clipboard.writeText(draft[key].trim());
-      report(key[0].toUpperCase() + key.slice(1) + ' copied separately. Paste into ' + ({ excerpt: 'the WordPress Excerpt setting', slug: 'the WordPress Slug/permalink setting when available', description: 'your SEO description field only if your SEO tool offers it' })[key] + '. Nothing was published.');
-    } catch (error) { report('Field copy unavailable. Select the field under Page details and copy it manually. ' + error.message); }
+      return navigator.clipboard.writeText(draft[key].trim());
+    }, success: key[0].toUpperCase() + key.slice(1) + ' copied separately. Paste into ' + ({ excerpt: 'the WordPress Excerpt setting', slug: 'the WordPress Slug/permalink setting when available', description: 'your SEO description field only if your SEO tool offers it' })[key] + '. Nothing was published.', fallback: 'Field copy unavailable. Select the field under Page details and copy it manually.' });
   });
   $('download-wordpress-kit').addEventListener('click', () => {
     if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
-    try { approved(); const kit = createWordPressKit(getDraft(), getWordPressOptions()); downloadText(kit.bytes, kit.filename, 'application/zip'); report('WordPress kit download requested with six article files, current handoff findings, image handoff notes, and destination instructions. Inspect the files before sharing. Private source and review notes are excluded. Nothing was published.'); }
-    catch (error) { report(error.message); }
+    try { approved(); const kit = createWordPressKit(getDraft(), getWordPressOptions()); downloadText(kit.bytes, kit.filename, 'application/zip'); reportAction('WordPress kit download requested with six article files, current handoff findings, image handoff notes, and destination instructions. Inspect the files before sharing. Private source and review notes are excluded. Nothing was published.'); }
+    catch (error) { reportAction(error.message); }
   });
   return { update, reset: () => { signature = ''; review = null; rendered = ''; kitRendered = ''; $('wordpress-findings').replaceChildren(); $('wordpress-kit-files').replaceChildren(); } };
 }

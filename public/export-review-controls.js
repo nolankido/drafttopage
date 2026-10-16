@@ -2,11 +2,13 @@ import { reviewExport, exportReviewText, exportTitleHandling, EXPORT_REVIEW_LIMI
 import { revealArticleSelection } from './editing.js';
 import { focusWorkflowTarget } from './workflow-navigation.js';
 import { downloadText } from './download.js';
+import { createCopyActions } from './copy-actions.js';
 
-export function installExportReview({ getDraft, isBusy = () => false, report, reveal = revealArticleSelection, move = target => focusWorkflowTarget(target, { bar: document.getElementById('workflow-steps') }), download = downloadText }) {
+export function installExportReview({ getDraft, isBusy = () => false, report, reveal = revealArticleSelection, move = target => focusWorkflowTarget(target, { bar: document.getElementById('workflow-steps') }), download = downloadText, copyActions = null }) {
   const $ = id => document.getElementById(id), panel = $('export-format-review');
   // Older cached markup must still allow the core writing and export controls to load.
   if (!panel) return { update() {}, reset() {} };
+  const copies = copyActions || createCopyActions({ snapshot: () => JSON.stringify([getDraft(), $('publishing-destination').value, $('word-include-title').checked, $('html-include-title').checked]), report, changed: update });
   let signature = '', review = null, failure = '', rendered = '', textSignature = '';
   const active = () => ['word', 'html'].includes($('publishing-destination').value);
   const current = () => {
@@ -33,7 +35,8 @@ export function installExportReview({ getDraft, isBusy = () => false, report, re
     $('export-format-status').textContent = busy ? 'Finish the current file operation before inspecting this export.' : failure || (review.totalFindings
       ? review.totalFindings + ' item(s) to inspect for ' + name + '.' + (review.truncated ? ' Showing the first ' + EXPORT_REVIEW_LIMIT + '; inspect the complete article.' : '')
       : 'No items found by these limited checks. Inspect the actual export and your source before sharing.');
-    for (const id of ['copy-export-review', 'download-export-review']) $(id).disabled = busy || !review;
+    $('copy-export-review').disabled = busy || !review || copies.state().pending;
+    $('download-export-review').disabled = busy || !review;
     if (!panel.open || busy || !review) {
       $('export-format-findings').replaceChildren(); rendered = '';
     } else if (rendered !== signature) {
@@ -65,15 +68,10 @@ export function installExportReview({ getDraft, isBusy = () => false, report, re
   panel.addEventListener('toggle', update);
   $('export-review-text-panel').addEventListener('toggle', update);
   $('copy-export-review').addEventListener('click', async () => {
-    try {
-      const model = content(); await navigator.clipboard.writeText(model.text);
-      report(current().key === model.key ? 'Formatting review copied. Its line numbers apply to the current article and export options. Private source and review notes are excluded.' : 'A review for the previous article or export options was copied. Use a current review before relying on its line numbers.');
-    } catch (error) {
-      update();
-      if (active() && !isBusy() && review) {
-        panel.open = true; $('export-review-text-panel').open = true; update(); move($('export-review-text'));
-        report('Clipboard unavailable. Download the formatting review or select its current text and copy it manually.');
-      } else report(error.message || 'Could not prepare the formatting review.');
+    if (isBusy() || !active()) return;
+    const copied = await copies.run({ destination: $('publishing-destination').value, label: 'the formatting review', write: () => navigator.clipboard.writeText(content().text), success: 'Formatting review copied. Its line numbers apply to the current article and export options. Private source and review notes are excluded.', fallback: 'Clipboard unavailable. Download the formatting review or select its current text and copy it manually.' });
+    if (!copied && copies.state().outcome === 'failure' && active() && !isBusy() && review) {
+      panel.open = true; $('export-review-text-panel').open = true; update(); move($('export-review-text'));
     }
   });
   $('download-export-review').addEventListener('click', () => {

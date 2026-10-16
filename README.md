@@ -45,6 +45,9 @@ The article outline and optional local draft checks help locate unfinished place
 
 ## Publishing handoff
 
+Public workspaces coordinate clipboard requests across publishing formats and private writing tools. Pending copies disable overlapping copy controls while approved downloads remain available. Nearby handoff feedback reports browser completion, permission fallback, and earlier-version results after writing or options change. Successful current WordPress block copies open the paste instructions. Copy state stays in memory and no clipboard read or automatic publication is added. See [the overnight progress record](docs/OVERNIGHT_IMPROVEMENTS_20261016.md).
+
+
 Copy formatted article writes safe article HTML and a plain-text representation in one explicit clipboard action. The default excludes the title; the author can include it deliberately. Supported formatting uses the same renderer as the reading page. A blocked or unsupported clipboard keeps writing intact and points to the existing body/HTML alternatives. Browser and destination-editor support varies; no CMS integration is claimed.
 
 A publishing kit ZIP contains article-body.md, reading-page.html, page-details.json, README.txt, and page.md only when all page fields are complete. Preview its file list and omission notices before downloading. A safe filename is suggested for an incomplete/invalid filename field without overwriting that field. The archive excludes source notes, audience, purpose, article type, private review questions, check results, and authentication fields. The article itself may still contain private information. The kit is separate from the unencrypted version-1 private backup. See `/help/publishing-handoff/`.

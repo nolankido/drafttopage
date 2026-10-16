@@ -2,9 +2,12 @@ import { revealDetails } from './disclosure.js';
 import { analyzeDraft, REVIEW_LIMIT } from './draft-review.js';
 import { articleSections, moveArticleSection } from './article-sections.js';
 import { revealArticleSelection } from './editing.js';
+import { createCopyActions } from './copy-actions.js';
 
-export function installDraftReview({ getDraft, applySectionMove, editLink = () => false, isBusy = () => false, report, reveal = revealArticleSelection }) {
+export function installDraftReview({ getDraft, applySectionMove, editLink = () => false, isBusy = () => false, report, reveal = revealArticleSelection, getCopyActions = () => null }) {
   const $ = id => document.getElementById(id);
+  const fallbackCopies = createCopyActions({ snapshot: () => JSON.stringify(getDraft()), report, changed: refresh });
+  const copies = () => getCopyActions() || fallbackCopies;
   let checked = null, snapshot = '', outlineBody = null;
   const signature = draft => JSON.stringify([draft.title, draft.body]);
   function jump(item) {
@@ -66,6 +69,7 @@ export function installDraftReview({ getDraft, applySectionMove, editLink = () =
       $('draft-link-status').textContent = 'The article changed. Run checks again to inspect its current links.';
     }
     if ($('draft-check-panel').open || !getDraft().body) outline();
+    $('copy-checks').disabled = !checked || !getDraft().body.trim() || isBusy() || copies().state().pending;
   }
   $('draft-check-panel').addEventListener('toggle', refresh);
   $('start-checks').addEventListener('click', () => {
@@ -88,17 +92,16 @@ export function installDraftReview({ getDraft, applySectionMove, editLink = () =
         li.append(text, button(link, 'Edit link on line ' + link.line)); return li;
       }));
       $('draft-link-status').textContent = checked.links.length ? 'Inline link/image syntax found: ' + checked.links.length + '. No addresses were visited or verified.' + (checked.links.length > REVIEW_LIMIT ? ' Showing the first ' + REVIEW_LIMIT + '.' : '') : 'No supported inline link or image syntax found. Reference links and other Markdown formats are outside these checks.';
-      $('copy-checks').disabled = !draft.body.trim();
+      $('copy-checks').disabled = !draft.body.trim() || isBusy() || copies().state().pending;
       report('Local draft checks complete. Your writing and export approval were kept. Review the results before publishing.');
     } catch (error) { report(error.message); }
   });
   $('copy-checks').addEventListener('click', async () => {
-    if (!checked || signature(getDraft()) !== snapshot) { refresh(); return; }
+    if (isBusy() || !checked || signature(getDraft()) !== snapshot) { refresh(); return; }
     const text = ['Draft to Page: local draft checks', $('draft-check-stats').textContent, $('draft-check-status').textContent,
       ...checked.findings.map(item => '- Line ' + item.line + ': ' + item.message),
       'Limited writing-pattern checks only. No fact-checking or URL verification. Source notes and private review notes are excluded.'].join('\n');
-    try { await navigator.clipboard.writeText(text); report('Draft check summary copied. No upload was made.'); }
-    catch { report('Clipboard unavailable. Select the visible check results and copy them manually.'); }
+    await copies().run({ destination: $('publishing-destination')?.value || 'other', label: 'the draft check summary', write: () => navigator.clipboard.writeText(text), success: 'Draft check summary copied. No upload was made.', fallback: 'Clipboard unavailable. Select the visible check results and copy them manually.' });
   });
   return { refresh };
 }

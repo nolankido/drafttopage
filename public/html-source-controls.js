@@ -2,9 +2,11 @@ import { articleIssues } from './authoring.js';
 import { createHTMLSource } from './html-export.js';
 import { downloadText } from './download.js';
 import { suggestFilename } from './preview.js';
+import { createCopyActions } from './copy-actions.js';
 
-export function installHTMLSource({ getDraft, approved, changed, report, isBusy = () => false }) {
+export function installHTMLSource({ getDraft, approved, changed, report, isBusy = () => false, copyActions = null }) {
   const $ = id => document.getElementById(id);
+  const copies = copyActions || createCopyActions({ snapshot: () => JSON.stringify([getDraft(), $('publishing-destination').value, $('reviewed').checked, $('html-include-title').checked]), report, changed: update });
   const options = () => ({ includeTitle: $('html-include-title').checked });
   const active = () => $('publishing-destination').value === 'html';
   function update() {
@@ -12,7 +14,8 @@ export function installHTMLSource({ getDraft, approved, changed, report, isBusy 
     $('html-source-handoff').hidden = !selected;
     const issues = articleIssues(draft, options().includeTitle ? 'html' : 'body');
     const ready = selected && !busy && $('reviewed').checked && !Object.keys(issues).length;
-    for (const id of ['copy-html-source', 'download-html-source']) $(id).disabled = !ready;
+    $('copy-html-source').disabled = !ready || copies.state().pending;
+    $('download-html-source').disabled = !ready;
     let source = '', failure = '';
     if (ready && $('html-source-code-panel').open) {
       try { source = createHTMLSource(draft, options()); }
@@ -29,13 +32,8 @@ export function installHTMLSource({ getDraft, approved, changed, report, isBusy 
   $('html-include-title').addEventListener('change', changed);
   $('html-source-code-panel').addEventListener('toggle', update);
   $('copy-html-source').addEventListener('click', async () => {
-    try {
-      const content = source();
-      await navigator.clipboard.writeText(content);
-      report('HTML source copied as code. Paste into a field that accepts HTML source and inspect the result. Private source and review notes are excluded. Nothing was published.');
-    } catch (error) {
-      report('HTML source copy unavailable. Download the fragment or select the approved code below and copy it manually. ' + error.message);
-    }
+    if (isBusy()) return;
+    await copies.run({ destination: 'html', label: 'HTML source', write: () => navigator.clipboard.writeText(source()), success: 'HTML source copied as code. Paste into a field that accepts HTML source and inspect the result. Private source and review notes are excluded. Nothing was published.', fallback: 'HTML source copy unavailable. Download the fragment or select the approved code below and copy it manually.' });
   });
   $('download-html-source').addEventListener('click', () => {
     try {

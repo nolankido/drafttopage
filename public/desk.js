@@ -215,8 +215,8 @@ $('download-html').addEventListener('click', () => {
   } catch (error) { report(error.message); }
 });
 async function copy(content, success) {
-  try { await navigator.clipboard.writeText(content); report(success); }
-  catch { report('Clipboard unavailable. Download the article or select and copy the visible text manually.'); }
+  if (recovery.reading() || browserRecovery?.busy() || importer?.reading() || !publishingExports) return;
+  await publishingExports.copyActions.run({ destination: $('publishing-destination').value, label: 'the selected writing', write: () => navigator.clipboard.writeText(content), success, fallback: 'Clipboard unavailable. Download the article or select and copy the visible text manually.' });
 }
 $('copy').addEventListener('click', () => { try { copy(getExport(), 'Page Markdown copied. Nothing was published.'); } catch (error) { report(error.message); } });
 $('copy-body').addEventListener('click', () => {
@@ -318,6 +318,7 @@ $('import-text').addEventListener('input', () => {
 });
 renderQuestions();
 draftReview = installDraftReview({
+  getCopyActions: () => publishingExports?.copyActions,
   getDraft: () => capture().draft, editLink: (start, end) => linkEditor?.editLink(start, end) ?? false, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), report,
   applySectionMove: (plan, label) => {
     revisions.captureBefore(label);
@@ -325,7 +326,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getCopySnapshot: capture, copyChanged: () => draftReview?.refresh(), getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
 loadEditingTool(() => import('./reference-link-controls.js'), ({ installReferenceLinks }) => {
   referenceLinks = installReferenceLinks({ getBody: () => $('body').value, getTitle: () => $('title').value, apply: (body, label) => {
     revisions.captureBefore(label);
