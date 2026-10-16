@@ -1,6 +1,8 @@
 # Bounded synchronous article word counting
 
-Cycle 17 is under review in [PR #89](https://github.com/nolankido/drafttopage/pull/89), based on main `eabf8d6e297795cd539200e6fda6ad0afbd7f0c1`. A fresh 31-insertion profile attributed 284 of 514 inclusive input-path sample hits to articleWordCount, which re-read structure and parsed inline content on every desk update, including unchanged bodies. The initial profile's synchronous median/p95/max was 19.4/34.7/46.5 ms; input-to-frame was 22.7/38.9/49.1 ms. This is local diagnostic evidence, not field performance.
+Cycle 17 was released in [PR #89](https://github.com/nolankido/drafttopage/pull/89), merged as `6f9a81141e130de17c4f8869000f3c9750728779`, tree `b404a6c91bcda1bba3ca5a7b1780cdbae0e73e0a`. The complete stable-source gate passed 875 Node tests, 49 browser journeys, 298 layouts and all 15 document cases. Source SHA-256: `fd139161f7b79b6f7501aff5ce07c0674a0054b7fa922f77f505662754f49dc0`. Native preview build `f0761fca-4f8f-47e9-b990-efcaeaf9717a` and production build `fd607e4c-964f-4443-8c00-11f7395898c4` succeeded; production version `4c493af4-f439-4e86-a0a7-df778921a79d`. Independent public rendering remains unverified.
+
+A fresh starting-main profile attributed 284 of 514 inclusive input-path sample hits to articleWordCount, which re-read structure and parsed inline content on every desk update, including unchanged bodies. The initial profile's synchronous median/p95/max was 19.4/34.7/46.5 ms; input-to-frame was 22.7/38.9/49.1 ms. This is local diagnostic evidence, not field performance.
 
 ## Behavior and bounds
 
@@ -16,7 +18,7 @@ All 32 focused count/benchmark/publishing/block checks pass, including eight new
 
 The focused Chromium journey compares the exact current textarea source against that function. It verifies same-input-event displayed words/UTF-16 characters and approval clearing, metadata invariance, structural edits, a restored 1,000-distinct-paragraph article beyond the cache bound followed by real native typing, optional formatting, checkpoint restore, a current actual WordPress download/private exclusions, clear/reset, and 1440/390/320 layouts. Initial diagnostic fixture issues were corrected: Python newline escaping in the helper test and a timed-out bulk-fill setup. The large fixture now uses the actual reviewed private-backup restore path before native typing. Preliminary incomplete runs are not acceptance passes, and no cause of the bulk-fill timeout is established.
 
-The complete stable-source release gate must pass before readiness. Serializers and document schemas are unchanged; this cycle's separate genuine WordPress acceptance is NOT_RUN unless explicitly rerun. PR #87 retains eleven fresh genuine local WordPress 7.1.3 Author-role save/reopen cases. These local checks are not physical-device/screen-reader, actual Word/Google Docs clipboard application, real-user, or independently verified public rendering acceptance.
+The complete stable-source release gate passed October 16, 2026, 15:16 UTC. Serializers and document schemas are unchanged; this cycle's separate genuine WordPress acceptance is NOT_RUN. PR #87 retains eleven fresh genuine local WordPress 7.1.3 Author-role save/reopen cases. These local checks are not physical-device/screen-reader, actual Word/Google Docs clipboard application, real-user, or independently verified public rendering acceptance.
 
 ## Sequential matched diagnostics
 
