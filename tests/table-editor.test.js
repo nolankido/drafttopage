@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
-import { copyEditableTable, emptyEditableTable, tableEditTarget, newTableTarget, recheckTableTarget, editableTableMarkdown, changeEditableTable, planTableEdit } from '../public/table-editing.js';
+import { TABLE_CONTEXT_CELL_LIMIT, TABLE_CONTEXT_COLUMNS, tableChoiceLabel, tableChoiceContext, copyEditableTable, emptyEditableTable, tableEditTarget, newTableTarget, recheckTableTarget, editableTableMarkdown, changeEditableTable, planTableEdit } from '../public/table-editing.js';
 import { markdownTableRanges } from '../public/markdown-table.js';
 import { installTableEditor } from '../public/table-editor-controls.js';
 import { createWordPressArticle } from '../public/wordpress-export.js';
@@ -14,6 +14,35 @@ import { createCheckpointHistory } from '../public/revisions.js';
 const source='| Step | Plan |\n| :--- | ---: |\n| Welcome | **Share** a short introduction |\n| Read | Take turns |';
 const article=()=> '日本語 😀 opening.\n\n'+source+'\n\nThe ending.';
 const model=()=>({head:['Step','Plan'],align:['left','right'],rows:[['Welcome','**Share** a short introduction'],['Read','Take turns']]});
+
+test('Current table choice snippets identify headers, first row and nearby text without mutating source',()=>{
+  const body='Fictional morning plan.\n\n| Time | Plan |\n| --- | --- |\n| Morning | Coffee |\n\nFictional evening plan.\n\n| Time | Plan |\n| --- | --- |\n| Evening | Tea |';
+  const ranges=markdownTableRanges(body),before=JSON.stringify(ranges);
+  assert.equal(tableChoiceLabel(ranges[0],0),'Table 1 on line 3 · 2 columns, 1 row · Time');
+  assert.match(tableChoiceContext(body,ranges[0]),/Headers: Time \| Plan\. First data row: Morning \| Coffee\./);
+  assert.match(tableChoiceContext(body,ranges[1]),/First data row: Evening \| Tea\./);
+  assert.match(tableChoiceContext(body,ranges[1]),/Before:.*Fictional evening plan/);
+  assert.equal(JSON.stringify(ranges),before);assert.equal(TABLE_CONTEXT_CELL_LIMIT,48);assert.equal(TABLE_CONTEXT_COLUMNS,3);
+});
+test('Choice snippets bound Unicode cells, columns, rows, context and unsupported reasons without interpreting markup',()=>{
+  const table={head:['😀'.repeat(500),'<img src=x onerror=bad()>','Third','HIDDEN_FOURTH_HEADER'],align:[null,null,null,null],rows:[['🚀'.repeat(500),'[literal](https://example.test/)','Third cell','HIDDEN_FOURTH_CELL'],['HIDDEN_SECOND_ROW','','','']]};
+  const body='Before.\n\n'+editableTableMarkdown(table)+'\n\nAfter.',range=markdownTableRanges(body)[0],text=tableChoiceContext(body,range);
+  assert.ok(text.includes('😀'.repeat(48)+'…'));assert.ok(text.includes('<img src=x onerror=bad()>'));assert.ok(text.includes('[literal](https://example.test/)'));
+  assert.match(text,/first three columns/);assert.doesNotMatch(text,/HIDDEN_/);assert.ok(Array.from(text).length<650);assert.equal(text.isWellFormed(),true);
+  const unsupported='| Head | Note |\n| - | --- |\n| One | Two |',bad=markdownTableRanges(unsupported)[0];
+  assert.match(tableChoiceLabel(bad,0),/source editing needed.*Head/);assert.match(tableChoiceContext(unsupported,bad),/Source editing needed: Use at least three dashes/);
+  const maximum={...range,supported:false,reason:'Reason '.repeat(100),table:{...range.table,head:Array(4).fill('😀'.repeat(100)),rows:[Array(4).fill('🚀'.repeat(100))]}};
+  assert.ok(Array.from(tableChoiceContext(body,maximum)).length<720);
+});
+test('Choice context respects CRLF bounds and surrounding astral characters, header-only tables and invalid ranges',()=>{
+  for(const newline of ['\n','\r\n']){
+    const body='😀'.repeat(75)+newline+source.replaceAll('\n',newline)+newline+'😀'.repeat(75),range=markdownTableRanges(body)[0];
+    const text=tableChoiceContext(body,range);assert.equal(text.isWellFormed(),true);assert.ok(text.includes('Before:')&&text.includes('After:'));
+  }
+  const body='| Name |\n| --- |',range=markdownTableRanges(body)[0];assert.match(tableChoiceLabel(range,0),/1 column, 0 rows/);assert.match(tableChoiceContext(body,range),/No data rows/);
+  for(const bad of [null,{...range,start:-1},{...range,end:body.length+1},{...range,start:0.5},{...range,end:-1}])assert.throws(()=>tableChoiceContext(body,bad));
+  assert.throws(()=>tableChoiceContext('x'.repeat(60001),range),/60,000/);assert.throws(()=>tableChoiceContext('x\0y',range),/null/);
+});
 
 test('Table serialization preserves inline Markdown, Unicode, literal pipes, alignment and parser round trips',()=>{
   const value={head:['日本語 😀','Plan | notes'],align:['center',null],rows:[['**Keep** and [guide](https://example.com/a?x=1&y=2)','<svg> stays text'],['Back\\\\slash','Literal | pipe']]};
@@ -106,7 +135,7 @@ with zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())) as z:
 class Node {
   constructor(tag,registry){this.tag=tag;this.registry=registry;this.children=[];this.events=new Map();this.dataset={};this.value='';this.open=false;this.disabled=false;this.hidden=false;this.checked=false;this.selectionStart=0;this.selectionEnd=0;this._id='';this._text='';}
   set id(value){this._id=value;this.registry.set(value,this);}get id(){return this._id;}
-  set textContent(value){this._text=String(value);this.children=[];}get textContent(){return this._text+this.children.map(x=>x.textContent).join('');}
+  set textContent(value){this.textWrites=(this.textWrites||0)+1;this._text=String(value);this.children=[];}get textContent(){return this._text+this.children.map(x=>x.textContent).join('');}
   addEventListener(type,fn){if(!this.events.has(type))this.events.set(type,[]);this.events.get(type).push(fn);}fire(type,event={}){for(const fn of this.events.get(type)||[])fn(event);}
   append(...nodes){this.children.push(...nodes);}
   replaceChildren(...nodes){const remove=node=>{for(const child of node.children)remove(child);if(node.id&&this.registry.get(node.id)===node)this.registry.delete(node.id);};for(const child of this.children)remove(child);this.children=nodes;if(this.tag==='select')this.value=nodes[0]?.value||'';}
@@ -157,6 +186,31 @@ test('Failed visible inspection and changed hidden bodies cannot expose an earli
   $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal($('table-select').children.length,0);assert.equal($('table-open-selected').disabled,true);const count=inspections();ui.refresh();assert.equal(inspections(),count);
   failInspect(false);$('body').value=article();ui.refresh();assert.equal($('table-select').children.length,1);
 }));
+test('Changing a list choice updates source context without retargeting preparation, preview or approval',()=>controls(({$,ui,prepare,approval,applies,history,confirm})=>{
+  $('body').value=article()+'\n\n'+source.replace('Welcome','Evening');ui.refresh();prepare();const preview=$('table-after').value;
+  $('table-select').value='1';$('table-select').fire('change');assert.match($('table-choice-context').textContent,/First data row: Evening/);assert.equal($('table-cell-1-1').value,'Read together');assert.equal($('table-after').value,preview);assert.match($('table-target-status').textContent,/line 3/);
+  assert.equal(approval(),true);assert.equal(applies(),0);assert.equal(history.list().length,0);
+  confirm(false);$('table-open-selected').fire('click');assert.equal($('table-cell-1-1').value,'Read together');
+  confirm(true);$('table-open-selected').fire('click');assert.equal($('table-cell-0-0').value,'Evening');assert.equal($('table-after').value,'');assert.equal(approval(),true);assert.equal(applies(),0);
+}));
+test('Closed or obsolete table choices purge snippets without inspection and opening restores current selected context',()=>controls(({$,ui,inspections,approval})=>{
+  assert.equal($('table-choice-context').hidden,true);assert.equal($('table-choice-context').textContent,'');assert.equal(inspections(),0);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.match($('table-choice-context').textContent,/Headers: Step \| Plan/);
+  const count=inspections();$('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');assert.equal($('table-choice-context').hidden,true);assert.equal($('table-choice-context').textContent,'');
+  $('body').value=article().replace('Welcome','Current only');ui.refresh();assert.equal(inspections(),count);assert.equal($('table-choice-context').textContent,'');
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.match($('table-choice-context').textContent,/Current only/);assert.equal(inspections(),count+1);assert.equal(approval(),true);
+},{open:false}));
+test('A selection event before body refresh cannot display old snippets or alter prepared cells',()=>controls(({$,ui,prepare,report,approval,applies})=>{
+  prepare();$('body').value=article().replace('Welcome','Current article');$('table-select').fire('change');
+  assert.match(report(),/article changed/);assert.match($('table-choice-context').textContent,/Current article/);assert.doesNotMatch($('table-choice-context').textContent,/Welcome/);assert.equal($('table-cell-1-1').value,'Read together');assert.equal($('table-after').value,'');assert.equal($('table-apply').disabled,true);assert.equal(approval(),true);assert.equal(applies(),0);
+  $('body').value='No tables.';ui.refresh();assert.equal($('table-choice-context').hidden,true);assert.equal($('table-choice-context').textContent,'');
+}));
+test('Unchanged context nodes survive preparation and unrelated refreshes without new parsing or text replacement',()=>controls(({$,ui,prepare,inspections,busy})=>{
+  const context=$('table-choice-context'),writes=context.textWrites,count=inspections();ui.refresh();busy(true);busy(false);assert.equal(context.textWrites,writes);assert.equal(inspections(),count);
+  prepare();assert.equal(context.textWrites,writes);assert.equal(inspections(),count);
+  $('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');assert.equal(context.textContent,'');const cleared=context.textWrites;ui.refresh();assert.equal(context.textWrites,cleared);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal(context.textWrites,cleared+1);assert.equal(inspections(),count);
+}));
 test('Preparation and toggles keep article/approval; apply checkpoints first and clears approval/image mode',()=>controls(({$,ui,prepare,workspace,history,approval,linked,applies})=>{
   const before=workspace.draft.body;prepare();assert.equal(ui.hasWork(),true);assert.equal($('table-apply').disabled,false);assert.equal(approval(),true);assert.equal(linked(),true);assert.equal(workspace.draft.body,before);
   $('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');assert.equal($('table-after').value,'');assert.equal($('table-reading-preview').children.length,0);assert.equal(ui.hasWork(),true);
@@ -200,7 +254,7 @@ test('Unchanged v1 backups exclude pending cells and keep applied tables in the 
   prepare();const pending=parseWorkspaceBackup(createWorkspaceBackup(workspace.source,workspace.draft));assert.equal(pending.version,1);assert.ok(!pending.draft.body.includes('Read together'));
   $('table-apply').fire('click');const applied=parseWorkspaceBackup(createWorkspaceBackup(workspace.source,workspace.draft));assert.ok(applied.draft.body.includes('Read together'));assert.deepEqual(Object.keys(applied.draft),['title','excerpt','description','slug','body','questions']);assert.equal(applied.source.notes,'PRIVATE_SOURCE');
 }));
-test('All five generated workspaces include labeled table controls and accessible table guidance',async()=>{
-  for(const route of ['write','markdown-to-wordpress','word-to-wordpress','markdown-to-html','markdown-to-word']){const html=await readFile('public/'+route+'/index.html','utf8');for(const id of ['start-table-editor','table-editor-panel','table-select','table-grid','table-reading-preview','table-before','table-after','table-editor-status'])assert.ok(html.includes('id="'+id+'"'));assert.match(html,/for="table-select"/);assert.match(html,/id="table-editor-status"[^>]*role="status"/);assert.match(html,/aria-describedby="table-cell-help"/);}
+test('All eight generated workspaces include labeled table controls and accessible table guidance',async()=>{
+  for(const route of ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']){const html=await readFile('public/'+route+'/index.html','utf8');for(const id of ['start-table-editor','table-editor-panel','table-select','table-choice-help','table-choice-context','table-grid','table-reading-preview','table-before','table-after','table-editor-status'])assert.ok(html.includes('id="'+id+'"'));assert.match(html,/for="table-select"/);assert.match(html,/id="table-editor-status"[^>]*role="status"/);assert.match(html,/aria-describedby="table-cell-help"/);assert.match(html,/id="table-select"[^>]*aria-describedby="table-list-status table-choice-help table-choice-context"/);assert.match(html,/Choosing a list item keeps prepared cells and writing/);}
   const help=await readFile('public/help/local-workspace/index.html','utf8');assert.match(help,/id="table-editor"/);assert.match(help,/Unsaved cells/);
 });

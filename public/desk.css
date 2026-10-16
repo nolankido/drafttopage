@@ -119,3 +119,4 @@
 
 .article-preview hr,.export-content-preview hr{border:0;border-top:1px solid var(--line);margin:1.5rem 0}
 .wordpress-findings button,#export-format-findings button{margin-block:.2rem;margin-inline-end:.35rem;max-width:calc(100% - .35rem);min-height:2.75rem;white-space:normal}
+.table-choice-context{overflow-wrap:anywhere}

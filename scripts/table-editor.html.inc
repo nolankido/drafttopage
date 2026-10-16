@@ -1,6 +1,8 @@
 <details id="table-editor-panel" class="table-editor-panel"><summary>Article tables: create or edit</summary>
 <p class="small">Edit cells without writing pipe-table syntax. Choose a supported article table or create one at the article end. Preparation stays separate until you preview and apply.</p>
-<label for="table-select">Table in this article</label><select id="table-select" disabled></select><p id="table-list-status" class="small"></p>
+<label for="table-select">Table in this article</label><select id="table-select" aria-describedby="table-list-status table-choice-help table-choice-context" disabled></select><p id="table-list-status" class="small"></p>
+<p id="table-choice-help" class="small">Source snippets are shortened and literal. Choosing a list item keeps prepared cells and writing; use Edit selected table to load it.</p>
+<p id="table-choice-context" class="small table-choice-context" hidden></p>
 <div class="actions"><button id="table-open-selected" type="button" class="secondary" disabled>Edit selected table</button><button id="table-use-cursor" type="button" class="secondary" disabled>Use table at article cursor</button><button id="table-create" type="button" class="secondary" disabled>New table at article end</button></div>
 <p id="table-target-status" class="small">Choose an existing table or create one.</p><button id="table-recheck" type="button" class="secondary" disabled>Recheck selected table, keep prepared cells</button>
 <section id="table-working" hidden aria-labelledby="table-working-heading"><h3 id="table-working-heading">Prepare table cells</h3>
