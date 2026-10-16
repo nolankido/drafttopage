@@ -1,0 +1,122 @@
+{
+  "wordpress": "7.1.3",
+  "php": "8.3",
+  "playground": "3.1.58",
+  "cases": [
+    {
+      "id": "paragraphs-inline",
+      "body": "## Fictional section\n\nKeep **bold _inside_** and [a link](https://example.test/?a=1&b=2).\n\n### Detail\n\nAn ending.",
+      "text": "Fictional section Keep bold inside and a link. Detail An ending.",
+      "top": [
+        "core/heading",
+        "core/paragraph",
+        "core/heading",
+        "core/paragraph"
+      ],
+      "editAfterReopen": true,
+      "links": [
+        {
+          "text": "a link",
+          "href": "https://example.test/?a=1&b=2"
+        }
+      ],
+      "inputMode": "code-editor"
+    },
+    {
+      "id": "nested-lists",
+      "body": "4. First\n  7. Child\n  8. Next child\n5. Second",
+      "text": "First Child Next child Second",
+      "top": [
+        "core/list"
+      ],
+      "listStarts": [
+        4,
+        7
+      ],
+      "listItems": 4
+    },
+    {
+      "id": "tables",
+      "body": "| Name | Count |\n| :--- | ---: |\n| **Alpha** | 2 |\n\n| Only | Head |\n| --- | --- |\n\nTables ending.",
+      "text": "Name Count Alpha 2 Only Head Tables ending.",
+      "top": [
+        "core/table",
+        "core/table",
+        "core/paragraph"
+      ],
+      "rows": [
+        [
+          "Name",
+          "Count"
+        ],
+        [
+          "Alpha",
+          "2"
+        ],
+        [
+          "Only",
+          "Head"
+        ]
+      ]
+    },
+    {
+      "id": "quote-code-separator",
+      "body": "> A quoted observation.\n\n```html\n<script>window.DTP_FIXTURE_EXECUTED=true</script>\n```\n\n***\n\nEnding.",
+      "text": "A quoted observation. <script>window.DTP_FIXTURE_EXECUTED=true</script> Ending.",
+      "top": [
+        "core/quote",
+        "core/code",
+        "core/separator",
+        "core/paragraph"
+      ]
+    },
+    {
+      "id": "unicode-literal",
+      "body": "Café 日本語 😀. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and \\*stars\\*.",
+      "text": "Café 日本語 😀. Literal <script>window.DTP_FIXTURE_EXECUTED=true</script> and *stars*.",
+      "top": [
+        "core/paragraph"
+      ]
+    },
+    {
+      "id": "linked-image-enabled",
+      "body": "Opening.\n\n![Fictional workshop](https://example.test/roundtrip.png?a=1&b=2)\n\nEnding.",
+      "text": "Opening. Ending.",
+      "top": [
+        "core/paragraph",
+        "core/image",
+        "core/paragraph"
+      ],
+      "includeLinkedImages": true,
+      "images": [
+        {
+          "src": "https://example.test/roundtrip.png?a=1&b=2",
+          "alt": "Fictional workshop"
+        }
+      ]
+    },
+    {
+      "id": "linked-image-literal",
+      "body": "Opening.\n\n![Fictional workshop](https://example.test/roundtrip.png?a=1&b=2)\n\nEnding.",
+      "text": "Opening. ![Fictional workshop](https://example.test/roundtrip.png?a=1&b=2) Ending.",
+      "top": [
+        "core/paragraph",
+        "core/paragraph",
+        "core/paragraph"
+      ]
+    },
+    {
+      "id": "word-footnotes-handoff",
+      "file": "tests/fixtures/documents/word-footnotes.docx",
+      "text": "Ouch[Word footnote 1].[Word footnote 2] Imported Word footnotes Word footnote 1 A tachyon walks into a bar. Word footnote 2 Fin.",
+      "top": [
+        "core/paragraph",
+        "core/heading",
+        "core/heading",
+        "core/paragraph",
+        "core/heading",
+        "core/paragraph"
+      ]
+    }
+  ]
+}

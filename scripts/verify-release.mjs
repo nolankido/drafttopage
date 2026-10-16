@@ -4,6 +4,29 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 
+export function validateWordPressEvidence(evidence, configuration, sourceSha256) {
+  const expected = configuration.cases;
+  if (evidence.result !== 'PASS' || evidence.scope !== 'local WordPress save/reopen' ||
+      evidence.environment?.wordpress !== configuration.wordpress || evidence.environment?.unfilteredHTMLDisabled !== true ||
+      evidence.playground !== configuration.playground || !evidence.environment?.php?.startsWith(configuration.php + '.') ||
+      evidence.environment?.marker !== 'drafttopage-local-acceptance' || evidence.environment?.databaseClass !== 'WP_SQLite_DB' ||
+      !evidence.environment?.pdoDrivers?.includes('sqlite') || evidence.sourceUnchanged !== true ||
+      !/^[a-f0-9]{64}$/.test(evidence.sourceSha256 || '') || sourceSha256 && sourceSha256 !== evidence.sourceSha256 ||
+      evidence.user?.roles?.length !== 1 || evidence.user.roles[0] !== 'author' || evidence.user.unfilteredHTML !== false ||
+      evidence.negativeControl !== true || !Array.isArray(evidence.runtimeErrors) || evidence.runtimeErrors.length ||
+      !Array.isArray(evidence.unexpectedRequests) || evidence.unexpectedRequests.length ||
+      !Array.isArray(evidence.cases) || evidence.cases.length !== expected.length ||
+      new Set(evidence.cases.map(item => item.id)).size !== expected.length ||
+      expected.some(item => {
+        const found = evidence.cases.find(result => result.id === item.id);
+        return !found || found.result !== 'PASS' || found.status !== 'draft' || found.validAfterReopen !== true || found.saveResponse !== 200 ||
+          !Number.isInteger(found.postId) || found.postId <= 0 || !/^[a-f0-9]{64}$/.test(found.savedSha256 || '') ||
+          item.editAfterReopen && (found.editedAndReopened !== true || !/^[a-f0-9]{64}$/.test(found.editedSha256 || '')) ||
+          item.inputMode && found.inputMode !== item.inputMode || item.file && !found.source;
+      })) throw new Error('WordPress evidence is incomplete, contains failures, or targets a different environment.');
+  return { result: 'PASS', version: evidence.environment.wordpress, cases: evidence.cases.length, role: 'author' };
+}
+
 // A deliberately invoked local gate. It never installs tools, starts Actions,
 // deploys, activates the pilot, or retries a failed check.
 export function verifyRelease({ root = process.cwd(), run = spawnSync, env = process.env } = {}) {
@@ -11,10 +34,13 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
   if (JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).name !== 'drafttopage') throw new Error('Run from the Draft to Page repository.');
   const out = resolve(root, 'test-results');
   mkdirSync(out, { recursive: true });
-  const resultFile = resolve(out, 'release-results.json'), browserFile = resolve(out, 'browser-results.json');
+  const resultFile = resolve(out, 'release-results.json'), browserFile = resolve(out, 'browser-results.json'), wordpressFile = resolve(out, 'wordpress-results.json');
   // An old green report must never survive a failed or unavailable browser run.
   rmSync(browserFile, { force: true });
+  rmSync(wordpressFile, { force: true });
   const report = { result: 'RUNNING', startedAt: new Date().toISOString(), scope: 'local models, static checks, and routed browser fixtures', steps: [] };
+  if (env.DRAFTTOPAGE_WORDPRESS_CLI) report.scope += ', plus local WordPress save/reopen';
+  if (!env.DRAFTTOPAGE_WORDPRESS_CLI) report.wordpress = { result: 'NOT_RUN', reason: 'Set DRAFTTOPAGE_WORDPRESS_CLI to run the separate local WordPress save/reopen gate.' };
   const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   const sourceDigest = () => {
     try {
@@ -39,6 +65,7 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
     ['static', process.execPath, ['scripts/check.mjs']],
     ['browser', env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['scripts/browser-smoke.py']]
   ];
+  if (env.DRAFTTOPAGE_WORDPRESS_CLI) steps.push(['wordpress', env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['scripts/wordpress_roundtrip.py']]);
   try {
     if (!tests.length) throw new Error('No regression tests were found.');
     for (const [name, command, args] of steps) {
@@ -56,6 +83,10 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
           entry.result = 'FAIL'; throw new Error('Browser evidence is incomplete or contains failures.');
         }
         report.browser = { scope: evidence.scope, checks: evidence.checks.length, layoutChecks: Object.keys(evidence.layout).length };
+      }
+      if (name === 'wordpress') {
+        report.wordpress = validateWordPressEvidence(JSON.parse(readFileSync(wordpressFile, 'utf8')),
+          JSON.parse(readFileSync(resolve(root, 'tests/fixtures/wordpress-roundtrip.json'), 'utf8')), report.sourceSha256);
       }
       entry.result = 'PASS'; save();
     }
