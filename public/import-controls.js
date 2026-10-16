@@ -12,7 +12,10 @@ export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This 
 
 export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
   const $ = id => document.getElementById(id);
-  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null, candidateWordKey = null;
+  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null, candidateWordKey = null, candidateHTMLKey = null;
+  const htmlOptions = () => ({ firstRowHeaders: $('import-first-row-headers').checked, sourceURL: $('import-source-url')?.value || '' });
+  const htmlOptionsKey = () => JSON.stringify(htmlOptions());
+  const resetSourceURL = () => { if ($('import-source-url')) $('import-source-url').value = ''; };
   const wordOptions = () => ({ firstRowHeaders: $('import-first-row-headers').checked, textRevisions: $('import-word-revisions')?.value || 'require-clean' });
   const wordOptionsKey = () => JSON.stringify(wordOptions());
   const revisionLabel = () => candidate?.wordRevisions?.mode === 'previous' ? 'Previous text' : 'Proposed text';
@@ -33,7 +36,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     paste.clear();
     commentRecovery?.clear();
     clearWordImages(); $('word-image-handoff').hidden = true;
-    candidate = null; candidateWordKey = null;
+    candidate = null; candidateWordKey = null; candidateHTMLKey = null;
     if ($('word-revision-review')) $('word-revision-review').hidden = true;
     if ($('word-revision-summary')) $('word-revision-summary').textContent = '';
     if ($('import-changes-label')) $('import-changes-label').textContent = 'I reviewed the converted article and the formatting changes or omissions listed above.';
@@ -48,9 +51,11 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     workChanged();
   };
   const clear = () => { clearPreview(); wordFile = null; copiedSource = null; copiedFailed = false; if ($('import-word-options')) $('import-word-options').hidden = true; if ($('import-word-revisions')) $('import-word-revisions').value = 'require-clean'; $('import-file-status').textContent = ''; workChanged(); };
+  const clearAll = () => { resetSourceURL(); clear(); };
+  const discardImport = () => { $('import-text').value = ''; sourceName = ''; clearAll(); };
   function previewCopied(source) {
-    let result;
-    try { result = parseCopiedWriting(source, { firstRowHeaders: $('import-first-row-headers').checked }); }
+    let result; const options = htmlOptions(), key = JSON.stringify(options);
+    try { result = parseCopiedWriting(source, options); }
     catch (error) {
       copiedSource = source; copiedFailed = true; wordFile = null; sourceName = ''; $('import-text').value = '';
       $('import-changes-ok').checked = false;
@@ -58,7 +63,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       updateApply(); workChanged(); throw error;
     }
     clear(); copiedSource = source; sourceName = ''; $('import-text').value = '';
-    try { stage(result); }
+    try { stage(result, null, source.format === 'html' ? key : null); }
     catch (error) { clearPreview(); throw error; }
     $('import-file-status').textContent = (source.format === 'html' ? 'Copied formatting' : 'Copied plain text') + ' kept in this tab for re-preview. Clear or apply the import to discard its original clipboard source.';
     $('import-paste-status').textContent = source.format === 'html' ? 'Copied writing converted below. The paste box is empty for your next selection; no raw HTML is displayed.' : 'Only plain text was available. Inspect the formatting warning below, or copy again with formatting. The paste box is ready for another selection.';
@@ -68,10 +73,11 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   function preview(text, name) {
     clear();
     const format = $('import-format').value === 'html-source' ? 'html' : $('import-format').value;
-    stage(parseArticleImport(text, name, format, { firstRowHeaders: $('import-first-row-headers').checked }));
+    const options = htmlOptions(), key = JSON.stringify(options);
+    stage(parseArticleImport(text, name, format, options), null, format === 'html' || format === 'auto' && /\.html?$/i.test(name) ? key : null);
   }
-  function stage(result, wordKey = null) {
-    clearPreview(); candidate = result; candidateWordKey = wordKey;
+  function stage(result, wordKey = null, htmlKey = null) {
+    clearPreview(); candidate = result; candidateWordKey = wordKey; candidateHTMLKey = htmlKey;
     if (hasTextRevisions()) {
       if ($('word-revision-review')) $('word-revision-review').hidden = false;
       if ($('word-revision-summary')) $('word-revision-summary').textContent = revisionLabel() + ' selected. ' + candidate.wordRevisions.insertions + ' insertion group(s); ' + candidate.wordRevisions.deletions + ' deletion group(s). ' + (candidate.wordRevisions.mode === 'previous' ? 'Deleted text is kept and inserted text is omitted.' : 'Inserted text is kept and deleted text is omitted.');
@@ -101,7 +107,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     report('Import preview ready. Current writing is unchanged. Inspect the conversion and choose its destination before applying.');
     if (focusPreview) focusImportPreview($('import-preview-heading'));
   }
-  const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
+  const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && (candidateHTMLKey === null || candidateHTMLKey === htmlOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
   function updateApply() {
     insertion.refresh();
     commentRecovery?.update();
@@ -161,16 +167,22 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   function showFormat() {
     const source = $('import-format').value === 'html-source', formatted = $('import-format').value === 'html';
     $('import-html-options').hidden = !source && !formatted;
+    if ($('import-source-context')) $('import-source-context').hidden = !source && !formatted;
     $('import-html-help').hidden = source;
     if ($('import-html-source-help')) $('import-html-source-help').hidden = !source;
     $('import-text').setAttribute('aria-describedby', 'import-file-help ' + (source ? 'import-html-source-help' : 'import-html-help') + ' import-paste-status');
     if ($('import-text-label')) $('import-text-label').textContent = source ? 'HTML source code' : formatted ? 'Paste copied formatted writing' : 'Or paste writing or article source';
     $('import-html-example').textContent = source ? 'Preview an HTML source example' : 'Preview a formatted example';
   }
-  function updateFormat() { showFormat(); clear(); }
+  function updateFormat() { if (!['html', 'html-source'].includes($('import-format').value)) resetSourceURL(); showFormat(); clear(); }
   $('import-text').addEventListener('input', () => { sourceName = ''; clear(); });
   $('import-format').addEventListener('change', updateFormat);
   $('import-first-row-headers').addEventListener('change', clearPreview);
+  $('import-source-url')?.addEventListener('input', () => {
+    if (wordFile) return;
+    clearPreview();
+    report('Source page URL changed. Preview the HTML again and inspect its links before importing. Current writing and approval are unchanged.');
+  });
   $('import-word-revisions')?.addEventListener('change', () => {
     clearPreview(); updateApply();
     if (wordFile) report('Word text version changed. Preview the selected file again and review it before importing. Current writing and approval are unchanged.');
@@ -192,6 +204,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   $('import-html-example').addEventListener('click', () => {
     if (reading || isBusy()) return;
     if (($('import-text').value.trim() || copiedSource || wordFile) && !confirm('Replace only the pending import source with the fictional formatted example? Your current article and notes are unchanged.')) return;
+    resetSourceURL();
+    if ($('import-format').value === 'html-source' && $('import-source-url')) $('import-source-url').value = HTML_SOURCE_SAMPLE.sourceURL;
     if (pasteFirst && $('import-format').value !== 'html-source') { try { previewCopied({ format: 'html', text: FORMATTED_EXAMPLE }); } catch (error) { report(error.message); } return; }
     const example = $('import-format').value === 'html-source' ? HTML_SOURCE_SAMPLE.html : FORMATTED_EXAMPLE;
     $('import-text').value = example; $('import-text').dispatchEvent(new Event('input', { bubbles: true }));
@@ -221,7 +235,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   $('import-file').addEventListener('change', async () => {
     const file = $('import-file').files?.[0];
     if (!file || reading || isBusy()) { $('import-file').value = ''; return; }
-    reading = true; clear(); $('import-fields').disabled = true; $('cancel-import').disabled = true; updateApply(); busyChanged();
+    reading = true; clearAll(); $('import-fields').disabled = true; $('cancel-import').disabled = true; updateApply(); busyChanged();
     try {
       if (/\.docx$/i.test(file.name)) {
         if (file.size > MAX_DOCX_BYTES) throw new Error('Choose a .docx file no larger than 8 MiB. Current writing is unchanged.');
@@ -247,7 +261,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       try {
         const plan = insertion.getPlan();
         if (plan.changed) applyInsertion(plan);
-        clear(); $('import-text').value = ''; sourceName = '';
+        discardImport();
         report(plan.changed ? 'Article insertion applied locally. Previous writing is in Revisions in this tab. Existing title, page fields, source notes, and review notes were kept. Approval and the linked-image choice were cleared.' : 'This insertion already matches. Writing, approval, and history were kept.');
       } catch (error) { report(error.message); updateApply(); }
       return;
@@ -257,17 +271,17 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     }
     try {
       apply(commentRecovery?.draft(candidate.draft) || candidate.draft);
-      clear(); $('import-text').value = ''; sourceName = '';
+      discardImport();
       report('Article imported locally. Source notes were kept and export approval was cleared. Review before exporting. Nothing was uploaded or sent to AI.');
     } catch (error) { report(error.message); }
   });
   $('cancel-import').addEventListener('click', () => {
     if (reading) return;
-    clear(); $('import-text').value = ''; sourceName = '';
+    discardImport();
     report('Import preview cleared. Current article and notes are unchanged.');
   });
   showFormat();
-  return { reading: () => reading, staged: () => Boolean(candidate && !copiedFailed), clear, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || copiedSource || $('import-text').value.trim()), openCopied: () => {
+  return { reading: () => reading, staged: () => Boolean(candidate && !copiedFailed), clear: discardImport, updateBusy: updateApply, pending: () => Boolean(candidate || wordFile || copiedSource || $('import-text').value.trim() || $('import-source-url')?.value.trim()), openCopied: () => {
     if (reading || isBusy()) return;
     $('import-panel').open = true; $('import-format').value = 'html'; showFormat();
     if ($('copied-import-alternatives')) $('copied-import-alternatives').open = false;

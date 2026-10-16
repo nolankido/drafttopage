@@ -309,6 +309,71 @@ test('Source examples keep code visible even on copied-writing entry points and 
   assert.equal($('import-text').value, HTML_SOURCE_SAMPLE.html); assert.equal(assigned(), 1); assert.equal($('apply-import').disabled, true);
   await $('cancel-import').fire(); assert.equal(ui.pending(), false); assert.equal($('import-text').value, ''); assert.equal($('import-body-preview').value, '');
 }, { pasteFirst: true }));
+
+test('HTML context edits retain raw source, invalidate acknowledgement, and block stale application without input events', () => withDOM(async ({ $, parse, applications }) => {
+  parse(tree(element('p', [element('a', ['Guide'], { href: '../guide' })])));
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p><a href="../guide">Guide</a></p>';
+  $('import-source-url').value = 'https://example.com/folder/page'; await $('import-source-url').fire('input'); await $('preview-import').fire();
+  assert.equal($('import-body-preview').value, '[Guide](https://example.com/guide)');
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, false);
+  $('import-source-url').value = 'https://other.example/notes/'; await $('apply-import').fire(); assert.equal(applications.length, 0);
+  await $('import-source-url').fire('input'); assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false); assert.match($('import-text').value, /href="\.\.\/guide"/);
+  await $('preview-import').fire(); assert.equal($('import-body-preview').value, '[Guide](https://other.example/guide)'); assert.equal($('apply-import').disabled, true);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire();
+  assert.equal(applications.length, 1); assert.equal($('import-source-url').value, ''); assert.equal(Object.hasOwn(applications[0], 'sourceURL'), false);
+}));
+
+test('Copied HTML is retained for context re-preview and bad context cannot apply an older candidate', () => withDOM(async ({ $, ui, parse, applications }) => {
+  parse(tree(element('p', [element('a', ['Guide'], { href: '/guide' })])));
+  ui.openCopied(); await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/html' ? '<p><a href="/guide">Guide</a></p>' : '' } });
+  assert.equal($('import-body-preview').value, 'Guide');
+  $('import-source-url').value = 'https://example.com/original'; await $('import-source-url').fire('input'); assert.equal($('import-text').value, ''); assert.equal(ui.pending(), true);
+  await $('preview-import').fire(); assert.equal($('import-body-preview').value, '[Guide](https://example.com/guide)');
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+  $('import-source-url').value = 'javascript:bad()'; await $('preview-import').fire(); await $('apply-import').fire(); assert.equal(applications.length, 0); assert.equal($('apply-import').disabled, true);
+  $('import-source-url').value = 'https://other.example/original'; await $('import-source-url').fire('input'); await $('preview-import').fire(); assert.equal($('import-body-preview').value, '[Guide](https://other.example/guide)');
+}));
+
+test('Each selected file clears old source context and keeps its HTML available for a new URL preview', () => withDOM(async ({ $, parse }) => {
+  parse(tree(element('p', [element('a', ['Guide'], { href: '/guide' })])));
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-source-url').value = 'https://old.example/page';
+  const content = '<p><a href="/guide">Guide</a></p>';
+  $('import-file').files = [{ name: 'fictional.html', size: content.length, arrayBuffer: async () => new TextEncoder().encode(content).buffer }];
+  await $('import-file').fire('change'); assert.equal($('import-source-url').value, ''); assert.equal($('import-body-preview').value, 'Guide');
+  $('import-source-url').value = 'https://new.example/page'; await $('import-source-url').fire('input'); await $('preview-import').fire();
+  assert.equal($('import-body-preview').value, '[Guide](https://new.example/guide)'); assert.equal($('import-text').value, content);
+  await $('cancel-import').fire(); assert.equal($('import-source-url').value, '');
+}));
+
+test('HTML options are checked again at application even when a table-choice change event was missed', () => withDOM(async ({ $, applications }) => {
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p>Fictional</p>'; await $('preview-import').fire();
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); $('import-first-row-headers').checked = true;
+  await $('apply-import').fire(); assert.equal(applications.length, 0);
+}));
+
+test('Temporary context clears on workspace reset, leaving HTML mode, and accepting a fictional source example', () => withDOM(async ({ $, ui }) => {
+  $('import-source-url').value = 'https://example.com/private?setting=only'; assert.equal(ui.pending(), true); ui.clear(); assert.equal($('import-source-url').value, ''); assert.equal(ui.pending(), false);
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-source-url').value = 'https://example.com/old';
+  $('import-format').value = 'markdown'; await $('import-format').fire('change'); assert.equal($('import-source-url').value, '');
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); await $('import-html-example').fire(); assert.equal($('import-source-url').value, HTML_SOURCE_SAMPLE.sourceURL);
+  await $('cancel-import').fire(); assert.equal($('import-source-url').value, ''); assert.equal(ui.pending(), false);
+}));
+
+test('Cancelled replacement and checkpoint failure retain the URL and reviewed HTML for retry', () => withDOM(async ({ $, confirm, fail, applications }) => {
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p>Keep this import</p>'; $('import-source-url').value = 'https://example.com/current'; await $('preview-import').fire();
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(false); await $('apply-import').fire(); assert.equal(applications.length, 0); assert.equal($('import-source-url').value, 'https://example.com/current'); assert.equal($('import-changes-ok').checked, true);
+  confirm(true); fail(); await $('apply-import').fire(); assert.equal(applications.length, 0); assert.equal($('import-source-url').value, 'https://example.com/current'); assert.equal($('import-preview').hidden, false);
+}));
+
+test('Clearing an import reports already-cleared source and URL to workflow and exit-warning observers', () => {
+  const observed = [];
+  return withDOM(async ({ $, ui }) => {
+    $('import-text').value = '<p>Temporary source</p>'; $('import-source-url').value = 'https://example.com/page';
+    await $('cancel-import').fire(); assert.deepEqual(observed.at(-1), ['', '']); assert.equal(ui.pending(), false);
+    $('import-text').value = '<p>Another temporary source</p>'; $('import-source-url').value = 'https://example.com/next';
+    ui.clear(); assert.deepEqual(observed.at(-1), ['', '']); assert.equal(ui.pending(), false);
+  }, { workChanged: () => observed.push([document.getElementById('import-text').value, document.getElementById('import-source-url').value]) });
+});
 test('A formatted example stages only, and a refused pending-text replacement keeps the import', () => withDOM(async ({ $, ui, confirm, applications }) => {
   ui.openFormatted(); $('import-text').value = 'Keep pending text'; confirm(false); await $('import-html-example').fire(); assert.equal($('import-text').value, 'Keep pending text');
   confirm(true); await $('import-html-example').fire(); assert.match($('import-text').value, /fictional neighborhood/); assert.equal(applications.length, 0); assert.equal($('apply-import').disabled, true);
