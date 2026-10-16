@@ -19,6 +19,17 @@ function styles(node) {
   }
   return result;
 }
+function inlineDecoration(node) {
+  let value, important = false;
+  for (const entry of (attr(node, 'style') || '').split(';')) {
+    const colon = entry.indexOf(':'), key = entry.slice(0, colon).trim().toLowerCase();
+    if (colon < 1 || !['text-decoration', 'text-decoration-line'].includes(key)) continue;
+    const raw = entry.slice(colon + 1).trim().toLowerCase(), priority = /\s*!important$/.test(raw);
+    if (important && !priority) continue;
+    value = raw.replace(/\s*!important$/, ''); important = priority;
+  }
+  return value;
+}
 
 // Only detached template contents are parsed. No source node is ever attached to the page.
 export function parseHTMLArticle(source, options = {}) {
@@ -95,10 +106,15 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     const style = styles(node), weight = style.get('font-weight');
     const bold = weight ? weight === 'bold' || Number(weight) >= 600 : name === 'strong' || name === 'b';
     const italic = style.has('font-style') ? style.get('font-style') === 'italic' : name === 'em' || name === 'i';
-    if (['sup', 'sub', 's', 'strike', 'u', 'mark'].includes(name)) warn('Some inline formatting was simplified to plain text.');
-    if ((bold || italic) && /[\r\n]/.test(children(node).map(plain).join(''))) { warn('Multiline emphasis was simplified.'); return content; }
+    const decoration = inlineDecoration(node);
+    let strike = decoration !== undefined ? /(?:^|\s)line-through(?:\s|$)/.test(decoration) : name === 's' || name === 'strike';
+    if (strike && (style.get('text-decoration-style') === 'double' || /(?:^|\s)double(?:\s|$)/.test(decoration || ''))) { strike = false; warn('Double strikethrough was simplified to plain text.'); }
+    else if (strike && /(?:dotted|dashed|wavy)/.test(style.get('text-decoration-style') || decoration || '')) warn('Strikethrough line styling was simplified to a single ordinary line.');
+    if (['sup', 'sub', 'u', 'mark'].includes(name) || decoration && /(?:^|\s)(?:underline|overline)(?:\s|$)/.test(decoration)) warn('Some inline formatting was simplified to plain text.');
+    if ((bold || italic || strike) && /[\r\n]/.test(children(node).map(plain).join(''))) { warn('Multiline emphasis was simplified.'); return content; }
     if (bold) content = [{ type: 'strong', children: content }];
     if (italic) content = [{ type: 'em', children: content }];
+    if (strike) content = [{ type: 's', children: content }];
     return content;
   }
   function writeInline(nodes) {
@@ -184,6 +200,8 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (skip(node)) return '';
     const name = tag(node);
     if (/^h[1-6]$/.test(name)) {
+      const hasStrike = nodes => nodes.some(part => part.type === 's' || part.children && hasStrike(part.children));
+      if (name === 'h1' && hasStrike(inlineNodes(node))) warn('Strikethrough in a level-one heading was kept as plain text. Title fields do not retain inline formatting.');
       const content = name === 'h1' ? escapeText(whitespace(plain(node)).trim()) : inline(node).trim();
       if (/[\r\n]/.test(content)) warn('Line breaks in a heading became spaces.');
       return '#'.repeat(Number(name[1])) + ' ' + content.replace(/\r\n?|\n/g, ' ');

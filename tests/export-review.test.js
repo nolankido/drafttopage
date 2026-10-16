@@ -9,7 +9,7 @@ import { wordDocumentParts } from '../public/word-export.js';
 import { createWorkspaceBackup } from '../public/workspace.js';
 
 const draft = body => ({ title: 'Fictional title', body, excerpt: '', description: '', slug: 'fictional-title', questions: ['PRIVATE_REVIEW_MARKER'] });
-const findingsBody = '# Fictional title\n\nTODO: finish this paragraph.\n\n![Picture](https://example.com/picture.png)\n\n[Relative](/local)\n\n~~Changed~~\n\n<div>Literal source</div>\n\n- [x] A task\n\n[ref]: https://example.com/source\n\n[Read][ref]\n\n---';
+const findingsBody = '# Fictional title\n\nTODO: finish this paragraph.\n\n![Picture](https://example.com/picture.png)\n\n[Relative](/local)\n\nBefore ~~~Changed~~~\n\n<div>Literal source</div>\n\n- [x] A task\n\n[ref]: https://example.com/source\n\n[Read][ref]\n\n---';
 
 test('Word and HTML checks disclose their actual unsupported formatting and preserve source', () => {
   const value = draft(findingsBody), before = structuredClone(value);
@@ -51,11 +51,11 @@ test('Code, escaped syntax and URL contents do not trigger unsupported-format fi
 });
 
 test('Unicode and CRLF findings retain exact UTF-16 source positions, including duplicate passages', () => {
-  const body = 'Café 🐈\r\n\r\n~~First~~\r\n\r\n~~First~~\r\n\r\n| A | B |\r\n| --- | --- |\r\n| x | y | extra |';
+  const body = 'Café 🐈\r\n\r\nBefore ~~~First~~~\r\n\r\nBefore ~~~First~~~\r\n\r\n| A | B |\r\n| --- | --- |\r\n| x | y | extra |';
   for (const destination of ['word','html']) {
     const review = reviewExport(draft(body), { destination }), strikes = review.findings.filter(item => item.kind === 'strike');
     assert.deepEqual(strikes.map(item => item.line), [3,5]);
-    assert.deepEqual(strikes.map(item => body.slice(item.start,item.end)), ['~~First~~','~~First~~']);
+    assert.deepEqual(strikes.map(item => body.slice(item.start,item.end)), ['Before ~~~First~~~','Before ~~~First~~~']);
     assert.notEqual(strikes[0].start,strikes[1].start); assert.ok(review.findings.some(item => item.kind === 'table'));
   }
 });
@@ -88,7 +88,7 @@ class Node {
 async function withUI(run) {
   const previous = { document: globalThis.document, navigator: Object.getOwnPropertyDescriptor(globalThis,'navigator') }, nodes = new Map();
   const $ = id => { if (!nodes.has(id)) nodes.set(id,new Node()); return nodes.get(id); };
-  const state = { value:draft('A normal paragraph.\r\n\r\n~~Inspect this~~'), busy:false, messages:[], downloads:[], copied:'', revealed:0, moves:0, clipboard:async text => { state.copied=text; } };
+  const state = { value:draft('A normal paragraph.\r\n\r\nBefore ~~~Inspect this~~~'), busy:false, messages:[], downloads:[], copied:'', revealed:0, moves:0, clipboard:async text => { state.copied=text; } };
   globalThis.document = { getElementById:$, createElement:() => new Node() };
   Object.defineProperty(globalThis,'navigator',{ configurable:true, value:{ clipboard:{writeText:text => state.clipboard(text)} } });
   $('publishing-destination').value = 'word'; $('export-format-review').open = true; $('reviewed').checked = true;
@@ -100,7 +100,7 @@ async function withUI(run) {
 test('Inspecting a current finding selects its exact passage and preserves writing and approval', async () => withUI(async ({ $, state, ui }) => {
   const before = structuredClone(state.value), button = $('export-format-findings').children[0].children[1];
   ui.update(); assert.equal($('export-format-findings').children[0].children[1],button); button.fire();
-  assert.deepEqual($('body').selection,[23,39]); assert.equal(state.value.body.slice(...$('body').selection),'~~Inspect this~~');
+  assert.deepEqual($('body').selection,[23,48]); assert.equal(state.value.body.slice(...$('body').selection),'Before ~~~Inspect this~~~');
   assert.deepEqual(state.value,before); assert.equal($('reviewed').checked,true); assert.ok($('body').focused); assert.equal(state.revealed,1);
 }));
 
@@ -130,8 +130,8 @@ test('Copying and downloading use current destination options without requiring 
 
 test('Denied clipboard exposes a current read-only fallback, and hidden or reset reports are purged', async () => withUI(async ({ $, state, ui }) => {
   state.clipboard=async () => { throw new Error('Denied'); }; await $('copy-export-review').fire();
-  assert.equal($('export-review-text-panel').open,true); assert.ok($('export-review-text').focused); assert.match($('export-review-text').value,/Strike-through/);
-  state.value.body='A clean current paragraph.'; ui.update(); assert.doesNotMatch($('export-review-text').value,/Strike-through/); assert.match($('export-review-text').value,/does not certify/);
+  assert.equal($('export-review-text-panel').open,true); assert.ok($('export-review-text').focused); assert.match($('export-review-text').value,/tilde formatting/);
+  state.value.body='A clean current paragraph.'; ui.update(); assert.doesNotMatch($('export-review-text').value,/tilde formatting/); assert.match($('export-review-text').value,/does not certify/);
   $('export-format-review').open=false; ui.update(); assert.equal($('export-review-text').value,''); assert.equal($('export-format-findings').children.length,0);
   $('export-format-review').open=true; ui.update(); ui.reset(); assert.equal($('export-review-text').value,''); assert.equal($('export-format-findings').children.length,0); assert.equal($('export-format-status').textContent,'');
 }));

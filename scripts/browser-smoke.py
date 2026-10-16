@@ -1331,6 +1331,45 @@ with sync_playwright() as p:
     report['checks'].append('Optional search module rejection leaves the core desk ready, formatting and checkpoint recovery available, and actual body export functional')
     context.close()
     page,context,state=open_page('/word-to-wordpress/')
+    page.fill('#body','Keep the earlier fictional article.');page.check('#reviewed')
+    page.locator('#import-file').set_input_files(str(root/'tests/fixtures/documents/word-strikethrough.docx'))
+    expect(page.locator('#import-reading-preview s')).to_have_text("Today's Special: Salmon")
+    assert 'line-through' in page.locator('#import-reading-preview s').evaluate('el=>getComputedStyle(el).textDecorationLine')
+    assert page.locator('#body').input_value()=='Keep the earlier fictional article.' and page.locator('#reviewed').is_checked()
+    page.check('#import-changes-ok');page.click('#apply-import')
+    strike_body=page.locator('#body').input_value()
+    assert strike_body==r"~~Today\'s Special\: Salmon~~ Sold out"
+    expect(page.locator('#article-preview s')).to_have_text("Today's Special: Salmon")
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    from document_benchmark import ArticleHTML
+    blocks=ArticleHTML(Path(info.value.path()).read_text());assert blocks.strikes==["Today's Special: Salmon"]
+    assert 'line-through' in page.locator('#article-preview s').evaluate('el=>getComputedStyle(el).textDecorationLine')
+    page.select_option('#publishing-destination','html');page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-html-source')
+    assert ArticleHTML(Path(info.value.path()).read_text()).strikes==["Today's Special: Salmon"]
+    page.select_option('#publishing-destination','word');page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-word')
+    with zipfile.ZipFile(info.value.path()) as z:
+        assert z.testzip() is None
+        doc=ET.fromstring(z.read('word/document.xml'));w='{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+        struck=[''.join(t.text or '' for t in r.iter(w+'t')) for r in doc.iter(w+'r') if r.find(w+'rPr/'+w+'strike') is not None]
+        assert struck==["Today's Special: Salmon"]
+    # Clipboard fixtures exercise actual paste handlers, without a live document app.
+    open_more(page);page.click('#start-formatted-import')
+    page.locator('#import-text').evaluate("el=>{const data=new DataTransfer();data.setData('text/plain','~~literal~~ and **literal**');el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data}));}")
+    expect(page.locator('#import-reading-preview')).to_contain_text('~~literal~~ and **literal**')
+    expect(page.locator('#import-reading-preview s, #import-reading-preview strong')).to_have_count(0)
+    assert page.locator('#body').input_value()==strike_body and page.locator('#reviewed').is_checked()
+    page.locator('#import-text').evaluate("el=>{const data=new DataTransfer();data.setData('text/html','<p><strong>New</strong> <span style=\"text-decoration-line:line-through\">old plan</span> and literal ~~words~~.</p>');el.dispatchEvent(new ClipboardEvent('paste',{bubbles:true,cancelable:true,clipboardData:data}));}")
+    expect(page.locator('#import-reading-preview s')).to_have_text('old plan')
+    expect(page.locator('#import-reading-preview')).to_contain_text('literal ~~words~~')
+    assert page.locator('#body').input_value()==strike_body and page.locator('#reviewed').is_checked()
+    layout(page,'strikethrough-import-export')
+    page.click('#cancel-import');assert page.locator('#body').input_value()==strike_body and page.locator('#reviewed').is_checked()
+    assert state['api']==[];context.close()
+    report['checks'].append('Strikethrough: pinned real Word file with visible semantic preview, acknowledgement and source preservation, actual WordPress/HTML/Word downloads independently checked, plain clipboard tilde literals, CSS formatted paste, cancellation, narrow layout and no API calls')
+    page,context,state=open_page('/word-to-wordpress/')
     image_placeholder='\\[Image or object omitted from Word document\\]'
     image_original='Before '+image_placeholder+' after.'
     page.fill('#body',image_original);page.fill('#title','Fictional image edit');page.check('#reviewed')

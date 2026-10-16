@@ -27,6 +27,7 @@ class ArticleHTML(HTMLParser):
         self.rows = []
         self.items = []
         self.links = []
+        self.strikes = []
         self.active = []
         self.unsafe = []
         self.images = 0
@@ -44,7 +45,7 @@ class ArticleHTML(HTMLParser):
             self.text.append(' ')
         if tag == 'tr':
             self.rows.append([])
-        if tag in ['th', 'td', 'li', 'a']:
+        if tag in ['th', 'td', 'li', 'a', 's']:
             self.active.append({'tag': tag, 'text': [], 'href': attrs.get('href')})
 
     def handle_data(self, text):
@@ -64,6 +65,8 @@ class ArticleHTML(HTMLParser):
                 self.rows[-1].append(text)
             elif tag == 'li':
                 self.items.append(text)
+            elif tag == 's':
+                self.strikes.append(text)
             elif tag == 'a':
                 self.links.append({'text': text, 'href': node['href']})
             self.active.pop(i)
@@ -105,11 +108,20 @@ def check_conversion(result, wanted):
         assert result['draft']['title'] == wanted['title']
     for warning in wanted.get('warnings', []):
         assert any(warning in text for text in result['warnings']), 'Required loss disclosure missing: ' + warning
+    for warning in wanted.get('forbiddenWarnings', []):
+        assert not any(warning in text for text in result['warnings']), 'Unexpected loss disclosure: ' + warning
     for article in articles:
         assert not article.unsafe and not article.images, 'Unexpected active HTML or image load'
-        for key, actual in [('rows', article.rows), ('listItems', article.items), ('links', article.links)]:
+        for key, actual in [('rows', article.rows), ('listItems', article.items), ('links', article.links), ('strikes', article.strikes)]:
             if key in wanted:
                 assert actual == wanted[key], key + ' structure changed'
+    if 'strikes' in wanted:
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
+            document = ET.fromstring(archive.read('word/document.xml'))
+            ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+            struck = [normalized(''.join(node.text or '' for node in run.iter(ns + 't'))) for run in document.iter(ns + 'r') if run.find(ns + 'rPr/' + ns + 'strike') is not None]
+            assert struck == wanted['strikes'], 'Word strikethrough changed'
+        checked['strikethrough'] = 'independent HTML and Word XML checked'
     for private in wanted.get('forbidden', []):
         assert all(private not in text for text in texts), 'Comment leaked into publication content'
     if 'imageReferences' in wanted:

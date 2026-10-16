@@ -93,15 +93,17 @@ export function inlineTokens(text) {
       spend(budget);
       if (text[at] === '\\') { at += 2; continue; }
       let node = text[at] === '`' ? codeAt(at, end, budget) : linkAt(at, end, allowLinks, depth, budget);
-      if (!node && (text[at] === '*' || text[at] === '_')) {
+      if (!node && (text[at] === '*' || text[at] === '_' || text[at] === '~')) {
         let finish = at + 1; while (finish < end && text[finish] === text[at]) { spend(budget); finish++; }
         const before = prior(text, at), after = next(text, finish);
         const left = !space(after) && (!punctuation(after) || space(before) || punctuation(before));
         const right = !space(before) && (!punctuation(before) || space(after) || punctuation(after));
         node = { type: 'delimiter', text: text.slice(at, finish), start: at, end: finish, mark: text[at],
-          canOpen: text[at] === '*' ? left : left && (!right || punctuation(before)),
-          canClose: text[at] === '*' ? right : right && (!left || punctuation(after)), active: true, depth: 0 };
-        delimiters.push(node);
+          canOpen: text[at] !== '_' ? left : left && (!right || punctuation(before)),
+          canClose: text[at] !== '_' ? right : right && (!left || punctuation(after)), active: true, depth: 0 };
+        // Only exact double-tilde runs belong to this bounded article format.
+        if (text[at] !== '~' || finish - at === 2) delimiters.push(node);
+        else { node.type = 'text'; node.canOpen = node.canClose = false; }
       }
       if (!node) { at++; continue; }
       flush(at); append(node); at = node.end; plain = at;
@@ -115,7 +117,7 @@ export function inlineTokens(text) {
           spend(budget);
           const opener = delimiters[oi], a = opener.end - opener.start, b = closer.end - closer.start;
           if (opener.active && opener.canOpen && opener.mark === closer.mark && a &&
-              !((opener.canClose || closer.canOpen) && (a + b) % 3 === 0 && (a % 3 !== 0 || b % 3 !== 0))) break;
+              (closer.mark === '~' || !((opener.canClose || closer.canOpen) && (a + b) % 3 === 0 && (a % 3 !== 0 || b % 3 !== 0)))) break;
         }
         if (oi < 0) break;
         const opener = delimiters[oi], use = Math.min(opener.end - opener.start, closer.end - closer.start) >= 2 ? 2 : 1;
@@ -123,7 +125,7 @@ export function inlineTokens(text) {
         for (let node = opener.next; node !== closer; node = node.next) { spend(budget); children.push(clean(node)); }
         const nesting = 1 + Math.max(0, ...children.map(child => child.depth || 0));
         if (depth + nesting > INLINE_NESTING_LIMIT) throw new InlineLimit();
-        const wrapper = { type: use === 2 ? 'strong' : 'em', text: text.slice(opener.end, closer.start), children: mergeText(children),
+        const wrapper = { type: closer.mark === '~' ? 's' : use === 2 ? 'strong' : 'em', text: text.slice(opener.end, closer.start), children: mergeText(children),
           start: opener.end - use, end: closer.start + use, depth: nesting, prev: opener, next: closer };
         opener.next = wrapper; closer.prev = wrapper;
         opener.end -= use; opener.text = text.slice(opener.start, opener.end);

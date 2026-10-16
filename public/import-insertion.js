@@ -20,7 +20,7 @@ export function articleInsertionTarget(body, start, end = start) {
   }
   return { body, start, end, before: body.slice(start, end) };
 }
-const literalHeading = text => text.replace(/[\r\n\u2028\u2029]+/g, ' ').replace(/[\\`*_[\]<>!#]/g, '\\$&');
+const literalHeading = text => text.replace(/[\r\n\u2028\u2029]+/g, ' ').replace(/[\\`*_[\]<>!#~]/g, '\\$&');
 export function planArticleInsertion(target, body, draft, { includeTitle = false } = {}) {
   if (!target || target.body !== body) throw new Error('The article changed. Preview the insertion at the current selection or article end again. The converted import is kept.');
   const current = articleInsertionTarget(body, target.start, target.end);

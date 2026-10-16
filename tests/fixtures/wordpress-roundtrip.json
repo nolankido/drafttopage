@@ -117,6 +117,40 @@
         "core/heading",
         "core/paragraph"
       ]
+    },
+    {
+      "id": "strikethrough-nested",
+      "body": "~~Old **menu**~~ is replaced by [~~the earlier plan~~](https://example.test/plan). Literal \\~\\~text\\~\\~ and `~~code~~`.",
+      "text": "Old menu is replaced by the earlier plan. Literal ~~text~~ and ~~code~~.",
+      "top": [
+        "core/paragraph"
+      ],
+      "strikes": [
+        "Old menu",
+        "the earlier plan"
+      ],
+      "links": [
+        {
+          "text": "the earlier plan",
+          "href": "https://example.test/plan"
+        }
+      ]
+    },
+    {
+      "id": "word-strikethrough-handoff",
+      "file": "tests/fixtures/documents/word-strikethrough.docx",
+      "text": "Today’s Special: Salmon Sold out",
+      "top": [
+        "core/paragraph"
+      ],
+      "strikes": [
+        "Today’s Special: Salmon"
+      ],
+      "rawText": "Today's Special: Salmon Sold out",
+      "rawStrikes": [
+        "Today's Special: Salmon"
+      ],
+      "renderingNote": "WordPress renders the apostrophe typographically; stored text and its mark remain checked separately and exactly."
     }
   ]
 }

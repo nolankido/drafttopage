@@ -91,8 +91,22 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
       if (child(p, 'outlineLvl')) result.outline = val(child(p, 'outlineLvl'));
       const num = child(p, 'numPr');
       if (num) { if (child(num, 'numId')) result.numId = val(child(num, 'numId')); if (child(num, 'ilvl')) result.level = val(child(num, 'ilvl')); }
-      if (child(p, 'u') || child(p, 'strike') || child(p, 'dstrike') || child(p, 'vertAlign')) warn('Some inline formatting was simplified to ordinary text.');
+      if (child(p, 'u') || child(p, 'vertAlign')) warn('Some inline formatting was simplified to ordinary text.');
     }
+    return result;
+  }
+  function strikeProperties(inherited, styles, direct) {
+    const result = { strike: Boolean(inherited.strike), dstrike: Boolean(inherited.dstrike) };
+    const enabled = node => {
+      const value = val(node) ?? '';
+      if (!['', 'true', 'false', 'on', 'off', '0', '1'].includes(value)) throw unsupported('Invalid Word strikethrough value.');
+      return !['false', 'off', '0'].includes(value);
+    };
+    // OOXML style properties toggle; direct run properties are absolute on/off.
+    for (const style of styles.filter(Boolean)) for (const key of ['strike', 'dstrike']) {
+      const node = child(style, key); if (node && enabled(node)) result[key] = !result[key];
+    }
+    for (const key of ['strike', 'dstrike']) { const node = child(direct, key); if (node) result[key] = enabled(node); }
     return result;
   }
   const numbering = parts.get('word/numbering.xml'), abstracts = new Map(), nums = new Map();
@@ -143,10 +157,17 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     if (name === 'r') {
       const rp = child(node, 'rPr'), style = chain(val(child(rp, 'rStyle')));
       const props = { ...inherited, ...properties(style.map(s => child(s, 'rPr')).concat(rp)) };
+      Object.assign(props, strikeProperties(inherited, style.map(s => child(s, 'rPr')), rp));
       if (props.vanish || props.webHidden) { warn('Explicitly hidden text was omitted.'); return []; }
+      for (const [key, defaultKey, styledKey] of [['strike', '_defaultStrike', '_styledStrike'], ['dstrike', '_defaultDstrike', '_styledDstrike']]) {
+        const styled = inherited[styledKey] || style.some(s => child(child(s, 'rPr'), key));
+        if (inherited[defaultKey] && styled && !child(rp, key)) throw unsupported('Document-default strikethrough combined with style toggles needs explicit on/off formatting on the affected Word runs.');
+      }
       let content = elements(node).flatMap(n => inline(n, props));
       if (props.b) content = [h('strong', content)];
       if (props.i) content = [h('em', content)];
+      if (props.dstrike) warn('Double strikethrough was simplified to ordinary text.');
+      else if (props.strike) content = [h('s', content)];
       return content;
     }
     if (name === 'hyperlink') {
@@ -162,6 +183,11 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     const pp = child(p, 'pPr'), id = val(child(pp, 'pStyle')) || defaultParagraph, styles = chain(id);
     const props = properties([defaultPara, ...styles.map(s => child(s, 'pPr')), pp]);
     const run = properties([defaultRun, ...styles.map(s => child(s, 'rPr')), child(pp, 'rPr')]);
+    const strikeDefaults = strikeProperties({}, [], defaultRun), styleRuns = styles.map(s => child(s, 'rPr'));
+    Object.assign(run, strikeProperties(strikeDefaults, styleRuns, null), {
+      _defaultStrike: strikeDefaults.strike, _defaultDstrike: strikeDefaults.dstrike,
+      _styledStrike: styleRuns.some(p => child(p, 'strike')), _styledDstrike: styleRuns.some(p => child(p, 'dstrike'))
+    });
     const content = elements(p).filter(n => !is(n, 'pPr')).flatMap(n => inline(n, run));
     let tag = 'p';
     if (props.outline !== undefined && props.outline !== '9') { if (!/^[0-5]$/.test(props.outline)) throw unsupported('Headings deeper than level six cannot be preserved.'); tag = 'h' + (Number(props.outline) + 1); }
