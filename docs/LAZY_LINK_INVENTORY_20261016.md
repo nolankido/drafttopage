@@ -1,6 +1,6 @@
 # Lazy article-link inspection
 
-Cycle 16 is under review in [PR #88](https://github.com/nolankido/drafttopage/pull/88), based on main `1d579741777c6b8f34191c43d954265826fe5c62`. This is a bounded input-work reduction, not evidence of real-user speed, new destination fidelity or solved tail latency.
+Cycle 16 was released in [PR #88](https://github.com/nolankido/drafttopage/pull/88), merged as `eabf8d6e297795cd539200e6fda6ad0afbd7f0c1`, tree `b3332800ebf9c11bad68d0b7b2c40fcb9b2b04dc`. The stable-source release gate passed 867 Node tests, 48 browser journeys, 295 layouts and 15 document cases. Source SHA-256: `84f2212dac24b0c9cc3c7d4c57e4197d96e07e0d42d57f432c7aefabc4f45180`. Native Cloudflare preview and production builds succeeded; production version `dea61e76-f3ce-448a-b12f-7bd237c74858`. This is a bounded input-work reduction, not evidence of real-user speed, new destination fidelity or solved tail latency.
 
 ## Current evidence and change
 
@@ -18,7 +18,7 @@ All 28 focused link/diagnostic model checks pass, including six new controller c
 
 The focused actual Chromium journey passes real typing while inspection is closed, nested/parent disclosure changes, retained pending details, stale-preview rejection, hidden and detached events, inert unsafe labels, exact current Unicode source targeting, and 1440/390/320 layouts. It independently reads a complete actual notes download against the unchanged notes generator, including links beyond the forty displayed rows and excluding code/private fields. Approved native WordPress block bytes remain identical across view-only changes. A later explicitly reviewed link correction preserves the entire remaining source, captures a checkpoint, clears approval and produces the current link in an independently parsed actual block download. No URL or API request is made.
 
-The full stable-source release gate must pass before readiness. This cycle changes no serializer or document schema; the separate genuine WordPress gate is NOT_RUN unless explicitly rerun. PR #87 retains eleven fresh genuine local save/reopen cases, including its toolbar-to-download path. Local fixtures do not establish physical-device, screen-reader, actual Word/Google Docs clipboard application, user adoption or independent production rendering acceptance.
+The full stable-source release gate passed October 16, 2026, 15:02 UTC. This cycle changes no serializer or document schema; its separate genuine WordPress gate is NOT_RUN. PR #87 retains eleven fresh genuine local save/reopen cases, including its toolbar-to-download path. Local fixtures do not establish physical-device, screen-reader, actual Word/Google Docs clipboard application, user adoption or independent production rendering acceptance.
 
 ## Matched local diagnostics
 

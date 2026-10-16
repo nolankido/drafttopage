@@ -52,6 +52,30 @@ export function articleStructure(body) {
 export function articleWordCount(body) {
   return articleStructure(body).reduce((count, block) => count + (block.kind === 'code' ? 0 : wordsIn(visibleText(inlineTokens(block.text)))), 0);
 }
+
+export const WORD_COUNT_CACHE_LIMIT = 512;
+// One workspace's current article only, never an edit history. Re-read structure
+// after every source change so fences and heading edits cannot reuse wrong blocks.
+// The stateless count above remains the independent definition used by exports.
+export function createArticleWordCounter({ readStructure = articleStructure, countInline = text => wordsIn(visibleText(inlineTokens(text))) } = {}) {
+  let snapshot = null, total = 0, cache = new Map();
+  return body => {
+    if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Draft checks support at most 60,000 article characters.');
+    if (body === snapshot) return total;
+    if (!body) { snapshot = ''; total = 0; cache.clear(); return 0; }
+    const next = new Map();
+    let words = 0;
+    for (const block of readStructure(body)) {
+      if (block.kind === 'code') continue;
+      const value = next.has(block.text) ? next.get(block.text) : cache.has(block.text) ? cache.get(block.text) : countInline(block.text);
+      words += value;
+      if (next.size < WORD_COUNT_CACHE_LIMIT) next.set(block.text, value);
+    }
+    // Failed parsing/counting never replaces the last complete snapshot.
+    snapshot = body; total = words; cache = next;
+    return words;
+  };
+}
 export function analyzeDraft(draft, { imageFindings = true } = {}) {
   const body = draft?.body, title = draft?.title || '';
   if (typeof title !== 'string' || title.length > 160) throw new Error('Check the article title before reviewing.');

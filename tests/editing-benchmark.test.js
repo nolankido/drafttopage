@@ -15,6 +15,10 @@ exec(compile(ast.Module(body=selected,type_ignores=[]),'<actual benchmark helper
 ordinary,rich=env['article'](env['ordinary']),env['article'](env['rich'])
 assert 58000<len(ordinary)<59000 and 58000<len(rich)<59000
 assert env['article'](env['ordinary'])==ordinary and env['article'](env['rich'])==rich
+for unit in [env['ordinary'],env['rich']]:
+ unique=env['article'](unit,True);assert 58000<len(unique)<59000
+ blocks=unique.split('\\n\\n');assert len(blocks)>200 and len(set(blocks))==len(blocks)
+ assert env['article'](unit,True)==unique
 assert ordinary.count('fictional')>200 and rich.count('## Fictional heading')>200
 assert all(mark in rich for mark in ['**bold**','*italic*','~~old wording~~','https://example.test/guide','| --- | --- |','- First item'])
 assert env['stats']([1.111,2.222,3.333])=={'median':2.22,'p95':3.33,'max':3.33}
@@ -37,6 +41,8 @@ test('Editing diagnostics stay explicitly local, optional and source-bound rathe
   assert.match(source,/--link-inventory.*choices=\['closed','open'\],default='closed'/);
   assert.match(source,/'linkInventory':args\.link_inventory/);
   assert.match(source,/to_have_count\(40 if args\.link_inventory=='open' and kind=='rich' else 0\)/);
+  assert.match(source,/--unique-blocks.*action='store_true'/);
+  assert.match(source,/'uniqueBlocks':args\.unique_blocks/);
   assert.doesNotMatch(source,/pip install|npm install|requests\.|urllib\.request|localStorage|sendBeacon/);
   assert.doesNotMatch(readFileSync('scripts/verify-release.mjs','utf8'),/editing_benchmark|benchmark:editing/);
 });

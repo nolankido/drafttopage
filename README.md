@@ -168,6 +168,8 @@ All shared writing workspaces offer Add or edit link and an article-wide inline 
 
 The shared link inventory now inspects only while its panels and containing disclosures are open. Closing purges derived inspection, not pending details; article changes still invalidate a prepared target immediately. Opening reads current links, with the existing forty-row display and complete notes download. See [the measurement and safeguards](docs/LAZY_LINK_INVENTORY_20261016.md), including active-control regressions and unresolved slow outliers.
 
+Article word totals retain the same synchronous definition while reusing at most 512 current-block counts in tab memory. Every changed article rechecks structure; empty/clear purges the cache. No historical cache or persistence is added. See [the exactness checks and bounded measurements](docs/WORD_COUNT_CACHE_20261016.md).
+
 ## Guided table editing
 
 All five workspaces offer a bounded table editor: choose an article table or append a new one, edit headers/cells/alignment, and insert or remove rows and columns in a paged grid. Exact source and reading previews precede checkpointed application. Surrounding prose is preserved. Explicit location rechecks retain pending cells after article edits without guessing between repeated tables. Pending preparation stays out of unchanged v1 private formats. No service, dependency, upload, persistence, or Actions job is added. See [the table editor release](docs/GUIDED_TABLE_EDITOR_RELEASE.md).

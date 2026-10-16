@@ -11,7 +11,7 @@ import { installArticleImport } from './import-controls.js';
 import { formatMarkdown, loadEditingTool } from './editing.js';
 import { installDraftReview } from './review-controls.js';
 import { installPublishingExports } from './export-controls.js';
-import { articleWordCount } from './draft-review.js';
+import { createArticleWordCounter } from './draft-review.js';
 import { installRevisions } from './revision-controls.js';
 import { QUICK_SAMPLE } from './quick-sample.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
@@ -64,9 +64,10 @@ function updateExitWarning() {
   if (hasWork()) window.addEventListener('beforeunload', warn);
 }
 const filename = () => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test($('slug').value) && $('slug').value.length <= 80 ? $('slug').value : suggestFilename($('title').value);
+const countArticleWords = createArticleWordCounter();
 function update() {
   const value = capture();
-  const words = articleWordCount($('body').value);
+  const words = countArticleWords(value.draft.body);
   $('body-count').textContent = words.toLocaleString() + ' approximate words; ' + $('body').value.length.toLocaleString() + ' / ' + ARTICLE_BODY_LIMIT.toLocaleString('en-US') + ' characters';
   $('description-count').textContent = $('description').value.length + ' / 160 characters';
   $('note-count').textContent = $('notes').value.length.toLocaleString() + ' / 8,000 characters';
