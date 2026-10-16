@@ -11,7 +11,11 @@ export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This 
 
 export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy, busyChanged, report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
   const $ = id => document.getElementById(id);
-  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null;
+  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null, candidateWordKey = null;
+  const wordOptions = () => ({ firstRowHeaders: $('import-first-row-headers').checked, textRevisions: $('import-word-revisions')?.value || 'require-clean' });
+  const wordOptionsKey = () => JSON.stringify(wordOptions());
+  const revisionLabel = () => candidate?.wordRevisions?.mode === 'previous' ? 'Previous text' : 'Proposed text';
+  const hasTextRevisions = () => Boolean(candidate?.wordRevisions && candidate.wordRevisions.insertions + candidate.wordRevisions.deletions);
   const clearWordImages = () => {
     wordImageKit = null; $('word-image-private-ok').checked = false;
     $('word-image-kit-review').hidden = true; $('download-word-images').disabled = true;
@@ -28,7 +32,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     paste.clear();
     commentRecovery?.clear();
     clearWordImages(); $('word-image-handoff').hidden = true;
-    candidate = null;
+    candidate = null; candidateWordKey = null;
+    if ($('word-revision-review')) $('word-revision-review').hidden = true;
+    if ($('word-revision-summary')) $('word-revision-summary').textContent = '';
+    if ($('import-changes-label')) $('import-changes-label').textContent = 'I reviewed the converted article and the formatting changes or omissions listed above.';
     insertion.clear();
     $('import-preview').hidden = true; $('apply-import').disabled = true;
     $('import-unmapped-ok').checked = false;
@@ -39,7 +46,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     $('import-unmapped').textContent = ''; $('import-unmapped-section').hidden = true;
     workChanged();
   };
-  const clear = () => { clearPreview(); wordFile = null; copiedSource = null; copiedFailed = false; $('import-file-status').textContent = ''; workChanged(); };
+  const clear = () => { clearPreview(); wordFile = null; copiedSource = null; copiedFailed = false; if ($('import-word-options')) $('import-word-options').hidden = true; if ($('import-word-revisions')) $('import-word-revisions').value = 'require-clean'; $('import-file-status').textContent = ''; workChanged(); };
   function previewCopied(source) {
     let result;
     try { result = parseCopiedWriting(source, { firstRowHeaders: $('import-first-row-headers').checked }); }
@@ -61,8 +68,13 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     clear();
     stage(parseArticleImport(text, name, $('import-format').value, { firstRowHeaders: $('import-first-row-headers').checked }));
   }
-  function stage(result) {
-    clearPreview(); candidate = result;
+  function stage(result, wordKey = null) {
+    clearPreview(); candidate = result; candidateWordKey = wordKey;
+    if (hasTextRevisions()) {
+      if ($('word-revision-review')) $('word-revision-review').hidden = false;
+      if ($('word-revision-summary')) $('word-revision-summary').textContent = revisionLabel() + ' selected. ' + candidate.wordRevisions.insertions + ' insertion group(s); ' + candidate.wordRevisions.deletions + ' deletion group(s). ' + (candidate.wordRevisions.mode === 'previous' ? 'Deleted text is kept and inserted text is omitted.' : 'Inserted text is kept and deleted text is omitted.');
+      if ($('import-changes-label')) $('import-changes-label').textContent = 'I reviewed the ' + revisionLabel().toLowerCase() + ' version and the listed changes. Text revision history will not be retained.';
+    }
     $('import-body-preview').value = candidate.draft.body;
     insertion.setCandidate(candidate.draft);
     renderPreview($('import-reading-preview'), candidate.draft.title, candidate.draft.body);
@@ -87,7 +99,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     report('Import preview ready. Current writing is unchanged. Inspect the conversion and choose its destination before applying.');
     if (focusPreview) focusImportPreview($('import-preview-heading'));
   }
-  const allowed = () => candidate && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
+  const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
   function updateApply() {
     insertion.refresh();
     commentRecovery?.update();
@@ -96,6 +108,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       $('import-summary').textContent = candidate.kind + ': ' + (candidate.draft.title || 'Untitled article') + '. ' + count + ' approximate words; ' + (candidate.draft.questions.length + (commentRecovery?.selectedCount() || 0)) + ' review question(s).';
     }
     $('apply-import').disabled = !allowed();
+    if ($('import-word-revisions')) $('import-word-revisions').disabled = reading || isBusy();
     if ($('start-word-file')) $('start-word-file').disabled = reading || isBusy();
     if ($('start-insert-import')) $('start-insert-import').disabled = reading || isBusy();
     if ($('start-copied-paste')) $('start-copied-paste').disabled = reading || isBusy();
@@ -147,6 +160,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
   $('import-text').addEventListener('input', () => { sourceName = ''; clear(); });
   $('import-format').addEventListener('change', updateFormat);
   $('import-first-row-headers').addEventListener('change', clearPreview);
+  $('import-word-revisions')?.addEventListener('change', () => {
+    clearPreview(); updateApply();
+    if (wordFile) report('Word text version changed. Preview the selected file again and review it before importing. Current writing and approval are unchanged.');
+  });
   $('import-unmapped-ok').addEventListener('change', updateApply);
   $('import-changes-ok').addEventListener('change', updateApply);
   $('import-text').addEventListener('paste', event => {
@@ -168,11 +185,17 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
     $('import-text').value = FORMATTED_EXAMPLE; $('import-text').dispatchEvent(new Event('input', { bubbles: true }));
     try { preview(FORMATTED_EXAMPLE, ''); } catch (error) { clear(); report(error.message); }
   });
+  async function convertWord(source) {
+    const options = wordOptions(), key = JSON.stringify(options);
+    const { parseDocxArticle } = await import('./docx-import.js');
+    const result = await parseDocxArticle(source.bytes, source.name, options);
+    if (source !== wordFile || key !== wordOptionsKey()) { report('The Word source or conversion choices changed while reading. Preview the current file again. Current writing is unchanged.'); return; }
+    stage(result, key);
+  }
   async function previewWord() {
     reading = true; clearPreview(); $('import-fields').disabled = true; $('cancel-import').disabled = true; updateApply(); busyChanged();
     try {
-      const { parseDocxArticle } = await import('./docx-import.js');
-      stage(await parseDocxArticle(wordFile.bytes, wordFile.name, { firstRowHeaders: $('import-first-row-headers').checked }));
+      await convertWord(wordFile);
     } catch (error) { clearPreview(); report(error.message || 'Word import is unavailable. Current writing is unchanged. Try a formatted selection instead.'); }
     finally { reading = false; $('import-fields').disabled = false; $('cancel-import').disabled = false; updateApply(); busyChanged(); }
   }
@@ -191,10 +214,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       if (/\.docx$/i.test(file.name)) {
         if (file.size > MAX_DOCX_BYTES) throw new Error('Choose a .docx file no larger than 8 MiB. Current writing is unchanged.');
         wordFile = { name: file.name, bytes: await file.arrayBuffer() };
+        if ($('import-word-options')) $('import-word-options').hidden = false;
         $('import-text').value = ''; sourceName = '';
-        $('import-file-status').textContent = 'Selected Word document: ' + file.name + '. Preview again after changing the table-header choice. Its original bytes remain only until you clear or apply this import.';
-        const { parseDocxArticle } = await import('./docx-import.js');
-        stage(await parseDocxArticle(wordFile.bytes, file.name, { firstRowHeaders: $('import-first-row-headers').checked }));
+        $('import-file-status').textContent = 'Selected Word document: ' + file.name + '. Preview again after changing the text revision version or table-header choice. Each new file starts with tracked changes blocked. Original bytes remain only until you clear or apply this import.';
+        await convertWord(wordFile);
         return;
       }
       if (/\.(doc|docm|dotm)$/i.test(file.name)) throw new Error('Choose a plain .docx file. Old .doc and macro-enabled documents are not supported.');
@@ -217,7 +240,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, isBusy
       } catch (error) { report(error.message); updateApply(); }
       return;
     }
-    if (hasArticle() && !confirm('Replace the article, page details, review questions, and any unsaved passage review, image preparation, link preparation, or table preparation with this import? Save a private backup to keep saved writing first. Unsaved preparation is excluded from files. Source notes are kept.')) {
+    if (hasArticle() && !confirm('Replace the article, page details, review questions, and any unsaved passage review, image preparation, link preparation, or table preparation with this import? ' + (hasTextRevisions() ? revisionLabel() + ' is selected. Its text revision history will be flattened. ' : '') + 'Save a private backup to keep saved writing first. Unsaved preparation is excluded from files. Source notes are kept.')) {
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
     try {

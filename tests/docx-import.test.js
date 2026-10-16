@@ -11,6 +11,7 @@ import { crc32 } from '../public/zip.js';
 import { imageFixture } from './word-image-fixtures.js';
 import { notesFixture, note as wordNote, ref as noteReference } from './word-note-fixtures.js';
 import { commentFixture } from './word-comment-fixtures.js';
+import { revisionFixture, proposedBody, previousBody } from './word-revision-fixtures.js';
 
 import { W, R, xml, run, para, word, fixture, python, zip, trees, create, convert, numbering, item } from './docx-fixtures.js';
 
@@ -272,6 +273,40 @@ test('Rejected Word bytes can be explicitly cleared without applying or replacin
   assert.match(message(), /tracked changes/); assert.equal(ui.pending(), true); assert.equal($('import-preview').hidden, true);
   assert.equal($('cancel-import').disabled, false); await $('cancel-import').fire();
   assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal(applied.length, 0);
+}));
+test('Word revision choices require re-preview and fresh acknowledgement without replacing existing writing', () => withUI(async ({ $, ui, applied, file, confirm, message, fail }) => {
+  $('body').value = 'CURRENT ARTICLE'; $('reviewed').checked = true;
+  await file(zip(revisionFixture()));
+  assert.match(message(), /Unresolved tracked changes/); assert.equal($('import-word-options').hidden, false); assert.equal($('import-word-revisions').value, 'require-clean');
+  assert.equal($('body').value, 'CURRENT ARTICLE'); assert.equal($('reviewed').checked, true); assert.equal(ui.pending(), true);
+  $('import-word-revisions').value = 'proposed'; await $('import-word-revisions').fire('change'); await $('preview-import').fire();
+  assert.equal($('import-body-preview').value, proposedBody); assert.match($('word-revision-summary').textContent, /Proposed text selected/); assert.equal($('apply-import').disabled, true);
+  assert.match($('import-changes-label').textContent, /proposed text version/);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+  $('import-word-revisions').value = 'previous'; await $('import-word-revisions').fire('change');
+  assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false); await $('apply-import').fire(); assert.equal(applied.length, 0);
+  await $('preview-import').fire(); assert.equal($('import-body-preview').value, previousBody); assert.match($('import-changes-label').textContent, /previous text version/);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire(); assert.equal(applied.length, 0); assert.match(message(), /cancelled/);
+  confirm(true); fail(true); await $('apply-import').fire(); assert.equal(applied.length, 0); assert.match(message(), /Checkpoint refused/); assert.equal(ui.pending(), true);
+  fail(false); await $('apply-import').fire(); assert.equal(applied[0].body, previousBody); assert.equal(ui.pending(), false);
+  assert.equal($('import-word-revisions').value, 'require-clean'); assert.equal($('import-word-options').hidden, true); assert.equal($('word-revision-summary').textContent, '');
+}));
+test('A silently changed Word option cannot apply an old preview, and selecting a new file resets revision intent', () => withUI(async ({ $, applied, file, confirm }) => {
+  await file(zip(revisionFixture())); $('import-word-revisions').value = 'proposed'; await $('preview-import').fire();
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(true);
+  $('import-word-revisions').value = 'previous'; await $('apply-import').fire(); assert.equal(applied.length, 0);
+  await file(zip(revisionFixture())); assert.equal($('import-word-revisions').value, 'require-clean'); assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false);
+}));
+test('Word conversion ignores asynchronous results for changed versions or discarded source bytes', () => withUI(async ({ $, ui, applied, file, message }) => {
+  await file(zip(revisionFixture()));
+  const Parser = globalThis.DOMParser;
+  for (const mutate of [() => { $('import-word-revisions').value = 'previous'; }, () => ui.clear()]) {
+    if (!ui.pending()) await file(zip(revisionFixture()));
+    $('import-word-revisions').value = 'proposed'; let changed = false;
+    globalThis.DOMParser = class extends Parser { parseFromString(source) { const result = super.parseFromString(source); if (!changed) { changed = true; mutate(); } return result; } };
+    await $('preview-import').fire(); globalThis.DOMParser = Parser;
+    assert.equal($('import-preview').hidden, true); assert.equal($('import-body-preview').value, ''); assert.equal(applied.length, 0); assert.match(message(), /changed while reading/);
+  }
 }));
 test('Opening or cancelling the Word picker preserves an acknowledged preview and its chosen format', () => withUI(async ({ $, ui, file, applied, busy, message }) => {
   await file(zip()); $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');

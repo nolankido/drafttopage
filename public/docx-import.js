@@ -5,6 +5,7 @@ import { safeWebLink } from './markdown-inline.js';
 import { wordImageReference } from './word-image-reference.js';
 import { createWordNotes } from './word-notes.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
+import { inspectWordTextRevisions } from './word-revisions.js';
 
 export const WORD_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
 const REL_NS = 'http://schemas.openxmlformats.org/package/2006/relationships';
@@ -28,16 +29,7 @@ export function parseWordXML(source) {
 
 // XML and generated HTML trees stay detached. Source elements never enter the page.
 export function wordTreesToMarkdown(parts, options = {}, create = name => document.createElement(name)) {
-  let nodes = 0;
-  for (const root of parts.values()) {
-    const stack = [[root, 0]];
-    while (stack.length) {
-      const [node, depth] = stack.pop();
-      if (++nodes > 30000 || depth > 40) throw unsupported('The Word XML is too complex.');
-      for (const n of elements(node)) stack.push([n, depth + 1]);
-      if (node.namespaceURI === WORD_NS && (/^(?:(?:customXml|conflict)?(?:ins|del|moveFrom|moveTo)(?:RangeStart|RangeEnd)?|cellIns|cellDel|cellMerge)$/i.test(node.localName) || node.localName.endsWith('PrChange') || node.localName === 'numberingChange')) throw unsupported('Resolve tracked changes before importing.');
-    }
-  }
+  const revisions = inspectWordTextRevisions(parts, options.textRevisions);
   const documentRoot = parts.get('word/document.xml'), body = child(documentRoot, 'body');
   if (!is(documentRoot, 'document') || !body || children(documentRoot, 'body').length !== 1) throw unsupported('Only standard WordprocessingML documents are supported.');
   const types = parts.get('[Content_Types].xml');
@@ -123,6 +115,8 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
   function inline(node, inherited = {}) {
     if (node.namespaceURI !== WORD_NS) throw unsupported('Equations or other non-text content cannot be preserved.');
     const name = node.localName;
+    if (name === 'ins' || name === 'del') return revisions.keep(node) ? elements(node).flatMap(n => inline(n, inherited)) : [];
+    if (name === 'delText' && revisions.isDeletedText(node)) return [node.textContent];
     if (['pPr', 'rPr', 'bookmarkStart', 'bookmarkEnd', 'proofErr', 'lastRenderedPageBreak', 'commentRangeStart', 'commentRangeEnd', 'commentReference'].includes(name)) return [];
     if (['drawing', 'pict', 'object'].includes(name)) {
       if (activeNote) throw unsupported('Images and embedded objects inside notes need review in Word first.');
@@ -240,7 +234,7 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
   });
   const markdown = converted.markdown + (noteSections.markdown ? '\n\n' + noteSections.markdown : '');
   if (markdown.length > ARTICLE_BODY_LIMIT) throw unsupported('The article and its notes exceed 60,000 converted characters. Nothing was truncated.');
-  return { markdown, warnings: [...new Set([...notices, ...converted.warnings, ...noteSections.warnings])], wordImages };
+  return { markdown, warnings: [...new Set([...revisions.warnings, ...notices, ...converted.warnings, ...noteSections.warnings])], wordImages, wordRevisions: revisions.summary };
 }
 
 export async function parseDocxArticle(bytes, filename = '', options = {}) {
@@ -248,5 +242,5 @@ export async function parseDocxArticle(bytes, filename = '', options = {}) {
   for (const [name, text] of xml) parts.set(name, parseWordXML(text));
   const converted = wordTreesToMarkdown(parts, options);
   const result = parseArticleImport(converted.markdown, filename.replace(/\.docx$/i, ''), 'markdown');
-  return { ...result, kind: 'Word document', warnings: [...converted.warnings, ...result.warnings], requiresAck: true, wordImages: converted.wordImages };
+  return { ...result, kind: 'Word document', warnings: [...converted.warnings, ...result.warnings], requiresAck: true, wordImages: converted.wordImages, wordRevisions: converted.wordRevisions };
 }
