@@ -6,6 +6,8 @@ Run `npm run verify:release` for the complete manually invoked build, regression
 
 The full gate also includes a [pinned application-origin document benchmark](docs/DOCUMENT_BENCHMARK_20261016.md): 13 licensed inputs, 15 explicit conversion/disclosure/rejection contracts, independent exported-file readers, and staged UI checks. Run `npm run benchmark:documents` after building for the focused corpus; that partial run does not replace the full release gate.
 
+For actual WordPress save-and-reopen acceptance, [use the local WordPress gate](docs/WORDPRESS_ROUNDTRIP_20261016.md). Supply an explicitly installed `DRAFTTOPAGE_WORDPRESS_CLI` when running the release gate to require its fresh evidence. Without it, WordPress acceptance is explicitly `NOT_RUN`.
+
 Plain-text clipboard selections now keep Markdown-looking punctuation literal instead of extracting page details or headings. Intentional Markdown remains available through its explicit import format. Oversized escaped selections are rejected in full. See [the plain clipboard correction](docs/PLAIN_CLIPBOARD_RELEASE.md).
 
 The free [Word to Markdown converter](https://drafttopage.com/word-to-markdown/) now gives .docx writers a direct import, review, and .md handoff. Every public workspace also offers **Markdown article (.md)** as a first-class destination, without requiring page metadata. A shared title preference includes the separate title as a literal heading when available; the new route defaults it on. Copy/download, approved source inspection, clipboard fallback, profile portability, a generated fictional Word sample, and explicit conversion limits are included. [Word-to-Markdown release notes](docs/WORD_MARKDOWN_RELEASE.md).

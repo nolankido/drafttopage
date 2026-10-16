@@ -20,7 +20,7 @@ const goodEvidence = { result: 'PASS', scope: 'full', checks: ['fictional fixtur
 
 test('The manual release gate rejects stale browser evidence and stops after a failed model check', () => fixture(root => {
   const calls = [];
-  const result = verifyRelease({ root, run: (command, args) => {
+  const result = verifyRelease({ root, env: {}, run: (command, args) => {
     calls.push(args); assert.equal(existsSync(join(root, 'test-results', 'browser-results.json')), false);
     return { status: calls.length === 2 ? 1 : 0 };
   } });
@@ -32,12 +32,12 @@ test('The manual release gate rejects stale browser evidence and stops after a f
 test('An unavailable browser command or absent, partial, overflowing or erroneous evidence cannot pass', () => {
   for (const evidence of [null, { ...goodEvidence, scope: 'desk-only' }, { ...goodEvidence, checks: [] }, { ...goodEvidence, layout: {} }, { ...goodEvidence, layout: { narrow: true } }, { ...goodEvidence, errors: ['fixture error'] }, { ...goodEvidence, unexpected_requests: ['https://example.invalid/'] }]) fixture(root => {
     let calls = 0;
-    const result = verifyRelease({ root, run: () => { if (++calls === 4 && evidence) writeFileSync(join(root, 'test-results', 'browser-results.json'), JSON.stringify(evidence)); return { status: 0 }; } });
+    const result = verifyRelease({ root, env: {}, run: () => { if (++calls === 4 && evidence) writeFileSync(join(root, 'test-results', 'browser-results.json'), JSON.stringify(evidence)); return { status: 0 }; } });
     assert.equal(result.result, 'FAIL'); assert.equal(result.steps[3].result, 'FAIL');
   });
   fixture(root => {
     let calls = 0;
-    const result = verifyRelease({ root, run: () => ++calls === 4 ? { status: null, error: new Error('Browser tools unavailable') } : { status: 0 } });
+    const result = verifyRelease({ root, env: {}, run: () => ++calls === 4 ? { status: null, error: new Error('Browser tools unavailable') } : { status: 0 } });
     assert.equal(result.result, 'FAIL'); assert.match(result.error, /Browser tools unavailable/);
   });
 });
@@ -60,7 +60,7 @@ test('Source changes during a run invalidate otherwise complete passing evidence
   writeFileSync(join(root, '.gitignore'), 'test-results/\n');
   execFileSync('git', ['add', '.gitignore', 'package.json', 'tests'], { cwd: root });
   let calls = 0;
-  const result = verifyRelease({ root, run: () => {
+  const result = verifyRelease({ root, env: {}, run: () => {
     if (++calls === 4) {
       writeFileSync(join(root, 'test-results', 'browser-results.json'), JSON.stringify(goodEvidence));
       writeFileSync(join(root, 'tests', 'fixture.test.js'), '// Changed during validation\n');
