@@ -89,6 +89,31 @@ test('Destination changes update continuation and accessible labels while keepin
   }
 }));
 
+test('Back to editing reaches the body on every entry route without changing its cursor, approval, or export choice',()=>{
+  for(const source of ['text','word','copied'])withUI(({$,ui,moves})=>{
+    $('title').value='Fictional title';$('body').value='Keep this exact article';$('body').selectionStart=5;$('body').selectionEnd=9;$('reviewed').checked=true;ui.update();
+    const before=[$('title').value,$('body').value,$('body').selectionStart,$('body').selectionEnd,$('reviewed').checked,$('publishing-destination').value];
+    for(const id of ['workflow-edit','edit-from-preview','edit-from-export']){
+      assert.equal($(id).hidden,false);assert.equal($(id).disabled,false);
+      ui.handoff();$(id).fire();assert.deepEqual(moves.at(-1),['body','article-heading']);
+      assert.equal($('workflow-steps').dataset.step,'bring');
+      assert.deepEqual([$('title').value,$('body').value,$('body').selectionStart,$('body').selectionEnd,$('reviewed').checked,$('publishing-destination').value],before);
+    }
+  },source);
+});
+
+test('Editing shortcuts respect pending imports, busy files, and empty articles',()=>{
+  withUI(({$,ui,moves,setPending,setBusy})=>{
+    assert.equal($('edit-from-preview').hidden,true);assert.equal($('edit-from-export').hidden,true);
+    $('body').value='Current article';$('reviewed').checked=true;setPending({pending:true,staged:true});ui.update();
+    $('edit-from-export').fire();assert.equal(moves.at(-1)[0],'import-preview-heading');assert.equal($('body').value,'Current article');
+    setBusy(true);ui.update();const count=moves.length;
+    for(const id of ['workflow-edit','edit-from-preview','edit-from-export']){assert.equal($(id).disabled,true);$(id).fire();}
+    ui.edit();assert.equal(moves.length,count);assert.equal($('reviewed').checked,true);
+    setBusy(false);setPending({});ui.update();ui.edit();assert.equal(moves.at(-1)[0],'body');
+  },'word');
+});
+
 test('Measured sticky offsets and nested disclosures make explicit targets reachable without changing selection',()=>withUI(({$,main,ui,setPosition,resize})=>{
   const outer=new Node('outer','DETAILS',main),inner=new Node('inner','DETAILS',outer),target=new Node('target','TEXTAREA',inner);
   target.value='Writing';target.selectionStart=2;target.selectionEnd=5;

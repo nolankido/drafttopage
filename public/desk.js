@@ -18,6 +18,7 @@ import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
 import { revealDetails } from './disclosure.js';
 import { installWorkflowNavigation, focusWorkflowTarget } from './workflow-navigation.js';
+import { installWorkspaceLayout } from './workspace-layout.js';
 const markdownTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-markdown';
 const wordImportTool = markdownTool || document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
 const copiedPasteTool = document.querySelector('.desk-intro')?.dataset.workspace === 'google-docs';
@@ -395,6 +396,7 @@ loadEditingTool(() => import('./search-controls.js'), ({ installArticleSearch })
 window.addEventListener('pageshow', event => {
   if (event.persisted) { $('reviewed').checked = false; update(); report('Returned to the writing desk. Review again before exporting. There is no autosave.'); }
 });
+installWorkspaceLayout();
 workflow = installWorkflowNavigation({
   getDraft: () => capture().draft,
   getImportState: () => ({ pending: Boolean(importer?.pending()), staged: Boolean(importer?.staged()) }),

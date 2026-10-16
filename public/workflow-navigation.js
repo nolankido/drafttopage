@@ -45,6 +45,10 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     $('continue-to-export').hidden = !hasBody || Boolean(pending.pending);
     $('continue-to-export').disabled = busy;
     $('continue-to-export').textContent = 'Continue to ' + destination();
+    for (const id of ['workflow-edit', 'edit-from-preview', 'edit-from-export']) {
+      const button = $(id);
+      if (button) { button.hidden = !hasBody && !pending.pending; button.disabled = busy; }
+    }
     buttons.export.setAttribute('aria-label', $('publishing-destination').value === 'other' ? '3. Choose export options' : '3. Export to ' + destination());
     measureWorkflow(bar);
   }
@@ -71,6 +75,13 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     navigate($('article-preview'), $('conversion-heading'));
     report('Read this preview and compare it with your source. Continue to your export when ready. Navigation keeps your current approval choice.');
   }
+  function edit() {
+    if (isBusy()) return;
+    const pending = getImportState();
+    if (pending.pending) { bringLocation(pending); return; }
+    select('bring'); navigate($('body'), $('article-heading'));
+    report('Returned to the article editor. Your cursor position, writing, and export approval are kept. Editing writing clears approval.');
+  }
   function handoff() {
     if (isBusy()) return;
     const pending = getImportState();
@@ -83,8 +94,9 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
   $('review-current-article').addEventListener('click', review);
   $('start-handoff').addEventListener('click', handoff);
   $('continue-to-export').addEventListener('click', handoff);
+  for (const id of ['workflow-edit', 'edit-from-preview', 'edit-from-export']) $(id)?.addEventListener('click', edit);
   window.addEventListener('resize', () => measureWorkflow(bar));
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => measureWorkflow(bar)).observe(bar);
   update();
-  return { update, review, handoff, select };
+  return { update, review, handoff, edit, select };
 }
