@@ -193,3 +193,7 @@ Underlined Markdown headings and top-level thematic breaks now retain their stru
 The free [HTML to Markdown converter](https://drafttopage.com/html-to-markdown/) opens on an explicit HTML-source input, local conversion preview, and Markdown export with optional title inclusion. All workspaces now distinguish copied formatted writing from pasted HTML code. The indexed route has generated conversion examples and documented losses; no website is fetched, no writing is uploaded, and no traffic or revenue result is claimed. See [the HTML-to-Markdown release](docs/HTML_MARKDOWN_RELEASE.md).
 
 HTML imports can now preserve safe relative links through an explicit, temporary **Source page URL**. Local resolution, conversion notices, stale-preview protection, and source cleanup apply to typed HTML, HTML files, and copied formatted selections across all eight workspaces. No source URL is fetched or inferred from imported markup. Resolved URLs become article content for existing exports. See [the relative HTML links release](docs/HTML_RELATIVE_LINKS_RELEASE.md).
+
+## Manual public alpha study
+
+The [ten-writer public alpha kit](docs/PUBLIC_ALPHA_STUDY_20261016.md) provides fictional material, six task cards and a blank private session-record template. It tests first conversion through actual handoff, voluntary recovery and observed repeat use. The study is prepared, **NOT_RUN**. No participants were contacted or counted. Completed records stay outside this public repository; the private AI pilot remains separate and inactive.

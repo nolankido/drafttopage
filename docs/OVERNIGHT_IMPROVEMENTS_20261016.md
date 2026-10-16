@@ -29,7 +29,7 @@ New model cases and real Chromium storage/locking journeys cover default-off beh
 
 ## Cycle 7: reliable copy and handoff feedback
 
-Implementation branch: `improve/clipboard-handoff-20261016`.
+Released in [PR #75](https://github.com/nolankido/drafttopage/pull/75), merged as `1a56ad7be4bee70f8c44de81571ed5fa6d1c7524`. Full release gate passed 746 tests, 39 browser journeys and 262 layout checks. The unchanged block serializer was not rerun through WordPress in this cycle; PR #74 retains the latest eight genuine local save/reopen cases. Native Cloudflare deployment outcome is recorded in PR #75.
 
 One in-memory copy coordinator now covers the public workspace's publishing copies, title and optional post fields, plain/formatted article copies, drafting briefs, private review notes, draft-check summaries and formatting reviews. It invokes the browser write synchronously during the user action, holds the lock until settlement, retains approved downloads, and tracks changes to writing, destination, title/image choices and approval. Completion for an earlier state is identified; it cannot present old output as the current export. This coordinates one workspace page, not other tabs, apps or external clipboard writers.
 
@@ -37,11 +37,18 @@ Primary handoff controls show feedback beside the action while the existing stat
 
 Model, browser and release evidence belong in the cycle's PR. Do not infer real-device permission behavior or destination acceptance from the controlled delay/permission fixtures.
 
+## Cycle 8: public alpha study preparation
+
+The [ten-writer public alpha kit](PUBLIC_ALPHA_STUDY_20261016.md) is prepared with a fictional article, a blank session-record template, six task cards, timing and assistance definitions, privacy rules, explicit denominators and provisional decision targets. It covers first conversion, fidelity, actual destination handoff, revision, voluntary recovery and observed repeat use. The owner can organize sessions separately without activating the private pilot or adding tracking. Completed records belong outside the public repository.
+
+**Real-user acceptance is NOT_RUN.** No participants were contacted, no completed results were invented, and intention to return is not counted as repeat use. The templates and existing sample assets are checked locally. This is documentation preparation, not completion of the ten-user research gate.
+
 ## Next items
 
-1. Complete and validate the clipboard/handoff cycle above before selecting another feature.
-3. Ten-user alpha remains a human-research dependency. Do not invent participants or send invitations. Prepare a practical manual study kit if useful.
-4. Then prioritize image reconciliation, actionable formatting losses, repeated fidelity problems, device/accessibility, preview editing, repeat publishing, performance, evidence-based homepage copy, discovery and distribution, repeat usage, and a paid proposition.
+1. Image reconciliation: make the handoff from Word image placeholders and recovered files to supported article image references easier to inspect without fetching or uploading images. Preserve explicit linked-image consent and original-byte privacy disclosures.
+2. Actionable formatting losses and frequent fidelity defects, chosen from reproducible source cases.
+3. Actual ten-writer sessions and repeat-use evidence remain an owner dependency. Do not contact people, invent findings or treat the prepared kit as completed research.
+4. Continue with device/accessibility, preview editing, repeat publishing and performance before broad marketing or paid claims. Discovery, distribution, repeat usage and a paid proposition still need actual evidence.
 
 ## Continuation rules
 
