@@ -1,9 +1,11 @@
 import { createArticleMarkdown } from './article-markdown.js';
 import { downloadText } from './download.js';
 import { suggestFilename } from './preview.js';
+import { createCopyActions } from './copy-actions.js';
 
-export function installMarkdownHandoff({ getDraft, approved, changed, report, isBusy = () => false, defaultIncludeTitle = false, download = downloadText }) {
+export function installMarkdownHandoff({ getDraft, approved, changed, report, isBusy = () => false, defaultIncludeTitle = false, download = downloadText, copyActions = null }) {
   const $ = id => document.getElementById(id);
+  const copies = copyActions || createCopyActions({ snapshot: () => JSON.stringify([getDraft(), $('publishing-destination').value, $('reviewed').checked, $('export-format').value]), report, changed: update });
   const active = () => $('publishing-destination').value === 'markdown';
   const options = () => ({ includeTitle: $('export-format').value === 'document' });
   if (defaultIncludeTitle) $('export-format').value = 'document';
@@ -18,7 +20,8 @@ export function installMarkdownHandoff({ getDraft, approved, changed, report, is
       catch (error) { failure = error.message; }
     }
     const ready = selected && !busy && !failure && $('reviewed').checked;
-    for (const id of ['copy-article-markdown', 'download-article-markdown']) $(id).disabled = !ready;
+    $('copy-article-markdown').disabled = !ready || copies.state().pending;
+    $('download-article-markdown').disabled = !ready;
     $('article-markdown-preview').value = ready && $('markdown-source-panel').open ? content : '';
     $('article-markdown-readiness').textContent = !selected ? '' : busy ? 'Finish the current file operation before exporting Markdown.' : failure || (!ready ? 'Read the preview, then check the review box to copy or download Markdown. Page metadata is optional.' : 'Markdown is ready. Copy it or download the .md file, then inspect it in your destination.') + (options().includeTitle ? draft.title?.trim() ? ' The separate article title is included as a heading. Check for an existing title heading in the body.' : ' No separate title is available, so this export contains only the body.' : ' Only the body is included; the separate title is excluded.');
   }
@@ -34,12 +37,8 @@ export function installMarkdownHandoff({ getDraft, approved, changed, report, is
   });
   $('markdown-source-panel').addEventListener('toggle', update);
   $('copy-article-markdown').addEventListener('click', async () => {
-    try {
-      await navigator.clipboard.writeText(content());
-      report('Article Markdown copied. Paste into a Markdown editor and inspect the result. Page metadata, private source notes, and review notes are excluded. Nothing was published.');
-    } catch (error) {
-      report('Markdown copy unavailable. Download the .md file or open the approved Markdown below and copy it manually. ' + error.message);
-    }
+    if (isBusy()) return;
+    await copies.run({ destination: 'markdown', label: 'article Markdown', write: () => navigator.clipboard.writeText(content()), success: 'Article Markdown copied. Paste into a Markdown editor and inspect the result. Page metadata, private source notes, and review notes are excluded. Nothing was published.', fallback: 'Markdown copy unavailable. Download the .md file or open the approved Markdown below and copy it manually.' });
   });
   $('download-article-markdown').addEventListener('click', () => {
     try {

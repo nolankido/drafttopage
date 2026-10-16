@@ -136,6 +136,54 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # Delayed permission fixtures still complete through the native clipboard.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    restore(page,backup);page.check('#reviewed')
+    page.evaluate("""() => {
+      const native=navigator.clipboard.writeText.bind(navigator.clipboard);
+      window.delayedClipboard={calls:[]};
+      navigator.clipboard.writeText=text=>new Promise((resolve,reject)=>{
+        window.delayedClipboard.calls.push(text);
+        window.delayedClipboard.finish=()=>native(text).then(resolve,reject);
+        window.delayedClipboard.reject=()=>reject(new DOMException('Permission denied','NotAllowedError'));
+      });
+    }""")
+    page.click('#copy-wordpress')
+    expect(page.locator('#wordpress-action-status')).to_contain_text('Wait for confirmation')
+    assert page.locator('#wordpress-actions').get_attribute('aria-busy')=='true'
+    assert page.locator('#copy-wordpress-title').is_disabled() and page.locator('#download-wordpress').is_enabled()
+    page.select_option('#publishing-destination','html');page.fill('#body','Current fictional HTML article.');page.check('#reviewed')
+    assert page.locator('#copy-html-source').is_disabled() and page.locator('#download-html-source').is_enabled()
+    page.locator('#copy-html-source').evaluate("el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true}))")
+    assert page.evaluate('window.delayedClipboard.calls.length')==1
+    with page.expect_download() as info:page.click('#download-html-source')
+    assert 'Current fictional HTML article.' in Path(info.value.path()).read_text()
+    page.evaluate('window.delayedClipboard.finish()')
+    expect(page.locator('#desk-status')).to_contain_text('earlier export')
+    assert page.locator('#html-source-action-status').inner_text()==''
+    assert not page.locator('#wordpress-instructions').evaluate('el=>el.open')
+    first_clipboard=page.evaluate('navigator.clipboard.readText()')
+    assert '<!-- wp:paragraph -->' in first_clipboard and 'Current fictional HTML article.' not in first_clipboard
+    page.click('#copy-html-source');page.evaluate('window.delayedClipboard.finish()')
+    expect(page.locator('#html-source-action-status')).to_contain_text('HTML source copied as code')
+    assert 'Current fictional HTML article.' in page.evaluate('navigator.clipboard.readText()')
+    assert page.locator('#html-source-actions').get_attribute('aria-busy')=='false'
+    page.click('#copy-html-source');page.evaluate('window.delayedClipboard.reject()')
+    expect(page.locator('#html-source-action-status')).to_contain_text('Download the fragment')
+    expect(page.locator('#copy-html-source')).to_be_enabled()
+    open_details(page,'#html-source-code-panel')
+    expect(page.locator('#html-source-preview')).not_to_have_value('')
+    assert 'Current fictional HTML article.' in page.locator('#html-source-preview').input_value()
+    page.select_option('#publishing-destination','markdown');page.check('#reviewed')
+    page.click('#copy-article-markdown')
+    expect(page.locator('#markdown-action-status')).to_contain_text('Wait for confirmation')
+    assert page.locator('#download-article-markdown').is_enabled()
+    page.evaluate('window.delayedClipboard.finish()')
+    expect(page.locator('#markdown-action-status')).to_contain_text('Article Markdown copied')
+    page.fill('#body','A newer article needs review.')
+    assert page.locator('#markdown-action-status').inner_text()=='' and page.locator('#copy-article-markdown').is_disabled()
+    layout(page,'copy-feedback');assert state['api']==[];context.close()
+    report['checks'].append('Clipboard handoff: delayed native writes, one shared lock across destinations, duplicate-click exclusion, downloads while copying, stale-result identification, nearby success/failure feedback, native clipboard contents, manual fallback, approval reset, and narrow layouts')
     # Opt-in recovery uses real browser storage and origin-scoped locks.
     recovery_key='drafttopage.browser-recovery.v1'
     page,context,state=open_page('/write/')

@@ -138,7 +138,7 @@ test('Denied clipboard exposes a current read-only fallback, and hidden or reset
 
 test('Edits while clipboard permission is pending are reported as a previous-version copy', async () => withUI(async ({ $, state }) => {
   let resolve; state.clipboard = () => new Promise(done => { resolve=done; }); const copying=$('copy-export-review').fire();
-  state.value.body='Changed while waiting.'; resolve(); await copying; assert.match(state.messages.at(-1),/previous article or export options/);
+  state.value.body='Changed while waiting.'; resolve(); await copying; assert.match(state.messages.at(-1),/earlier export/);
 }));
 
 test('Empty or invalid articles clear findings and report text instead of retaining a stale review', async () => withUI(async ({ $, state, ui }) => {
