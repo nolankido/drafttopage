@@ -9,6 +9,7 @@ import { createHTMLSource } from '../public/html-export.js';
 import { createWordPressArticle } from '../public/wordpress-export.js';
 import { installArticleImport } from '../public/import-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from '../public/copied-writing.js';
+import { HTML_SOURCE_SAMPLE } from '../public/html-source-sample.js';
 
 const text = value => ({ nodeType: 3, nodeValue: value, childNodes: [] });
 function element(name, nodes = [], attributes = {}) {
@@ -269,11 +270,45 @@ test('Selected HTML files retain raw text for retry and cannot bypass the review
   const raw = '<table><tr><td>Name</td></tr><tr><td>One</td></tr></table>';
   parse(tree(element('table', [element('tr', [element('td', ['Name'])]), element('tr', [element('td', ['One'])])])));
   $('import-file').files = [{ name: 'example.html', size: raw.length, arrayBuffer: async () => new TextEncoder().encode(raw).buffer }];
-  await $('import-file').fire('change'); assert.equal($('import-format').value, 'html'); assert.equal($('import-text').value, raw); assert.equal(applications.length, 0);
+  await $('import-file').fire('change'); assert.equal($('import-format').value, 'html-source'); assert.equal($('import-text').value, raw); assert.equal(applications.length, 0);
   $('import-first-row-headers').checked = true; await $('import-first-row-headers').fire('change'); await $('preview-import').fire();
   assert.equal($('import-preview').hidden, false); assert.equal($('apply-import').disabled, true);
   $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire(); assert.equal(applications.length, 1);
 }));
+
+test('HTML source pastes use plain text and wait for explicit preview without reading clipboard HTML', () => withDOM(async ({ $, assigned, ui, applications }) => {
+  $('import-format').value = 'html-source'; await $('import-format').fire('change');
+  assert.equal($('import-html-options').hidden, false); assert.equal($('import-html-help').hidden, true); assert.equal($('import-html-source-help').hidden, false);
+  const raw = '<h1>Fictional title.</h1><p>Keep this body.</p>', requested = [];
+  const event = await $('import-text').fire('paste', { clipboardData: { getData: type => { requested.push(type); if(type !== 'text/plain') throw new Error('Clipboard HTML must not be read'); return raw; } } });
+  assert.equal(event.defaultPrevented, false); assert.deepEqual(requested, ['text/plain']); assert.equal(assigned(), 0);
+  // The accepted browser-native paste supplies the input event and text.
+  $('import-text').value = raw; await $('import-text').fire('input'); assert.equal(ui.pending(), true);
+  await $('preview-import').fire(); assert.equal(assigned(), 1); assert.equal($('import-text').value, raw);
+  assert.equal($('import-body-preview').value, 'Keep this body\\.'); assert.equal($('apply-import').disabled, true); assert.equal(applications.length, 0);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire(); assert.equal(applications.length, 1);
+}));
+
+test('Switching HTML source and copied-writing modes invalidates conversion acknowledgement', () => withDOM(async ({ $, ui, applications }) => {
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p>Source</p>'; await $('preview-import').fire();
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, false);
+  $('import-format').value = 'html'; await $('import-format').fire('change'); await $('apply-import').fire();
+  assert.equal($('import-changes-ok').checked, false); assert.equal($('import-preview').hidden, true); assert.equal(applications.length, 0); assert.equal($('import-html-help').hidden, false);
+  ui.openCopied(); assert.equal($('import-html-source-help').hidden, true); assert.equal($('import-html-help').hidden, false);
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); await $('preview-import').fire(); assert.equal($('apply-import').disabled, true);
+}));
+
+test('HTML source keeps the UTF-8 paste bound and refuses an oversized paste in full', () => withDOM(async ({ $, assigned }) => {
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p>Keep this source.</p>';
+  const event = await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/plain' ? '界'.repeat(200000) : '<p>Misleading smaller HTML</p>' } });
+  assert.equal(event.defaultPrevented, true); assert.equal($('import-text').value, '<p>Keep this source.</p>'); assert.equal(assigned(), 0); assert.match($('import-paste-status').textContent, /512 KiB|524,288|byte/i);
+}));
+
+test('Source examples keep code visible even on copied-writing entry points and clear removes it', () => withDOM(async ({ $, ui, assigned }) => {
+  $('import-format').value = 'html-source'; await $('import-format').fire('change'); await $('import-html-example').fire();
+  assert.equal($('import-text').value, HTML_SOURCE_SAMPLE.html); assert.equal(assigned(), 1); assert.equal($('apply-import').disabled, true);
+  await $('cancel-import').fire(); assert.equal(ui.pending(), false); assert.equal($('import-text').value, ''); assert.equal($('import-body-preview').value, '');
+}, { pasteFirst: true }));
 test('A formatted example stages only, and a refused pending-text replacement keeps the import', () => withDOM(async ({ $, ui, confirm, applications }) => {
   ui.openFormatted(); $('import-text').value = 'Keep pending text'; confirm(false); await $('import-html-example').fire(); assert.equal($('import-text').value, 'Keep pending text');
   confirm(true); await $('import-html-example').fire(); assert.match($('import-text').value, /fictional neighborhood/); assert.equal(applications.length, 0); assert.equal($('apply-import').disabled, true);

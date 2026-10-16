@@ -137,7 +137,7 @@ test('Closing, reopening, hiding controls and clearing writing discard navigatio
 }));
 
 test('Every public workspace exposes accessible opt-in controls in reading order outside optional tools',async()=>{
-  const routes=['write','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
+  const routes=['write','word-to-wordpress','word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
   const pages=Object.fromEntries(await Promise.all(routes.map(async route=>[route,await readFile('public/'+route+'/index.html','utf8')])));
   const result=JSON.parse(execFileSync('python3',['-c',String.raw`
 import sys,json

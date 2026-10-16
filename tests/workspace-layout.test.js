@@ -64,8 +64,8 @@ test('Layout controls are optional, and a newly opened workspace starts full-wid
   } finally { globalThis.document = previous; }
 });
 
-test('All seven built workspaces share accessible layout choices and direct editing shortcuts', async () => {
-  const routes = ['write', 'word-to-wordpress', 'word-to-markdown', 'google-docs-to-wordpress', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word'];
+test('All eight built workspaces share accessible layout choices and direct editing shortcuts', async () => {
+  const routes = ['write', 'word-to-wordpress', 'word-to-markdown','html-to-markdown', 'google-docs-to-wordpress', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word'];
   const pages = Object.fromEntries(await Promise.all(routes.map(async route => [route, await readFile('public/' + route + '/index.html', 'utf8')])));
   const checked = JSON.parse(execFileSync('python3', ['-c', String.raw`
 import sys,json

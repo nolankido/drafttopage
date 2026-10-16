@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { revealDetails } from '../public/disclosure.js';
 
 test('Converter essentials stay reachable while optional tools share one closed disclosure', async () => {
-  const routes = ['markdown-to-wordpress', 'word-to-wordpress', 'word-to-markdown', 'google-docs-to-wordpress', 'markdown-to-html', 'markdown-to-word'];
+  const routes = ['markdown-to-wordpress', 'word-to-wordpress', 'word-to-markdown','html-to-markdown', 'google-docs-to-wordpress', 'markdown-to-html', 'markdown-to-word'];
   const pages = Object.fromEntries(await Promise.all(routes.map(async route => [route, await readFile('public/' + route + '/index.html', 'utf8')])));
   const report = JSON.parse(execFileSync('python3', ['-c', String.raw`
 import sys,json

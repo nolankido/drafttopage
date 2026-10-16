@@ -22,7 +22,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
   const $ = id => document.getElementById(id), bar = $('workflow-steps');
   const bring = bar.querySelector('[data-workflow-step="bring"]');
   const buttons = { bring, review: $('start-review'), export: $('start-handoff') };
-  const source = bring.id === 'start-word-file' ? 'word' : bring.id === 'start-copied-paste' ? 'copied' : 'text';
+  const source = bring.id === 'start-word-file' ? 'word' : bring.id === 'start-copied-paste' ? 'copied' : bring.id === 'start-html-source' ? 'html' : 'text';
   let selected = 'bring', lastBody, lastTitle, lastReviewed;
   const destination = () => ({ wordpress: 'WordPress', markdown: 'Markdown', html: 'HTML source', word: 'Word', other: 'another export' })[$('publishing-destination').value] || 'your export';
   function update() {
@@ -37,7 +37,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
       if (step === current) button.setAttribute('aria-current', 'step'); else button.removeAttribute('aria-current');
       button.disabled = busy;
     }
-    const message = busy ? 'Wait for the current file operation. Your article is kept.' : pending.pending ? pending.staged ? 'An import is waiting for review. Apply or clear it before continuing with this article.' : 'An import is unfinished. Preview or clear it before continuing.' : !hasBody ? source === 'word' ? 'Choose a Word document to begin.' : source === 'copied' ? 'Paste a copied selection to begin.' : 'Add your article to begin.' : $('reviewed').checked ? 'Export review is checked. Use the available ' + destination() + ' controls below, then inspect the result in your destination.' : current === 'export' ? 'Review is required before copying or downloading. Choose your destination and title handling below.' : 'Article in the editor. Read the preview, compare it with your source, then choose your export.';
+    const message = busy ? 'Wait for the current file operation. Your article is kept.' : pending.pending ? pending.staged ? 'An import is waiting for review. Apply or clear it before continuing with this article.' : 'An import is unfinished. Preview or clear it before continuing.' : !hasBody ? source === 'word' ? 'Choose a Word document to begin.' : source === 'copied' ? 'Paste a copied selection to begin.' : source === 'html' ? 'Paste HTML source or choose an HTML file to begin.' : 'Add your article to begin.' : $('reviewed').checked ? 'Export review is checked. Use the available ' + destination() + ' controls below, then inspect the result in your destination.' : current === 'export' ? 'Review is required before copying or downloading. Choose your destination and title handling below.' : 'Article in the editor. Read the preview, compare it with your source, then choose your export.';
     $('workflow-status').textContent = message;
     $('review-current-article').hidden = !hasBody && !pending.pending;
     $('review-current-article').disabled = busy;
@@ -59,9 +59,9 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     if (pending.pending) {
       navigate(pending.staged ? $('import-preview-heading') : source === 'word' ? $('import-file') : $('import-text'));
       report(pending.staged ? 'Inspect the pending import, then apply or clear it. Your current article is kept until you apply.' : 'Finish previewing or clear the pending import. Your current article is kept.');
-    } else if (source === 'word' || source === 'copied') {
+    } else if (source === 'word' || source === 'copied' || source === 'html') {
       navigate($(source === 'word' ? 'import-file' : 'import-text'), $('import-panel'));
-      report(source === 'word' ? 'Choose a Word document and inspect its local preview before importing.' : 'Paste your copied writing and inspect its local preview before importing.');
+      report(source === 'word' ? 'Choose a Word document and inspect its local preview before importing.' : source === 'html' ? 'Paste article HTML source and inspect its local conversion before importing.' : 'Paste your copied writing and inspect its local preview before importing.');
     } else {
       navigate($('body'), $('article-heading'));
       report('Add your article first. Review and export will use the writing you enter.');
@@ -89,7 +89,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     select('export'); navigate($('publishing-destination'), $('export-heading'));
     report('Choose your destination and inspect its handoff. Review approval is a separate checkbox. Nothing is copied, downloaded, or published by navigation.');
   }
-  bring.addEventListener('click', () => { if (!isBusy()) select('bring'); });
+  bring.addEventListener('click', () => { if (!isBusy()) { if (source === 'html') bringLocation(); else select('bring'); } });
   $('start-review').addEventListener('click', review);
   $('review-current-article').addEventListener('click', review);
   $('start-handoff').addEventListener('click', handoff);

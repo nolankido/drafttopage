@@ -19,8 +19,10 @@ import { installPasteGuard } from './paste-guard.js';
 import { revealDetails } from './disclosure.js';
 import { installWorkflowNavigation, focusWorkflowTarget } from './workflow-navigation.js';
 import { installWorkspaceLayout } from './workspace-layout.js';
-const markdownTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-markdown';
-const wordImportTool = markdownTool || document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
+const htmlMarkdownTool = document.querySelector('.desk-intro')?.dataset.workspace === 'html-to-markdown';
+const wordMarkdownTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-markdown';
+const markdownTool = wordMarkdownTool || htmlMarkdownTool;
+const wordImportTool = wordMarkdownTool || document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-wordpress';
 const copiedPasteTool = document.querySelector('.desk-intro')?.dataset.workspace === 'google-docs';
 const wordpressTool = wordImportTool || copiedPasteTool || document.querySelector('.desk-intro')?.dataset.workspace === 'wordpress';
 const htmlTool = document.querySelector('.desk-intro')?.dataset.workspace === 'html';
@@ -274,7 +276,7 @@ $('add-question').addEventListener('click', () => {
 });
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
-  focusPreview: wordImportTool || copiedPasteTool, pasteFirst: copiedPasteTool,
+  focusPreview: wordImportTool || copiedPasteTool || htmlMarkdownTool, pasteFirst: copiedPasteTool,
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
   workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); },
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
@@ -295,11 +297,11 @@ importer = installArticleImport({
     tableEditor?.clear();
     wordPressImages?.reset();
     if (!publishingProfiles?.hasSetup()) $('export-format').value = markdownTool ? 'document' : 'page';
-    if (wordImportTool || copiedPasteTool) $('import-panel').open = false;
+    if (wordImportTool || copiedPasteTool || htmlMarkdownTool) $('import-panel').open = false;
     changed(); focusWorkflowTarget($('body'), { bar: $('workflow-steps'), anchor: $('article-heading') });
   }
 });
-$('start-import').addEventListener('click', () => { if (recovery.reading() || importer?.reading()) return; workflow?.select('bring'); $('import-panel').open = true; $('import-file').focus(); });
+$('start-import').addEventListener('click', () => { if (recovery.reading() || importer?.reading()) return; workflow?.select('bring'); $('import-panel').open = true; revealDetails($('import-file')); $('import-file').focus(); });
 $('start-insert-import').addEventListener('click', () => { workflow?.select('bring'); importer.openInsertion(); });
 $('start-formatted-import').addEventListener('click', () => { workflow?.select('bring'); importer.openFormatted(); });
 $('start-word-file')?.addEventListener('click', () => { workflow?.select('bring'); importer.openWordFile(); });
@@ -316,7 +318,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
 loadEditingTool(() => import('./reference-link-controls.js'), ({ installReferenceLinks }) => {
   referenceLinks = installReferenceLinks({ getBody: () => $('body').value, getTitle: () => $('title').value, apply: (body, label) => {
     revisions.captureBefore(label);
@@ -403,5 +405,5 @@ workflow = installWorkflowNavigation({
   isBusy: () => recovery.reading() || Boolean(importer?.reading()), refreshPreview: update, report
 });
 setFocus(true); update();
-report(copiedPasteTool ? 'Copied-writing tool ready. Paste a Google Docs selection into the import box to preview before applying. Save explicitly before leaving.' : wordImportTool ? 'Word to ' + (markdownTool ? 'Markdown' : 'WordPress') + ' tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
+report(htmlMarkdownTool ? 'HTML to Markdown tool ready. Paste HTML source or choose an HTML file, then preview before importing. Save explicitly before leaving.' : copiedPasteTool ? 'Copied-writing tool ready. Paste a Google Docs selection into the import box to preview before applying. Save explicitly before leaving.' : wordImportTool ? 'Word to ' + (markdownTool ? 'Markdown' : 'WordPress') + ' tool ready. Choose a .docx to preview locally before importing. Save explicitly before leaving.' : wordTool ? 'Markdown to Word tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : htmlTool ? 'Markdown to HTML tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : wordpressTool ? 'Markdown to WordPress tool ready. Paste your body or try the fictional sample. Save explicitly before leaving.' : 'Writing workspace ready. Edit locally and save explicitly. No AI request or upload is made here.');
 followFragment();

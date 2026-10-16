@@ -1,0 +1,53 @@
+import { escapeHTML } from './site-shell.mjs';
+import { workflowNavigation } from './workflow-navigation.mjs';
+import { HTML_SOURCE_SAMPLE } from '../public/html-source-sample.js';
+
+export function htmlMarkdownWorkspace(importPanel, compactBody) {
+  const markers = ['<label for="import-file">', '<div id="import-html-options"', '<label class="check"><input id="import-first-row-headers"', '<label for="import-text"', '<button id="preview-import"', '</fieldset>'];
+  const positions = markers.map(marker => importPanel.indexOf(marker));
+  if (positions.some((position, index) => position < 0 || index > 0 && position <= positions[index - 1])) throw new Error('The HTML entry page needs its shared importer controls.');
+  const [file, help, header, text, preview, end] = positions;
+  const panel = (importPanel.slice(0, file) + importPanel.slice(help, header) + importPanel.slice(text, preview) + importPanel.slice(header, text) + importPanel.slice(preview, end) +
+    '<details id="html-source-alternatives"><summary>Choose an HTML file or change the input format</summary>' + importPanel.slice(file, help) + '</details>' + importPanel.slice(end))
+    .replace('<details id="import-panel" class="import-panel">', '<details id="import-panel" class="import-panel" open>')
+    .replace('<summary>Import an article or drafting result</summary>', '<summary>1. Paste HTML source or choose an HTML file</summary>')
+    .replace('<option value="html-source">', '<option value="html-source" selected>')
+    .replace('<div id="import-html-options" hidden>', '<div id="import-html-options">')
+    .replace('id="import-html-help" class="small"', 'id="import-html-help" class="small" hidden')
+    .replace('id="import-html-source-help" class="small" hidden', 'id="import-html-source-help" class="small"')
+    .replace('Or paste writing or article source', 'Article HTML source')
+    .replace('Open a Word .docx, bring Markdown or article JSON, or paste a formatted selection.', 'Bring article HTML code or an HTML file.')
+    .replace('For Word or HTML tables without marked headers', 'For HTML tables without marked headers')
+    .replace('Choose a Word document or article file', 'Choose an HTML article file')
+    .replace(/(id="import-file"[^>]*accept=")[^"]+(")/, '$1.html,.htm,text/html$2')
+    .replace(/<p id="import-file-help"[\s\S]*?<\/p>/, '<p id="import-file-help" class="small">Choose a UTF-8 .html or .htm file up to 512 KiB. It is read locally and previewed before importing. Keep your original file. For a private workspace backup, use Save or restore this workspace.</p>')
+    .replace('id="import-text" rows="5"', 'id="import-text" rows="7" placeholder="Paste article HTML, such as &lt;h1&gt;Title&lt;/h1&gt;&lt;p&gt;Your writing&lt;/p&gt;."')
+    .replace('import-file-help import-html-help import-paste-status', 'import-file-help import-html-source-help import-paste-status')
+    .replace('Preview a formatted example', 'Preview an HTML source example')
+    .replace('Preview selected Word file or pasted article', 'Preview HTML conversion')
+    .replace('id="import-preview-heading"', 'id="import-preview-heading" tabindex="-1"');
+  return `<header class="desk-intro" data-workspace="html-to-markdown"><p class="eyebrow">Free local article converter</p><h1>HTML to Markdown converter</h1><p>Paste article HTML or open an HTML file. Preview what converts, then copy or download an editable Markdown article. No account or upload needed.</p></header>
+${workflowNavigation('html-markdown')}
+<div class="desk-intro-details"><p class="small">Start with HTML code in the panel below. To paste visible formatting from an editor instead, choose <button id="start-formatted-import" type="button" class="secondary">Import formatted writing</button>.</p><p id="sample" class="small">The HTML source example below runs the actual converter. <button id="start-sample" type="button" class="secondary">Try a fictional Markdown sample instead</button>.</p>
+<details id="desk-more" class="desk-more"><summary>Other starting points</summary><div class="desk-start"><button id="start-draft" type="button" class="secondary">Write or paste Markdown</button><button id="start-import" type="button" class="secondary">Open article import</button><button id="start-notes" type="button" class="secondary">Start with notes</button><button id="toggle-focus" type="button" class="secondary" aria-pressed="false">Focus on article</button><button id="start-checks" type="button" class="secondary">Check draft</button></div></details><p class="small">Save a private backup before leaving. This tab has no autosave. Conversion does not fetch a website, upload writing, or publish anything.</p></div>` + panel +
+    compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your converted Markdown</h2>').replace('<details id="markdown-source-panel">', '<details id="markdown-source-panel" open>') + HTML_MARKDOWN_GUIDE;
+}
+
+export const HTML_MARKDOWN_GUIDE = `<section class="tool-guide" aria-labelledby="html-markdown-guide"><h2 id="html-markdown-guide">How to convert HTML to Markdown</h2>
+<ol><li><strong>Bring the article HTML.</strong> Paste HTML code or choose a UTF-8 .html or .htm file up to 512 KiB. Use an article fragment when possible. An entire web page can include navigation and footer text, so inspect and remove material you do not want.</li><li><strong>Preview the conversion.</strong> Check the reading preview, exact Markdown, title, and notices. This does not replace your current article. Tables without marked headers need your explicit first-row choice and a new preview.</li><li><strong>Import after inspection.</strong> Acknowledge the conversion and import into the editor. Replacing existing writing asks for confirmation and checkpoints valid previous writing. You can also choose previewed insertion into an existing article.</li><li><strong>Review and download.</strong> The Markdown destination is selected by default, with the title included when available. Check the export review box, then copy article Markdown or download the .md file. Page metadata can remain empty.</li></ol>
+<h2 id="html-markdown-formats">What converts, and what changes?</h2><div class="table-scroll"><table class="format-table"><thead><tr><th scope="col">HTML you bring</th><th scope="col">Markdown result</th></tr></thead><tbody>
+<tr><th scope="row">Headings and paragraphs</th><td>Heading markers and paragraph breaks. An opening H1 moves to the separate title field; it is included in the Markdown file by default. Heading line breaks become spaces. Paragraph line breaks remain newlines and may render differently by Markdown editor.</td></tr>
+<tr><th scope="row">Bold, italic, and code</th><td>Supported nested single-line emphasis and literal code. Code blocks use a fence long enough to preserve backticks. Ambiguous inline structures receive a disclosed text fallback.</td></tr>
+<tr><th scope="row">Links and lists</th><td>Safe absolute HTTP(S) links and supported single-line nested lists with starting values. Relative, unsafe, or unsupported link targets are omitted with notices. Lists allow six levels and 200 items per group.</td></tr>
+<tr><th scope="row">Tables and dividers</th><td>Pipe tables with headers and supported alignment, up to twelve columns and 100 data rows. Merged, nested, and uneven tables are refused. HTML hr elements become *** thematic breaks.</td></tr>
+<tr><th scope="row">Images, embedded content, and styling</th><td>Images become text placeholders. Scripts and embedded or explicitly hidden content are omitted with notices. Fonts, colors, page layout, and arbitrary CSS are not retained.</td></tr>
+</tbody></table></div><p>The article supports 60,000 characters after conversion. Escaping literal punctuation can increase its size. Keep your original HTML and inspect the Markdown in your destination; this is a limited article format, not full CommonMark or a web-page scraper.</p>
+<h2 id="html-markdown-example">A small conversion example</h2><p>This fictional example and its Markdown result come from one source tree and the actual article converter. Select Preview an HTML source example above to try the browser conversion.</p>
+<div class="conversion-example"><section aria-labelledby="html-markdown-input"><h3 id="html-markdown-input">HTML source</h3><pre class="code-sample"><code>${escapeHTML(HTML_SOURCE_SAMPLE.html)}</code></pre></section><section aria-labelledby="html-markdown-output"><h3 id="html-markdown-output">Converted Markdown</h3><pre class="code-sample"><code>${escapeHTML(HTML_SOURCE_SAMPLE.markdown)}</code></pre></section></div>
+<h2 id="html-markdown-questions">Common questions</h2>
+<details><summary>Is this converter free and local?</summary><p>Yes. The public converter requires no account, subscription, API key, or AI credits. Application code converts your writing in this tab, without uploading it or saving it in persistent browser storage. Copies and downloads are explicit actions.</p></details>
+<details><summary>Should I paste HTML code or visible formatted writing?</summary><p>Use HTML source for code containing tags such as &lt;p&gt;. That mode keeps the pasted code in the box until you preview it. Use Import formatted writing for a selection copied from a browser or document editor; that separate mode reads the formatting supplied by the paste event and previews immediately. Plain-only clipboard data gets a warning.</p></details>
+<details><summary>Can I enter a website URL?</summary><p>No URL is fetched. Bring HTML you have permission to use, or copy a relevant formatted selection yourself. A full page may include menus and footer text; inspect the conversion before importing.</p></details>
+<details><summary>Does it preserve images, styling, or every Markdown feature?</summary><p>No. Image placeholders and conversion notices make omissions visible. The output uses a bounded Markdown subset. Destination rendering can differ, especially for tables and line breaks. The tool does not recreate a full website or verify its facts.</p></details>
+<details><summary>Can I convert Markdown back to HTML?</summary><p>Use <a href="/markdown-to-html/">Markdown to HTML</a> for an article fragment, or download a reading page from this workspace. Those exports cannot recreate the original CSS, scripts, images, or layout.</p></details>
+<p class="small">Draft to Page is in development. Starting from a Word document? Use <a href="/word-to-markdown/">Word to Markdown</a>. <a href="/help/article-import/#formatted-writing">Conversion limits</a> · <a href="/privacy/">Data use</a>.</p></section>`;

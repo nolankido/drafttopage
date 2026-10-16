@@ -8,6 +8,7 @@ import { WORD_TOOL_GUIDE } from './word-tool-guide.mjs';
 import { googleDocsWorkspace } from './google-docs-tool.mjs';
 import { workflowNavigation } from './workflow-navigation.mjs';
 import { WORD_MARKDOWN_GUIDE } from './word-markdown-tool.mjs';
+import { htmlMarkdownWorkspace } from './html-markdown-tool.mjs';
 const importPanel = readFileSync(new URL('./import-panel.html.inc', import.meta.url), 'utf8');
 const wordNotesHelp = readFileSync(new URL('./word-notes-help.html.inc', import.meta.url), 'utf8');
 const collectionPanel = readFileSync(new URL('./draft-collection.html.inc', import.meta.url), 'utf8');
@@ -80,6 +81,7 @@ export const writingPages = [
   { route: '/word-to-wordpress/', title: 'Free Word to WordPress Converter', description: 'Open a Word .docx locally, preview its article conversion, and take editable WordPress blocks. Free, with no upload or account needed.', body: wordToWordPressBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/word-to-markdown/', title: 'Free Word to Markdown Converter', description: 'Convert Word .docx to Markdown locally. Preview headings, lists, links, and simple tables, then copy or download .md. Free, with no upload or account.', body: wordToMarkdownBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/google-docs-to-wordpress/', title: 'Free Google Docs to WordPress Converter', description: 'Paste a Google Docs selection, inspect its local conversion, and take editable WordPress blocks. Free, with no Google account connection or upload.', body: googleDocsWorkspace(importPanel, compactBody), script: '/desk.js', wide: true, desk: true, converter: true },
+  { route: '/html-to-markdown/', title: 'Free HTML to Markdown Converter', description: 'Convert article HTML to Markdown locally. Paste HTML code or open an HTML file, inspect headings, lists, links, and tables, then copy or download .md. No upload or account.', body: htmlMarkdownWorkspace(importPanel, compactBody), script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-html/', title: 'Free Markdown to HTML Converter', description: 'Convert simple Markdown to article HTML. Preview, copy reviewed HTML source, or download a fragment. Free, local, and no account needed.', body: htmlBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/markdown-to-word/', title: 'Free Markdown to Word Converter', description: 'Convert simple Markdown to an editable Word document. Preview your article and download .docx locally, free, with no account or API credits.', body: wordBody, script: '/desk.js', wide: true, desk: true, converter: true },
   { route: '/help/local-workspace/', title: 'Save and restore your writing', description: 'Use the public writing workspace, load note outlines, and keep unfinished work in explicit private backup files.',

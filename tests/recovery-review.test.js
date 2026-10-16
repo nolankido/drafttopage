@@ -151,7 +151,7 @@ test('Review notes with embedded numbered lines retain distinct list boundaries'
 }));
 
 test('All public desks and the inactive pilot share the accessible staged restore without new storage or schemas', async () => {
-  for (const route of ['write', 'word-to-wordpress', 'word-to-markdown', 'google-docs-to-wordpress', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word']) {
+  for (const route of ['write', 'word-to-wordpress', 'word-to-markdown','html-to-markdown', 'google-docs-to-wordpress', 'markdown-to-wordpress', 'markdown-to-html', 'markdown-to-word']) {
     const html = await readFile('public/' + route + '/index.html', 'utf8');
     for (const id of ['workspace-files', 'restore-preview', 'restore-field', 'restore-current', 'restore-proposed', 'restore-reviewed', 'apply-restore', 'discard-restore', 'restore-status']) assert.equal(html.split('id="' + id + '"').length, 2);
     assert.match(html, /id="restore-preview"[^>]*hidden/); assert.match(html, /id="apply-restore"[^>]*disabled/);
