@@ -2,6 +2,8 @@
 
 Checked October 16, 2026 UTC. This is code-review evidence, not permission to merge, release, or invite testers.
 
+Follow-up: `docs/ALPHA_HANDOFF.md` records newer main/recovery pins, the PR #74 adaptation and current 26/39-path conflict calculations. The 23-path count and 665-test main count below remain historical evidence for `d63b28c`, not the newer lines.
+
 ## Two independently changing lines
 
 - Alpha PR #47 was at `1cc800083e4afdcfd43f28f3c28adf62029ce632`, tree `83390c9eddabefd0d5f4afc17d829c50e9c50ea0`, when this pass began.

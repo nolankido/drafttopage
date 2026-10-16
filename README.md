@@ -4,6 +4,8 @@ Your ideas. Ready for your website.
 
 Repository: `nolankido/drafttopage`. Domain: `drafttopage.com`. Hosting: the existing Cloudflare Worker `drafttopage`.
 
+Alpha review: read [the current handoff and acceptance gates](docs/ALPHA_HANDOFF.md) before merging or inviting testers. This branch diverges from newer main work and is not a validated combined release candidate.
+
 ## Public writing workflow
 
 - `/write/`: start from notes or edit an existing article. Six outlines load directly into the workspace. A locally assembled drafting brief can be copied into a tool the author chooses; the public workspace itself never calls AI or uploads writing.
