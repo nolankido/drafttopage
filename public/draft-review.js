@@ -1,16 +1,25 @@
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { inlineTokens, walkInlineTokens, inlineVisibleText } from './markdown-inline.js';
 import { previewPassages } from './preview.js';
+import { setextLevel, thematicBreak } from './markdown-block-syntax.js';
 
 export const REVIEW_LIMIT = 40;
 export const PARAGRAPH_WORDS = 120;
 const wordsIn = text => (text.match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu) || []).length;
 const visibleText = tokens => inlineVisibleText(tokens);
 // Character positions use the unchanged editor string, including CRLF and Unicode.
-export function articleStructure(body) {
+export function articleStructure(body, { readPassages = previewPassages } = {}) {
   if (typeof body !== 'string' || body.length > ARTICLE_BODY_LIMIT) throw new Error('Draft checks support at most 60,000 article characters.');
   const lines = body.split('\n'), blocks = [];
-  const semantic = new Map(previewPassages(body).filter(passage => ['hr'].includes(passage.blocks[0].type) || passage.blocks[0].headingStyle === 'setext').map(passage => [passage.start, passage]));
+  // With no possible separator/underline line, the full preview cannot add semantics.
+  // Any candidate, even inside code or a container, keeps the existing complete scan.
+  // The cheap native test is a superset, not another grammar: eligible lines
+  // contain only these marker characters and horizontal whitespace.
+  const needsSemantics = /^ {0,3}[-=*_][-=*_ \t]*$/m.test(body.replaceAll('\r', '')) && lines.some(line => {
+    const previewLine = line.replaceAll('\r', '');
+    return setextLevel(previewLine) || thematicBreak(previewLine);
+  });
+  const semantic = new Map((needsSemantics ? readPassages(body) : []).filter(passage => ['hr'].includes(passage.blocks[0].type) || passage.blocks[0].headingStyle === 'setext').map(passage => [passage.start, passage]));
   let position = 0, paragraph = null, fence = null;
   const flush = () => { if (paragraph) blocks.push(paragraph); paragraph = null; };
   for (let index = 0; index < lines.length; index++) {

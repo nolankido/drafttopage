@@ -11,6 +11,7 @@ parser.add_argument('--only',help='Optional kind:destination:panels diagnostic s
 parser.add_argument('--link-inventory',choices=['closed','open'],default='closed',help='Explicit link inventory control, independent of reading/export panels')
 parser.add_argument('--table-inventory',choices=['closed','open'],default='closed',help='Explicit table inventory control, independent of reading/export panels')
 parser.add_argument('--unique-blocks',action='store_true',help='Make every fictional block distinct instead of repeating identical source')
+parser.add_argument('--semantic-candidate',action='store_true',help='Prefix one actual underlined heading to exercise full semantic-scan fallback')
 args=parser.parse_args()
 if not 3 <= args.samples <= 100:parser.error('Choose 3 to 100 samples.')
 output=Path(args.output);output.parent.mkdir(parents=True,exist_ok=True);output.unlink(missing_ok=True)
@@ -21,7 +22,7 @@ def public_digest():
  for f in sorted((root/'public').rglob('*')):
   if f.is_file():digest.update(str(f.relative_to(root)).encode()+b'\0'+f.read_bytes()+b'\0')
  return digest.hexdigest()
-report={'scope':'local Chromium, fictional articles, trusted text insertion; not real-user latency','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'publicSha256':public_digest(),'samples':args.samples,'subset':args.only,'linkInventory':args.link_inventory,'tableInventory':args.table_inventory,'uniqueBlocks':args.unique_blocks,'cases':[],'errors':[],'unexpectedRequests':[]}
+report={'scope':'local Chromium, fictional articles, trusted text insertion; not real-user latency','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'publicSha256':public_digest(),'samples':args.samples,'subset':args.only,'linkInventory':args.link_inventory,'tableInventory':args.table_inventory,'uniqueBlocks':args.unique_blocks,'semanticCandidate':args.semantic_candidate,'cases':[],'errors':[],'unexpectedRequests':[]}
 ordinary='A fictional neighborhood guide compares simple choices and preserves uncertainty. This paragraph is test writing only.\n\n'
 rich='## Fictional heading\n\nA **bold** and *italic* passage with ~~old wording~~ and [a fictional link](https://example.test/guide).\n\n- First item\n- Second item\n\n| Place | Note |\n| --- | --- |\n| Park | Quiet |\n\n'
 def article(unit,unique=False):
@@ -61,7 +62,9 @@ with sync_playwright() as p:
     page.fill('#title','Fictional performance fixture')
     page.select_option('#publishing-destination',destination)
     # Seed outside the measured interval. Every timed insertion below is native.
-    page.locator('#body').evaluate('(el,text)=>{el.value=text;el.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText"}));}',article(unit,args.unique_blocks))
+    fixture=('Semantic control\n===\n\n' if args.semantic_candidate else '')+article(unit,args.unique_blocks)
+    assert len(fixture)<60000
+    page.locator('#body').evaluate('(el,text)=>{el.value=text;el.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText"}));}',fixture)
     page.evaluate("""opened=>{
       for(const id of ['preview-panel','export-content-panel','wordpress-review-panel','wordpress-kit-panel','export-format-review','additional-exports','publishing-kit-panel']){
         const panel=document.getElementById(id);if(panel)panel.open=opened;
@@ -100,7 +103,7 @@ with sync_playwright() as p:
      assert not page.locator('#reviewed').is_checked()
     measures=page.evaluate('({sync:window.editSamples,frame:window.editFrames})')
     assert len(measures['sync'])==args.samples and len(measures['frame'])==args.samples
-    entry={'kind':kind,'destination':destination,'panels':panels,'linkInventory':args.link_inventory,'tableInventory':args.table_inventory,'uniqueBlocks':args.unique_blocks,'characters':len(article(unit,args.unique_blocks)),'synchronousInputMs':stats(measures['sync']),'inputToFrameMs':stats(measures['frame'])}
+    entry={'kind':kind,'destination':destination,'panels':panels,'linkInventory':args.link_inventory,'tableInventory':args.table_inventory,'uniqueBlocks':args.unique_blocks,'semanticCandidate':args.semantic_candidate,'characters':len(fixture),'synchronousInputMs':stats(measures['sync']),'inputToFrameMs':stats(measures['frame'])}
     if cdp:
      profile=cdp.send('Profiler.stop')['profile'];hits={};inclusive={}
      nodes={node['id']:node for node in profile['nodes']}
