@@ -46,6 +46,10 @@ test('Editing diagnostics stay explicitly local, optional and source-bound rathe
   assert.match(source,/if args\.table_inventory=='open':expect\(page\.locator\('#table-select option'\)\)\.to_have_count\(40 if kind=='rich' else 0\)/);
   assert.match(source,/--unique-blocks.*action='store_true'/);
   assert.match(source,/'uniqueBlocks':args\.unique_blocks/);
+  assert.match(source,/--semantic-candidate.*action='store_true'/);
+  assert.match(source,/'semanticCandidate':args\.semantic_candidate/);
+  assert.match(source,/fixture=\('Semantic control\\n===\\n\\n' if args\.semantic_candidate else ''\)\+article\(unit,args\.unique_blocks\)/);
+  assert.match(source,/assert len\(fixture\)<60000/);
   assert.doesNotMatch(source,/pip install|npm install|requests\.|urllib\.request|localStorage|sendBeacon/);
   assert.doesNotMatch(readFileSync('scripts/verify-release.mjs','utf8'),/editing_benchmark|benchmark:editing/);
 });

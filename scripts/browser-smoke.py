@@ -232,6 +232,38 @@ with sync_playwright() as p:
     assert state['api']==[];layout(page,'lazy-table-inventory');context.close()
     report['checks'].append('Lazy table inventory: closed/ancestor deferral, unchanged selected occurrence and exact export bytes, hidden-source choice/preview purge with cell retention, explicit duplicate-table and append-end rechecks, exact checkpointed apply, independent downloaded table text/private exclusion and narrow layouts')
 
+    # Compare real same-event counts and heading positions to the frozen starting reader.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    restore(page,{**backup,'source':{**source,'notes':'PRIVATE_STRUCTURE_SOURCE'},'draft':{**draft,'body':'Earlier fictional text.','questions':['PRIVATE_STRUCTURE_REVIEW']}})
+    page.evaluate("document.addEventListener('input',e=>{if(e.target.id==='body')window.structureAtInput={text:document.getElementById('body-count').textContent,approved:document.getElementById('reviewed').checked}})")
+    open_details(page,'#draft-check-panel')
+    structural_states=[
+        '日本語 😀 opening.\n\nHeading\nplain words.\n\nTail.',
+        '日本語 😀 opening.\n\nHeading\n===\nTail.',
+        '日本語 😀 opening.\n\nHeading\n\n---\nTail.',
+        '```\n日本語 😀\nHeading\n===\n---\n```\n\n## Real\nReal words.',
+        '| Name | Note |\n| --- | --- |\n| Fictional | Keep uncertainty |\n\n- One\n- Two'
+    ]
+    for value in structural_states:
+        expected=json.loads(subprocess.check_output(['node','--input-type=module','-e',r"""import {readFileSync} from 'node:fs';import {baselineArticleStructure} from './tests/fixtures/article-structure-20261016.js';import {inlineTokens,inlineVisibleText} from './public/markdown-inline.js';const blocks=baselineArticleStructure(JSON.parse(readFileSync(0,'utf8')));const words=blocks.reduce((n,b)=>n+(b.kind==='code'?0:(inlineVisibleText(inlineTokens(b.text)).match(/[\p{L}\p{N}]+(?:['’\-][\p{L}\p{N}]+)*/gu)||[]).length),0);process.stdout.write(JSON.stringify({words,headings:blocks.filter(b=>b.kind==='heading')}));"""],input=json.dumps(value),text=True))
+        page.check('#reviewed');page.fill('#body',value)
+        count=page.evaluate('([words,length])=>words.toLocaleString()+" approximate words; "+length.toLocaleString()+" / 60,000 characters"',[expected['words'],len(value.encode('utf-16-le'))//2])
+        assert page.evaluate('structureAtInput')=={'text':count,'approved':False}
+        assert page.locator('#body').input_value()==value
+        page.check('#reviewed');page.click('#run-checks')
+        assert page.locator('#draft-check-stats').inner_text().startswith(str(expected['words'])+' approximate words;')
+        expect(page.locator('#article-outline .review-jump')).to_have_count(len(expected['headings']))
+        if expected['headings']:
+            page.locator('#article-outline .review-jump').first.click();heading=expected['headings'][0]
+            assert page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')==[heading['start'],heading['end']]
+        assert page.locator('#reviewed').is_checked()
+    with page.expect_download() as info:page.click('#download-wordpress')
+    structural_blocks=Path(info.value.path()).read_text()
+    assert '<!-- wp:table {"hasFixedLayout":true} -->' in structural_blocks and '<!-- wp:list -->' in structural_blocks
+    assert 'Keep uncertainty' in structural_blocks and 'PRIVATE_STRUCTURE' not in structural_blocks
+    assert state['api']==[];layout(page,'structural-fast-path');context.close()
+    report['checks'].append('Conservative structural scan: same-event Unicode words/characters and approval, ordinary/setext/separator/protected-code/table transitions, exact heading source selection and review totals against the frozen starting reader, current native block download/private exclusions and narrow layouts')
+
     # Cached word totals remain exact and synchronous, including structural edits.
     page,context,state=open_page('/write/')
     page.evaluate("document.addEventListener('input',e=>{if(e.target.id==='body')window.currentCountAtInput={text:document.getElementById('body-count').textContent,approved:document.getElementById('reviewed').checked}})")
