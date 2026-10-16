@@ -45,6 +45,18 @@ function readLink(text, start, closeFor) {
   const label = text.slice(open + 1, close), target = text.slice(close + 2, end);
   return { type: image ? 'image' : 'link', text: label, target, href: image || !label.trim() ? null : safeWebLink(target), start, end: end + 1 };
 }
+// Only simple underscore pairs are supported. Do not eat identifier characters.
+// Flanking uses bounded Unicode code-point context, never a scan of the prefix.
+function underscoreBoundary(text, index) {
+  const before = Array.from(text.slice(Math.max(0, index - 2), index)).at(-1) || '';
+  const after = Array.from(text.slice(index + 1, index + 3))[0] || '';
+  const whitespace = value => !value || /^[\t\n\f\r\p{Zs}]$/u.test(value);
+  const punctuation = value => /^[\p{P}\p{S}]$/u.test(value);
+  const left = !whitespace(after) && (!punctuation(after) || whitespace(before) || punctuation(before));
+  const right = !whitespace(before) && (!punctuation(before) || whitespace(after) || punctuation(after));
+  return { open: left && (!right || punctuation(before)), close: right && (!left || punctuation(after)) };
+}
+
 export function inlineTokens(text) {
   if (typeof text !== 'string' || text.length > ARTICLE_BODY_LIMIT) throw new Error('Inline text supports at most 60,000 characters.');
   const parts = []; let offset = 0, plainStart = 0, pairs = null;
@@ -55,7 +67,11 @@ export function inlineTokens(text) {
     if (text[offset] === '\\') { offset += 2; continue; }
     let part = readLink(text, offset, closeFor);
     if (!part) {
-      const match = /^(\x60([^\x60\n]+)\x60|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*|_([^_\n]+)_)/.exec(text.slice(offset));
+      let match = /^(\x60([^\x60\n]+)\x60|\*\*([^*\n]+)\*\*|\*([^*\n]+)\*|_([^_\n]+)_)/.exec(text.slice(offset));
+      if (match?.[5]) {
+        const end = offset + match[0].length;
+        if (text[offset - 1] === '_' || text[end] === '_' || !underscoreBoundary(text, offset).open || !underscoreBoundary(text, end - 1).close) match = null;
+      }
       if (match) part = { type: match[2] ? 'code' : match[3] ? 'strong' : 'em', text: match[2] || match[3] || match[4] || match[5], start: offset, end: offset + match[0].length };
     }
     if (!part) { offset++; continue; }
