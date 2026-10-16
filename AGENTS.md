@@ -2,7 +2,7 @@
 
 - Use the name Draft to Page, domain drafttopage.com, and repository nolankido/drafttopage.
 - Keep this public repository limited to this project. Never add credentials, private drafts, customer data, or material from unrelated projects.
-- Use feature branches and pull requests. Do not merge or deploy without user authorization.
+- Use feature branches and pull requests. On October 16, 2026, Nolan granted standing authorization to merge and deploy this project without further approval. Routine validated PR merges and deployments through the existing native Cloudflare Git integration are authorized. This does not authorize fees, tracking, provider activation, outreach or work outside Draft to Page; preserve the other project restrictions.
 - Do not add or enable GitHub Actions workflows, cron schedules, or automatic Actions jobs. The owner explicitly stopped them. Run validation locally or manually outside GitHub Actions. Preserve the existing native Cloudflare Git deployment integration.
 - Preserve the current in-development status. Distinguish planned capabilities from implemented ones. Do not invent customers, testimonials, results, personal experiences, or partnerships.
 - Keep the static starter small and accessible. Prefer semantic HTML, local CSS, and no unnecessary dependencies.
