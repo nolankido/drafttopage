@@ -62,40 +62,43 @@ function appendInline(node, text) {
   };
   append(node, inlineParts(text));
 }
+// A shared inert DOM renderer. Source markup is always text, and images never load.
+export function renderPreviewBlock(block) {
+  if (block.items) {
+    if (!['ul', 'ol'].includes(block.type)) throw new Error('Unsupported preview list.');
+    const node = document.createElement(block.type);
+    if (block.type === 'ol' && block.start !== undefined) node.setAttribute('start', String(block.start));
+    block.items.forEach((text, index) => { const item = document.createElement('li'); appendInline(item, text); for (const child of block.children?.[index] || []) item.append(renderPreviewBlock(child)); node.append(item); });
+    return node;
+  }
+  if (block.type === 'table') {
+    const region = document.createElement('div'), table = document.createElement('table');
+    region.className = 'article-table'; region.tabIndex = 0; region.setAttribute('role', 'region'); region.setAttribute('aria-label', 'Article table, scroll horizontally if needed');
+    const section = (name, rows, header) => {
+      const group = document.createElement(name);
+      for (const cells of rows) {
+        const row = document.createElement('tr');
+        cells.forEach((text, column) => { const cell = document.createElement(header ? 'th' : 'td'); if (header) cell.setAttribute('scope', 'col'); if (block.align[column]) cell.className = 'has-text-align-' + block.align[column]; appendInline(cell, text); row.append(cell); });
+        group.append(row);
+      }
+      table.append(group);
+    };
+    section('thead', [block.head], true); if (block.rows.length) section('tbody', block.rows, false);
+    region.append(table); return region;
+  }
+  if (!['p', 'pre', 'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(block.type)) throw new Error('Unsupported preview block.');
+  const node = document.createElement(block.type);
+  if (block.type === 'pre') { const code = document.createElement('code'); code.textContent = block.text; node.append(code); }
+  else appendInline(node, block.text);
+  return node;
+}
 export function renderPreview(target, title, body, { wrapPassage } = {}) {
   const fragment = document.createDocumentFragment();
   const heading = document.createElement('h3'); heading.textContent = title || 'Untitled article'; fragment.append(heading);
-  const renderList = list => {
-    const node = document.createElement(list.type);
-    if (list.type === 'ol' && list.start !== undefined) node.setAttribute('start', String(list.start));
-    list.items.forEach((text, index) => { const item = document.createElement('li'); appendInline(item, text); for (const child of list.children?.[index] || []) item.append(renderList(child)); node.append(item); });
-    return node;
-  };
   for (const [index, passage] of previewPassages(body).entries()) {
     const wrapper = wrapPassage?.(passage, index), destination = wrapper || fragment;
     if (wrapper) fragment.append(wrapper);
-    for (const block of passage.blocks) {
-      if (block.items) { destination.append(renderList(block)); continue; }
-      if (block.type === 'table') {
-        const region = document.createElement('div'), table = document.createElement('table');
-        region.className = 'article-table'; region.tabIndex = 0; region.setAttribute('role', 'region'); region.setAttribute('aria-label', 'Article table, scroll horizontally if needed');
-        const section = (name, rows, header) => {
-          const group = document.createElement(name);
-          for (const cells of rows) {
-            const row = document.createElement('tr');
-            cells.forEach((text, column) => { const cell = document.createElement(header ? 'th' : 'td'); if (header) cell.setAttribute('scope', 'col'); if (block.align[column]) cell.className = 'has-text-align-' + block.align[column]; appendInline(cell, text); row.append(cell); });
-            group.append(row);
-          }
-          table.append(group);
-        };
-        section('thead', [block.head], true); if (block.rows.length) section('tbody', block.rows, false);
-        region.append(table); destination.append(region); continue;
-      }
-      const node = document.createElement(block.type);
-      if (block.type === 'pre') { const code = document.createElement('code'); code.textContent = block.text; node.append(code); }
-      else appendInline(node, block.text);
-      destination.append(node);
-    }
+    for (const block of passage.blocks) destination.append(renderPreviewBlock(block));
   }
   target.replaceChildren(fragment);
 }
