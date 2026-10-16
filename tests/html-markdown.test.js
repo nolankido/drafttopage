@@ -39,7 +39,7 @@ test('New converter is linked, self-canonical, indexed, and honest about its lim
   assert.match(page, /rel="canonical" href="https:\/\/drafttopage.com\/html-to-markdown\/"/);assert.match(page,/href="\/html-to-markdown\/" aria-current="page"/);
   assert.match(await readFile('public/sitemap.xml','utf8'),/<loc>https:\/\/drafttopage.com\/html-to-markdown\/<\/loc>/);
   assert.match(await readFile('public/index.html','utf8'),/href="\/html-to-markdown\/"/);
-  for(const phrase of ['No URL is fetched','512 KiB','60,000','relative','Images become text placeholders','no autosave','in development','not full CommonMark'])assert.ok(page.toLowerCase().includes(phrase.toLowerCase()),phrase);
+  for(const phrase of ['No URL is fetched','512 KiB','60,000','relative','Images become text placeholders','browser recovery is off by default','in development','not full CommonMark'])assert.ok(page.toLowerCase().includes(phrase.toLowerCase()),phrase);
   assert.match(page,/&lt;h1&gt;A fictional garden plan&lt;\/h1&gt;/);assert.doesNotMatch(page,/<h1>A fictional garden plan<\/h1>|\u2014/);
   assert.match(await readFile('public/markdown-to-html/index.html','utf8'),/href="\/html-to-markdown\/"/);
 });

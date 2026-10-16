@@ -79,7 +79,7 @@ test('The educational HTML example matches actual conversion and stays escaped',
   assert.ok(HTML_TOOL_GUIDE.includes('<code>' + escapeHTML(source) + '</code>'));
   assert.ok(!HTML_TOOL_GUIDE.includes(source));
   assert.doesNotMatch(HTML_TOOL_GUIDE, /\u2014|<script\b|<img\b/);
-  for (const text of ['60,000', '512 KiB', 'no autosave', 'HTML source field', 'limited Markdown subset', 'strip styling', 'No images', 'publish yourself']) assert.ok(HTML_TOOL_GUIDE.includes(text), text);
+  for (const text of ['60,000', '512 KiB', 'off by default', 'HTML source field', 'limited Markdown subset', 'strip styling', 'No images', 'publish yourself']) assert.ok(HTML_TOOL_GUIDE.includes(text), text);
 });
 
 function withControls(run) {

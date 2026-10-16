@@ -1,6 +1,6 @@
 <details id="draft-collection-panel" class="recovery-box">
 <summary>Keep several articles in a private collection</summary>
-<p id="draft-collection-help" class="small">Save up to eight workspaces in one private file. Add or update an article explicitly, then download the collection before leaving. Editing the article does not update its saved entry. This tab has no autosave or account history.</p>
+<p id="draft-collection-help" class="small">Save up to eight workspaces in one private file. Add or update an article explicitly, then download the collection before leaving. Editing the article does not update its saved entry. Collection entries are not saved automatically and have no account history.</p>
 <fieldset id="draft-collection-controls" disabled><legend class="sr-only">Private draft collection</legend>
 <p id="draft-collection-count" class="small" role="status" aria-live="polite">0 / 8 saved articles in this tab.</p>
 <label for="draft-collection-name">Saved article name</label><input id="draft-collection-name" maxlength="80" autocomplete="off" aria-describedby="draft-collection-name-help"><p id="draft-collection-name-help" class="small">For a new entry, leave blank to use the current title. The name labels this saved workspace; it does not change your article title.</p>

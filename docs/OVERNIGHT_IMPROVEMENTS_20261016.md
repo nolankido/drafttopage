@@ -8,7 +8,7 @@ Main began at `1202d837654188759c3bc70c3a05c66c8a60f013`, merged PR #72. The pre
 
 ## Cycle 5: simpler first conversion
 
-Implementation branch: `improve/first-conversion-20261016`.
+Released in [PR #73](https://github.com/nolankido/drafttopage/pull/73), merged as `f63fd67df746db361d7acdcc02bdbec67b57ee4b`. Full release gate passed 707 tests, 36 browser journeys and 256 layout checks. Native Cloudflare preview and production builds succeeded; production version `1c460ea7-9b82-4f6a-89d7-766fac635b67`.
 
 - Layout settings start in a closed native disclosure.
 - The article input precedes formatting buttons. Format text or find passages opens those optional tools without changing writing or approval.
@@ -19,9 +19,17 @@ Implementation branch: `improve/first-conversion-20261016`.
 
 Validation evidence and merge/deployment outcome belong in the cycle's PR. Run `npm run verify:release` against stable source, using the local test browser configuration documented in `RELEASE_BASELINE_20261016.md`. Changes to copy and layout do not extend the destination acceptance scope documented in `WORDPRESS_ROUNDTRIP_20261016.md`.
 
+## Cycle 6: explicit opt-in browser recovery
+
+Implementation branch: `improve/browser-recovery-20261016`. This adapts the alpha recovery model from pinned PR #47 source `5841adffa092644e0293967775494c1b481959f2` without merging the divergent alpha tree. It adds main's complete field comparison, acknowledgement invalidation, checkpoint-before-replacement and existing workspace reset behavior.
+
+The public tools provide one bounded unencrypted workspace copy, off by default, with consent, single-writer Web Locks, coalesced saves, immediate save, pause and deletion. Restore requires a saved/current field comparison and acknowledgement. The exact inspected copy and current writing must still match when the lock is acquired. Failed checkpoints, storage failures, invalid data, unsupported locks and competing tabs preserve open writing. Confirmed desk clearing includes safe browser-copy deletion. No storage is added to the private pilot. The storage guard permits exactly one audited accessor in the dedicated module; other browser modules remain prohibited from persistent storage.
+
+New model cases and real Chromium storage/locking journeys cover default-off behavior, reload without automatic restoration, private fields, stale/cancelled restore, checkpoint and approval reset, two-tab ownership, pause, deletion, clearing and optional-module failure. Release validation and deployment evidence are recorded in the cycle's PR. This is a local browser fixture, not a claim of mobile, assistive-technology or all-browser acceptance.
+
 ## Next items
 
-1. Explicit opt-in browser recovery: default off, local-device privacy disclosure, bounded writing-only snapshot, safe preview before restore, clear approval, storage-failure feedback, cross-tab conflict handling, deletion and opt-out.
+1. Complete and validate the recovery cycle above before selecting another feature.
 2. Copy and handoff feedback: status beside the action, pending operations locked, stale asynchronous completion identified, useful manual fallback, no claim that a download was actually saved or a destination accepted it.
 3. Ten-user alpha remains a human-research dependency. Do not invent participants or send invitations. Prepare a practical manual study kit if useful.
 4. Then prioritize image reconciliation, actionable formatting losses, repeated fidelity problems, device/accessibility, preview editing, repeat publishing, performance, evidence-based homepage copy, discovery and distribution, repeat usage, and a paid proposition.

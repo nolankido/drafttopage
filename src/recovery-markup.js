@@ -24,7 +24,7 @@ export const RECOVERY_HTML = `
 </section>
 <p id="restore-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
 </fieldset>
-<p class="small">There is still no autosave. Check that the file is saved on your device before closing this tab. Browser exit warnings can be missed, especially on mobile.</p>
+<p class="small">Backup files are downloaded only when you ask. Check that the file is saved on your device before closing this tab. Browser exit warnings can be missed, especially on mobile.</p>
 <a href="/help/local-workspace/" target="_blank" rel="noopener">How backups and article exports differ (new tab)</a>
 </details>`;
 
