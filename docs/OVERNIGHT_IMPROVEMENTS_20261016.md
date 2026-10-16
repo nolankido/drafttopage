@@ -61,7 +61,7 @@ The targeted model/controller suite passed 37 tests, including thirteen new case
 
 ## Cycle 11: ordinary strikethrough fidelity
 
-Implementation is in [PR #81](https://github.com/nolankido/drafttopage/pull/81), from main `09b263993c7d851aa89746a82ee6bbc8451e5744`. Read [the fidelity scope](STRIKETHROUGH_20261016.md). This is active until its complete stable-source release gate and merge finish; do not duplicate it.
+Released in [PR #81](https://github.com/nolankido/drafttopage/pull/81), merged as `9bab282f96882e5e86c6fd4dcfdf77531a8f2b86`, tree `0b15469113ec16e247d055f6009a8aa93765c743`. Read [the fidelity scope](STRIKETHROUGH_20261016.md). The complete stable-source gate passed 787 Node tests, 43 browser journeys, 280 layout checks, 15 document cases and ten fresh genuine local WordPress 7.1.3 Author-role save/reopen cases. Source SHA-256: `03a1763425bbc1853a091f1ed2044ca635034122fd6d4f195d630b2b93af5192`. Native Cloudflare preview and production builds succeeded; production build `352ab1d8-53ae-4c39-bcd7-f57528ca3285`, version `bac5bfda-64ed-460f-acea-5b376ddfb70c`.
 
 The real pinned Word fixture now retains the actual struck text through ordinary Word/HTML body import, exact double-tilde Markdown, inert preview and HTML/Word/WordPress output. Direct on/off values and supported style toggles, code/URL protection, literal clipboard/title escaping, guided-edit guards, parser bounds and unsupported-format warnings are covered. H1/title fields, double strike, complex styling, multiline/deep structures and imported plain blockquotes retain explicit limits. HTML tracked-change ins/del remains rejected.
 
@@ -69,7 +69,7 @@ Eighteen new model cases pass, and 10,000 deterministic non-tilde token arrays m
 
 Document-default-on strikethrough combined with paragraph or character style strike declarations is conservatively rejected unless each affected run supplies an explicit on/off value. Microsoft documents compatibility differences for this combination; the converter does not guess which appearance was intended. Unambiguous defaults and ordinary direct formatting remain supported. See [the Microsoft toggle compatibility note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/f7130225-2368-48f3-acae-a9d278d0fb25).
 
-A preliminary genuine WordPress run exposed a rendering difference in the new Word fixture: the stored straight apostrophe is displayed as a typographic apostrophe. The case now checks exact original stored text/marks and the separately specified rendered text/marks. Only this observed fixture expectation changes; punctuation is not normalized across the suite. A separate raw-text evidence flag is required. The initial full gate failed on that newly added expectation and is not counted as an acceptance pass. A final full stable-source rerun is required.
+A preliminary genuine WordPress run exposed a rendering difference in the new Word fixture: the stored straight apostrophe is displayed as a typographic apostrophe. The case now checks exact original stored text/marks and the separately specified rendered text/marks. Only this observed fixture expectation changes; punctuation is not normalized across the suite. A separate raw-text evidence flag is required. The initial full gate failed on that newly added expectation and is not counted as an acceptance pass. The final full stable-source rerun passed October 16, 2026, 11:21 UTC with unchanged source, including both new WordPress cases.
 
 ## Release outcomes and continuation checkpoint
 
@@ -81,17 +81,24 @@ A preliminary genuine WordPress run exposed a rendering difference in the new Wo
 | 8: alpha kit preparation | PR #76, `c5c428920882d16d605249f935811c3bfe0074f6` | Its preview succeeded; production build `bcc76301-a5b0-4c5c-895c-f510acce0731` failed without a diagnostic in GitHub. |
 | 9: image reconciliation | PR #78, `1bb5f625e31770f95180e1361f6546a50f6018fb` | `6305ba3c-83eb-4df0-8faf-c35c021bd23a` |
 | 10: actionable findings | PR #79, `e37fa7c1276b0f6424af94c8232699c8eb6fdcf0` | `075fd122-f315-487b-9dab-1fc2f24d8d78` |
+| 11: strikethrough fidelity | PR #81, `9bab282f96882e5e86c6fd4dcfdf77531a8f2b86` | `bac5bfda-64ed-460f-acea-5b376ddfb70c` |
 
 After the documentation-only production failure, the exact native build command `node scripts/build-site.mjs` passed again locally. A diff from PR #75 to PR #76 confirms zero changes under public, src or scripts, or to package/hosting configuration. GitHub's check output has no diagnostic text and reports zero annotations, so a cause has not been established. This checkpoint records the outcome and provides one bounded retry through the preserved native Git deployment integration. The follow-up PR records its terminal build result. Do not add Actions, change hosting configuration, or repeatedly push empty commits to mask a failed build.
 
-PR #77 completed the bounded documentation-build retry successfully, merged as `e5529da55d0808e6ef08a4c59a7d8338cc8ddd75`; native production version `cdc9b3ae-ce3a-456b-9395-1266a1034754`. The failed earlier build is retained above because its cause remains unknown. The latest completed model/browser gate is PR #79: 769 tests, 42 browser journeys and 274 layout checks passed. PR #78 additionally ran the latest eight genuine local WordPress save/reopen cases. Documentation-only follow-ups do not claim another full runtime or destination acceptance run. The public site's direct HTTP rendering remains independently unverified from this execution environment, which previously returned 403.
+PR #77 completed the bounded documentation-build retry successfully, merged as `e5529da55d0808e6ef08a4c59a7d8338cc8ddd75`; native production version `cdc9b3ae-ce3a-456b-9395-1266a1034754`. The failed earlier build is retained above because its cause remains unknown. The latest completed runtime gate is PR #81: 787 tests, 43 browser journeys, 280 layout checks, 15 document cases and ten genuine local WordPress save/reopen cases passed. Documentation-only follow-ups do not claim another full runtime or destination acceptance run. The public site's direct HTTP rendering remains independently unverified from this execution environment, which previously returned 403.
+
+## Cycle 12: recovery keyboard continuity
+
+Active on `fix/recovery-keyboard-focus-20261016`, from main `9bab282f96882e5e86c6fd4dcfdf77531a8f2b86`. A local Chromium reproduction using Enter activation confirms focus falls to document.body after enable, pause and remove hide or disable their initiating controls. This is a reproduced keyboard navigation gap, not a real screen-reader session. Do not duplicate active work.
+
+The bounded fix will retain focus at a useful visible recovery control after an explicit action, respect movement elsewhere while an action waits, and avoid focus changes during background saving or cross-tab notifications. Consent, safe restore, checkpoints, approvals, local storage and privacy behavior stay within cycle 6's existing contract. Validation must use real keyboard activation and the existing consent/storage/locking paths before release.
 
 ## Next items
 
-1. Evaluate preserving strikethrough, starting with the existing pinned `tests/fixtures/documents/word-strikethrough.docx` contract. Independent ZIP/XML inspection confirms the run "Today's Special: Salmon" is struck through, followed by ordinary " Sold out" text. Current import preserves the words as `Today's Special: Salmon Sold out` with an explicit simplification warning. This is a reproduced capability gap, not measured user frequency. The fixture SHA-256 remains `1058370d03b42e797384e25b2142fce805f5520693e5ddbdf5e5ee64a3cf910c`.
-2. A complete strikethrough change must address Word/HTML import, the bounded nested inline parser and serializer, inert preview, HTML/Word/WordPress output, exact review/source positions, literal plain clipboard/import escaping, styling inheritance and explicit false values, code/URL protection, real corpus expectations and a genuine local WordPress save/reopen case. Do not silence the loss warning or relabel the corpus as preserved before these checks establish preservation. Unsupported double-strike, underline, or vertical alignment still need truthful handling.
+1. Finish cycle 12's bounded recovery keyboard continuity, with actual Enter/Tab transitions, cancelled/failed restore, competing tabs and background updates. Broader real-mobile and assistive-technology acceptance remain unperformed.
+2. Evaluate the next specific preview-editing or repeat-publishing gap using current source and a reproducible fixture. Preserve the simpler first conversion and explicit review boundaries.
 3. Actual ten-writer sessions and repeat-use evidence remain an owner dependency. Do not contact people, invent findings or treat the prepared kit as completed research.
-4. Continue with device/accessibility, preview editing, repeat publishing and performance before broad marketing or paid claims. Discovery, distribution, repeat usage and a paid proposition still need actual evidence.
+4. Continue device/accessibility and performance work before broad marketing or paid claims. Discovery, distribution, repeat usage and a paid proposition still need actual evidence.
 
 ## Validation commands and remaining limits
 
