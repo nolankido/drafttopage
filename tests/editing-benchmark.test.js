@@ -41,6 +41,9 @@ test('Editing diagnostics stay explicitly local, optional and source-bound rathe
   assert.match(source,/--link-inventory.*choices=\['closed','open'\],default='closed'/);
   assert.match(source,/'linkInventory':args\.link_inventory/);
   assert.match(source,/to_have_count\(40 if args\.link_inventory=='open' and kind=='rich' else 0\)/);
+  assert.match(source,/--table-inventory.*choices=\['closed','open'\],default='closed'/);
+  assert.match(source,/'tableInventory':args\.table_inventory/);
+  assert.match(source,/if args\.table_inventory=='open':expect\(page\.locator\('#table-select option'\)\)\.to_have_count\(40 if kind=='rich' else 0\)/);
   assert.match(source,/--unique-blocks.*action='store_true'/);
   assert.match(source,/'uniqueBlocks':args\.unique_blocks/);
   assert.doesNotMatch(source,/pip install|npm install|requests\.|urllib\.request|localStorage|sendBeacon/);

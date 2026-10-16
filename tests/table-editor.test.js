@@ -113,16 +113,50 @@ class Node {
   querySelectorAll(selector){const tags=selector.split(',');return this.children.flatMap(x=>[...(tags.includes(x.tag)?[x]:[]),...x.querySelectorAll(selector)]);}
   setAttribute(name,value){this[name]=value;}focus(){this.focused=true;}setSelectionRange(start,end){this.selectionStart=start;this.selectionEnd=end;}
 }
-function controls(run){
+function controls(run,{open=true,ancestorOpen=true}={}){
   const prior=globalThis.document,map=new Map(),$=id=>{if(!map.has(id)){const node=new Node(id==='table-select'?'select':'',map);node.id=id;}return map.get(id);};globalThis.document={getElementById:$,createElement:tag=>new Node(tag,map)};
   const workspace={source:{profile:'personal',audience:'',purpose:'',notes:'PRIVATE_SOURCE'},draft:{title:'Fictional',excerpt:'',description:'',slug:'',questions:['PRIVATE_REVIEW'],body:article()}};
-  let busy=false,approval=true,linked=true,checkpointFailure=false,applies=0,confirmation=true,report='',workChanges=0,renders=0,renderFailure=false;
+  let busy=false,approval=true,linked=true,checkpointFailure=false,applies=0,confirmation=true,report='',workChanges=0,renders=0,renderFailure=false,inspections=0,inspectionFailure=false;
   const history=createCheckpointHistory();$('body').value=workspace.draft.body;
-  const ui=installTableEditor({getBody:()=>$('body').value,isBusy:()=>busy,workChanged:()=>{workChanges++;},report:text=>{report=text;},confirmAction:()=>confirmation,reveal:()=>{},render:(node,title,body)=>{if(renderFailure)throw Error('Preview unavailable.');renders++;const child=new Node('table',map);child.textContent=body;node.replaceChildren(child);},apply:(plan,label)=>{if(checkpointFailure)throw Error('Checkpoint failed.');history.save(workspace,label);workspace.draft.body=plan.body;$('body').value=plan.body;approval=false;linked=false;applies++;ui.refresh();}});
+  $('table-editor-panel').open=open;$('table-editor-panel').parentElement=$('tools');$('tools').tagName='DETAILS';$('tools').open=ancestorOpen;
+  const ui=installTableEditor({getBody:()=>$('body').value,inspect:body=>{inspections++;if(inspectionFailure)throw Error('Inspection unavailable.');return markdownTableRanges(body);},isBusy:()=>busy,workChanged:()=>{workChanges++;},report:text=>{report=text;},confirmAction:()=>confirmation,reveal:()=>{},render:(node,title,body)=>{if(renderFailure)throw Error('Preview unavailable.');renders++;const child=new Node('table',map);child.textContent=body;node.replaceChildren(child);},apply:(plan,label)=>{if(checkpointFailure)throw Error('Checkpoint failed.');history.save(workspace,label);workspace.draft.body=plan.body;$('body').value=plan.body;approval=false;linked=false;applies++;ui.refresh();}});
   const prepare=()=>{$('table-open-selected').fire('click');$('table-cell-1-1').value='Read together';$('table-cell-1-1').fire('input');$('table-preview-change').fire('click');};
   const button=text=>$('table-grid').querySelectorAll('button').find(x=>x.textContent===text);
-  try{run({$,ui,map,button,workspace,history,prepare,approval:()=>approval,linked:()=>linked,applies:()=>applies,report:()=>report,workChanges:()=>workChanges,renders:()=>renders,busy:value=>{busy=value;ui.refresh();},failCheckpoint:()=>{checkpointFailure=true;},failRender:()=>{renderFailure=true;},confirm:value=>{confirmation=value;}});}finally{globalThis.document=prior;}
+  try{run({$,ui,map,button,workspace,history,prepare,approval:()=>approval,linked:()=>linked,applies:()=>applies,report:()=>report,workChanges:()=>workChanges,renders:()=>renders,inspections:()=>inspections,failInspect:value=>{inspectionFailure=value;},busy:value=>{busy=value;ui.refresh();},failCheckpoint:()=>{checkpointFailure=true;},failRender:()=>{renderFailure=true;},confirm:value=>{confirmation=value;}});}finally{globalThis.document=prior;}
 }
+test('Closed inventory never inspects until opened and caches only the unchanged current article',()=>controls(({$,ui,inspections,approval,applies})=>{
+  assert.equal(inspections(),0);assert.equal($('table-select').children.length,0);assert.match($('table-list-status').textContent,/Open table editing/);
+  ui.refresh();$('body').value+='\n\n'+source;ui.refresh();assert.equal(inspections(),0);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal(inspections(),1);assert.equal($('table-select').children.length,2);
+  $('table-select').value='1';const second=$('table-select').children[1];ui.refresh();assert.equal(inspections(),1);
+  $('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');assert.equal($('table-open-selected').disabled,true);$('table-open-selected').fire('click');assert.equal(ui.hasWork(),false);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal(inspections(),1);assert.equal($('table-select').value,'1');assert.equal($('table-select').children[1],second);
+  assert.equal(approval(),true);assert.equal(applies(),0);
+},{open:false}));
+test('Containing disclosures defer inspection and purge obsolete choices before opening current source',()=>controls(({$,ui,inspections})=>{
+  assert.equal(inspections(),0);$('table-editor-panel').fire('toggle');assert.equal(inspections(),0);
+  $('tools').open=true;$('tools').fire('toggle');assert.equal(inspections(),1);assert.equal($('table-select').children.length,1);
+  $('tools').open=false;$('tools').fire('toggle');$('body').value='No tables now.';ui.refresh();assert.equal(inspections(),1);assert.equal($('table-select').children.length,0);assert.equal($('table-select').value,'');
+  $('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');$('tools').open=true;$('tools').fire('toggle');assert.equal(inspections(),1);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal(inspections(),2);assert.equal($('table-select').children.length,0);
+},{ancestorOpen:false}));
+test('Hidden source changes keep prepared cells but clear preview and require the exact chosen occurrence',()=>controls(({$,ui,prepare,inspections,applies,approval})=>{
+  prepare();const cell=$('table-cell-1-1'),count=inspections();$('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');
+  const current='New intro.\n\n'+$('body').value+'\n\n'+source;$('body').value=current;ui.refresh();assert.equal(inspections(),count);assert.equal($('table-select').children.length,0);assert.equal($('table-after').value,'');assert.equal($('table-apply').disabled,true);assert.equal(cell.value,'Read together');
+  $('table-open-selected').fire('click');$('table-apply').fire('click');assert.equal(applies(),0);assert.equal(approval(),true);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal(inspections(),count+1);assert.equal($('table-cell-1-1'),cell);$('table-select').value='1';$('table-recheck').fire('click');assert.equal($('table-apply').disabled,true);
+  $('table-preview-change').fire('click');$('table-apply').fire('click');assert.equal(applies(),1);assert.equal(markdownTableRanges($('body').value)[0].table.rows[1][1],'Take turns');assert.equal(markdownTableRanges($('body').value)[1].table.rows[1][1],'Read together');
+}));
+test('Lazy inventory retains the forty-choice bound and later-table cursor fallback',()=>controls(({$,ui,inspections,approval,applies})=>{
+  $('body').value=Array(45).fill(source).join('\n\n');ui.refresh();assert.equal(inspections(),0);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal(inspections(),1);assert.equal($('table-select').children.length,40);assert.match($('table-list-status').textContent,/45 recognized.*first 40/);
+  const last=$('body').value.lastIndexOf('| Step');$('body').setSelectionRange(last,last);$('table-use-cursor').fire('click');assert.equal(ui.hasWork(),true);assert.match($('table-target-status').textContent,/line 221/);assert.equal(approval(),true);assert.equal(applies(),0);
+},{open:false}));
+test('Failed visible inspection and changed hidden bodies cannot expose an earlier list',()=>controls(({$,ui,inspections,failInspect})=>{
+  assert.equal($('table-select').children.length,1);$('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');$('body').value+=' Changed.';ui.refresh();failInspect(true);
+  $('table-editor-panel').open=true;$('table-editor-panel').fire('toggle');assert.equal($('table-select').children.length,0);assert.equal($('table-open-selected').disabled,true);const count=inspections();ui.refresh();assert.equal(inspections(),count);
+  failInspect(false);$('body').value=article();ui.refresh();assert.equal($('table-select').children.length,1);
+}));
 test('Preparation and toggles keep article/approval; apply checkpoints first and clears approval/image mode',()=>controls(({$,ui,prepare,workspace,history,approval,linked,applies})=>{
   const before=workspace.draft.body;prepare();assert.equal(ui.hasWork(),true);assert.equal($('table-apply').disabled,false);assert.equal(approval(),true);assert.equal(linked(),true);assert.equal(workspace.draft.body,before);
   $('table-editor-panel').open=false;$('table-editor-panel').fire('toggle');assert.equal($('table-after').value,'');assert.equal($('table-reading-preview').children.length,0);assert.equal(ui.hasWork(),true);
