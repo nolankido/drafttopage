@@ -213,6 +213,29 @@ export function installBrowserRecovery(options) {
     }
   };
   controller = createBrowserRecovery({ ...options, storage: () => window.localStorage, locks: () => navigator.locks, confirm: text => window.confirm(text), changed: render });
+  // Only an explicit action owns this focus handoff. Storage events and autosaves
+  // render normally, and movement elsewhere while a lock waits cancels the handoff.
+  const keepActionFocus = action => async event => {
+    const control = event.currentTarget, owned = document.activeElement === control;
+    let moved = false;
+    const focusMoved = event => { if (event.target !== control) moved = true; };
+    const pointerMoved = event => { if (!control.contains(event.target)) moved = true; };
+    if (owned) {
+      document.addEventListener('focusin', focusMoved);
+      document.addEventListener('pointerdown', pointerMoved, true);
+    }
+    try { return await action(); }
+    finally {
+      document.removeEventListener('focusin', focusMoved);
+      document.removeEventListener('pointerdown', pointerMoved, true);
+      if (owned && !moved && panel.open && (document.activeElement === control || document.activeElement === document.body)) {
+        const available = node => node?.isConnected && !node.disabled && !node.closest('[hidden]');
+        const state = controller.state();
+        const target = available(control) ? control : $(state.enabled ? 'browser-recovery-now' : state.available ? 'browser-recovery-inspect' : 'browser-recovery-consent');
+        if (available(target)) target.focus();
+      }
+    }
+  };
   $('browser-recovery-consent').addEventListener('change', () => render(controller.state()));
   $('browser-recovery-reviewed').addEventListener('change', () => render(controller.state()));
   $('browser-recovery-fields').addEventListener('change', showField);
@@ -238,13 +261,13 @@ export function installBrowserRecovery(options) {
       $('browser-recovery-status').textContent = 'The saved copy could not be compared. Current writing and stored data were kept. Download a private backup.';
     }
   });
-  $('browser-recovery-start').addEventListener('click', () => { if ($('browser-recovery-consent').checked) controller.start(); });
-  $('browser-recovery-restore').addEventListener('click', () => {
-    if ($('browser-recovery-consent').checked && $('browser-recovery-reviewed').checked && inspection) controller.resume(inspection);
-  });
-  $('browser-recovery-pause').addEventListener('click', controller.pause);
-  $('browser-recovery-now').addEventListener('click', controller.flush);
-  $('browser-recovery-forget').addEventListener('click', controller.forget);
+  $('browser-recovery-start').addEventListener('click', keepActionFocus(() => { if ($('browser-recovery-consent').checked) return controller.start(); }));
+  $('browser-recovery-restore').addEventListener('click', keepActionFocus(() => {
+    if ($('browser-recovery-consent').checked && $('browser-recovery-reviewed').checked && inspection) return controller.resume(inspection);
+  }));
+  $('browser-recovery-pause').addEventListener('click', keepActionFocus(controller.pause));
+  $('browser-recovery-now').addEventListener('click', keepActionFocus(controller.flush));
+  $('browser-recovery-forget').addEventListener('click', keepActionFocus(controller.forget));
   window.addEventListener('storage', event => { if (event.key === RECOVERY_KEY || event.key === null) { clearInspection(); controller.externalChange(); } });
   panel.addEventListener('toggle', () => { if (!panel.open) { clearInspection(); render(controller.state()); } });
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') controller.flush(); });

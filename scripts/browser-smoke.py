@@ -184,6 +184,82 @@ with sync_playwright() as p:
     assert page.locator('#markdown-action-status').inner_text()=='' and page.locator('#copy-article-markdown').is_disabled()
     layout(page,'copy-feedback');assert state['api']==[];context.close()
     report['checks'].append('Clipboard handoff: delayed native writes, one shared lock across destinations, duplicate-click exclusion, downloads while copying, stale-result identification, nearby success/failure feedback, native clipboard contents, manual fallback, approval reset, and narrow layouts')
+    # Explicit recovery actions keep a useful keyboard position as controls change.
+    recovery_key='drafttopage.browser-recovery.v1'
+    page,context,state=open_page('/write/')
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    page.fill('#body','Fictional keyboard recovery article.');page.check('#reviewed')
+    page.locator('#browser-recovery-summary').focus();page.keyboard.press('Enter')
+    page.locator('#browser-recovery-consent').focus();page.keyboard.press('Space')
+    page.keyboard.press('Tab');expect(page.locator('#browser-recovery-start')).to_be_focused()
+    page.keyboard.press('Enter');expect(page.locator('#browser-recovery-now')).to_be_focused()
+    expect(page.locator('#browser-recovery-now')).to_be_in_viewport()
+    page.keyboard.press('Tab');expect(page.locator('#browser-recovery-pause')).to_be_focused()
+    page.keyboard.press('Enter');expect(page.locator('#browser-recovery-inspect')).to_be_focused()
+    page.keyboard.press('Tab');expect(page.locator('#browser-recovery-forget')).to_be_focused()
+    state['accept']=False;page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-forget')).to_be_focused()
+    assert page.evaluate('(key)=>localStorage.getItem(key)!==null',recovery_key)
+    state['accept']=True;page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-consent')).to_be_focused()
+    assert page.locator('#reviewed').is_checked() and page.locator('#body').input_value()=='Fictional keyboard recovery article.'
+    page.keyboard.press('Space');page.keyboard.press('Tab');page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-now')).to_be_focused()
+    page.keyboard.press('Tab');page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-inspect')).to_be_focused()
+    page.fill('#body','Current fictional writing to protect.');page.check('#reviewed')
+    page.locator('#browser-recovery-inspect').focus();page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-preview-heading')).to_be_focused()
+    page.locator('#browser-recovery-consent').focus();page.keyboard.press('Space')
+    page.locator('#browser-recovery-reviewed').focus();page.keyboard.press('Space');page.keyboard.press('Tab')
+    expect(page.locator('#browser-recovery-restore')).to_be_focused()
+    state['accept']=False;page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-restore')).to_be_focused()
+    assert page.locator('#body').input_value()=='Current fictional writing to protect.' and page.locator('#reviewed').is_checked()
+    state['accept']=True;page.keyboard.press('Enter')
+    # Restoring already hands focus to the restored article. Keep that useful move.
+    expect(page.locator('#body')).to_be_focused()
+    expect(page.locator('#body')).to_have_value('Fictional keyboard recovery article.')
+    assert not page.locator('#reviewed').is_checked() and page.locator('#checkpoint-select option').count()==1
+    page.locator('#body').focus();page.keyboard.press('End');page.keyboard.type(' Saved automatically.')
+    page.wait_for_function('(key)=>JSON.parse(localStorage.getItem(key)).workspace.draft.body.endsWith(" Saved automatically.")',arg=recovery_key)
+    expect(page.locator('#body')).to_be_focused()
+    other=context.new_page();other.on('pageerror',lambda error:report['errors'].append(str(error)));other.goto(origin+'/write/')
+    other.evaluate('(key)=>{const value=JSON.parse(localStorage.getItem(key));value.savedAt=new Date(Date.now()+1000).toISOString();localStorage.setItem(key,JSON.stringify(value));}',recovery_key)
+    expect(page.locator('#browser-recovery-status')).to_contain_text('another tab')
+    expect(page.locator('#body')).to_be_focused()
+    layout(page,'recovery-keyboard');assert state['api']==[];context.close()
+    # Delay the genuine lock call, then move away before it can complete.
+    page,context,state=open_page('/write/')
+    expect(page.locator('#desk-status')).to_contain_text('ready')
+    page.fill('#body','Fictional delayed-lock article.')
+    open_details(page,'#browser-recovery-panel');page.check('#browser-recovery-consent')
+    page.evaluate("""() => {
+      const native=navigator.locks.request.bind(navigator.locks);
+      navigator.locks.request=(...args)=>new Promise((resolve,reject)=>{
+        window.finishRecoveryLock=()=>native(...args).then(resolve,reject);
+      });
+    }""")
+    page.locator('#browser-recovery-start').focus();page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-start')).to_be_disabled()
+    page.locator('#body').focus();page.keyboard.press('End');page.keyboard.type(' Continued while waiting.')
+    page.evaluate('void window.finishRecoveryLock()')
+    expect(page.locator('#browser-recovery-summary')).to_have_text('Browser recovery: on')
+    expect(page.locator('#body')).to_be_focused()
+    assert json.loads(page.evaluate('(key)=>localStorage.getItem(key)',recovery_key))['workspace']['draft']['body']==page.locator('#body').input_value()
+    assert not page.locator('#reviewed').is_checked() and state['api']==[]
+    page.locator('#browser-recovery-pause').focus();page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-inspect')).to_be_focused()
+    page.locator('#browser-recovery-forget').focus();page.keyboard.press('Enter')
+    expect(page.locator('#browser-recovery-forget')).to_be_disabled()
+    page.click('#article-heading')
+    pointer_focus=page.evaluate('document.activeElement.id')
+    page.evaluate('void window.finishRecoveryLock()')
+    expect(page.locator('#browser-recovery-summary')).to_have_text('Keep work on this browser, optional')
+    assert page.evaluate('document.activeElement.id')==pointer_focus
+    assert page.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
+    context.close()
+    report['checks'].append('Recovery keyboard continuity: real Enter/Space/Tab through enable, pause, delete and reviewed restore; cancellation, checkpoint and approval behavior; autosave and cross-tab focus preservation; delayed genuine Web Lock completion respects focus and pointer movement to the article; narrow layouts')
     # Opt-in recovery uses real browser storage and origin-scoped locks.
     recovery_key='drafttopage.browser-recovery.v1'
     page,context,state=open_page('/write/')
@@ -235,9 +311,11 @@ with sync_playwright() as p:
     other.click('#browser-recovery-inspect');other.check('#browser-recovery-consent');other.check('#browser-recovery-reviewed')
     other.click('#browser-recovery-restore')
     expect(other.locator('#browser-recovery-status')).to_contain_text('Another Draft to Page tab')
+    expect(other.locator('#browser-recovery-restore')).to_be_focused()
     assert other.locator('#body').input_value()==''
     other.click('#browser-recovery-forget')
     expect(other.locator('#browser-recovery-status')).to_contain_text('Another Draft to Page tab')
+    expect(other.locator('#browser-recovery-forget')).to_be_focused()
     page.click('#browser-recovery-pause')
     expect(page.locator('#browser-recovery-status')).to_contain_text('paused')
     other.click('#browser-recovery-restore')

@@ -1,6 +1,6 @@
 # Strikethrough fidelity
 
-Cycle 11 is implemented on `feat/preserve-strikethrough-20261016` in [PR #81](https://github.com/nolankido/drafttopage/pull/81), from main `09b263993c7d851aa89746a82ee6bbc8451e5744`. The complete stable-source gate and native deployment are required before release; final outcomes belong in the PR. Do not duplicate active implementation while the PR remains in progress.
+Cycle 11 was released in [PR #81](https://github.com/nolankido/drafttopage/pull/81), merged as `9bab282f96882e5e86c6fd4dcfdf77531a8f2b86`, tree `0b15469113ec16e247d055f6009a8aa93765c743`. The complete stable-source gate passed 787 Node tests, 43 browser journeys, 280 layout checks, 15 document cases and ten genuine local WordPress Author-role save/reopen cases. Source SHA-256: `03a1763425bbc1853a091f1ed2044ca635034122fd6d4f195d630b2b93af5192`. Native Cloudflare preview and production builds succeeded; production version `bac5bfda-64ed-460f-acea-5b376ddfb70c`. Exact build IDs and environment scope are recorded in the PR.
 
 ## Reproduced problem and supported behavior
 
@@ -29,6 +29,6 @@ The implementation uses [Microsoft's strike element documentation](https://learn
 
 Document-default-on strikethrough combined with paragraph or character style strike declarations is conservatively rejected unless each affected run supplies an explicit on/off value. Microsoft documents compatibility differences for this combination; the converter does not guess which appearance was intended. Unambiguous defaults and ordinary direct formatting remain supported. See [the Microsoft toggle compatibility note](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/f7130225-2368-48f3-acae-a9d278d0fb25).
 
-A preliminary genuine WordPress run exposed a rendering difference in the new Word fixture: the stored straight apostrophe is displayed as a typographic apostrophe. The case now checks exact original stored text/marks and the separately specified rendered text/marks. Only this observed fixture expectation changes; punctuation is not normalized across the suite. A separate raw-text evidence flag is required. The initial full gate failed on that newly added expectation and is not counted as an acceptance pass. A final full stable-source rerun is required.
+A preliminary genuine WordPress run exposed a rendering difference in the new Word fixture: the stored straight apostrophe is displayed as a typographic apostrophe. The case now checks exact original stored text/marks and the separately specified rendered text/marks. Only this observed fixture expectation changes; punctuation is not normalized across the suite. A separate raw-text evidence flag is required. The initial full gate failed on that newly added expectation and is not counted as an acceptance pass. The final full stable-source rerun passed October 16, 2026, 11:21 UTC, including both new WordPress cases and the unchanged-source check.
 
 No provider activation, fees, tracking, outreach, persistent state, dependency, Actions, cron or hosting change is introduced. Native Cloudflare Git deployment remains the release path.

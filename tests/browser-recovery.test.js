@@ -148,7 +148,7 @@ test('Invalid editing fields stop saving and preserve the previous valid copy', 
 test('Recovery wiring is public-only, consent-gated, and restricted to one audited storage module', async () => {
   const [module, desk, page, pilot, privacy] = await Promise.all(['public/browser-recovery.js','public/desk.js','public/write/index.html','src/pages.js','public/privacy/index.html'].map(p => readFile(p, 'utf8')));
   assert.doesNotMatch(module, /fetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|innerHTML|sessionStorage|indexedDB/);
-  assert.match(module, /if \(\$\('browser-recovery-consent'\)\.checked\) controller\.start/);
+  assert.match(module, /if \(\$\('browser-recovery-consent'\)\.checked\) return controller\.start/);
   assert.match(module, /ifAvailable: true/); assert.doesNotMatch(module, /steal:/);
   assert.match(desk, /revisions\.captureBefore\('Before browser recovery restore'\)/);
   assert.match(page, /browser-recovery-consent/); assert.doesNotMatch(pilot, /browser-recovery\.js/);
