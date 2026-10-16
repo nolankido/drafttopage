@@ -10,6 +10,8 @@ Repository: `nolankido/drafttopage`. Domain: `drafttopage.com`. Hosting: the exi
 
 ## Public writing workflow
 
+The reading preview now offers **Find passages in editor**. Each passage control selects its exact source range, including repeated text, original line endings, and Markdown markers. Return to this passage in preview follows the current editor cursor after edits. Controls are optional, limited to the first 200 passages, disabled while files are being read or imports are pending, and excluded from exports and private file schemas. [Preview passage release notes](docs/PREVIEW_PASSAGES_RELEASE.md).
+
 - `/write/`: start from notes or edit an existing article. Six outlines load directly into the workspace. A locally assembled drafting brief can be copied into a tool the author chooses; the public workspace itself never calls AI or uploads writing.
 - Copy or download the reviewed article body without page metadata. Add a title for a standalone HTML reading page. Complete title, excerpt, description, filename, and body for a page Markdown export, with an explicit choice about the title heading.
 - `/demo/`: practice with prewritten fictional examples. These are illustrative, not actual model responses or customer evidence.
