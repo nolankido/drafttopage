@@ -20,6 +20,8 @@ The focused Chromium journey compares the exact current textarea source against 
 
 The complete stable-source release gate passed October 16, 2026, 15:16 UTC. Serializers and document schemas are unchanged; this cycle's separate genuine WordPress acceptance is NOT_RUN. PR #87 retains eleven fresh genuine local WordPress 7.1.3 Author-role save/reopen cases. These local checks are not physical-device/screen-reader, actual Word/Google Docs clipboard application, real-user, or independently verified public rendering acceptance.
 
+Follow-up: [cycle 18](LAZY_TABLE_INVENTORY_20261016.md) reproduced the fill-helper event storm even in a bare textarea and added actual native clipboard paste acceptance on all eight workspaces, including a 60,000-UTF-16-character CRLF boundary and atomic over-limit rejection. This does not turn this cycle's backup-restore setup into native-paste evidence or solve the older tail stalls. [Cycle 19](STRUCTURAL_SCAN_FAST_PATH_20261016.md) then added a separately validated conservative structural fast path, with exact old block/count equivalence and retained fallback-p95 regressions. PRs #92 and #93 each reran eleven fresh genuine local WordPress cases.
+
 ## Sequential matched diagnostics
 
 Six source-stable Chromium 153.0.8010.0 diagnostics ran sequentially, baseline then candidate for each fixture, with 31 native insertions, a separate warm-up, Markdown destination and closed controlled panels/inventory. Baseline assets come from a detached worktree at the pinned main. The optional harness adds a deterministic distinct-block fixture to avoid relying solely on repeated sample text; every source block in that fixture differs, and it exceeds the cache-entry cap. Original fixture builders and lengths remain unchanged by default.
