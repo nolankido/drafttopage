@@ -34,6 +34,9 @@ test('Editing diagnostics stay explicitly local, optional and source-bound rathe
   assert.match(source,/output\.unlink\(missing_ok=True\)/);
   assert.match(source,/3 <= args\.samples <= 100/);
   assert.match(source,/not real-user latency/);
+  assert.match(source,/--link-inventory.*choices=\['closed','open'\],default='closed'/);
+  assert.match(source,/'linkInventory':args\.link_inventory/);
+  assert.match(source,/to_have_count\(40 if args\.link_inventory=='open' and kind=='rich' else 0\)/);
   assert.doesNotMatch(source,/pip install|npm install|requests\.|urllib\.request|localStorage|sendBeacon/);
   assert.doesNotMatch(readFileSync('scripts/verify-release.mjs','utf8'),/editing_benchmark|benchmark:editing/);
 });

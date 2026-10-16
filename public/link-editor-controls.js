@@ -4,24 +4,36 @@ import { revealArticleSelection } from './editing.js';
 import { installPasteGuard } from './paste-guard.js';
 import { downloadText } from './download.js';
 
-export function installLinkEditor({ getBody, apply, workChanged, report, isBusy = () => false, confirmAction = message => confirm(message), reveal = revealArticleSelection, download = downloadText }) {
+export function installLinkEditor({ getBody, apply, workChanged, report, isBusy = () => false, confirmAction = message => confirm(message), reveal = revealArticleSelection, download = downloadText, inspect = articleLinks }) {
   const $ = id => document.getElementById(id);
   let target = null, preview = null, snapshot = null, rendered = null, links = [], error = '', message = 'Choose article text or an existing link, enter details, then preview.';
+  let inventoryGeneration = 0;
+  const inventoryVisible = () => {
+    if (!$('link-editor-panel').open || !$('article-link-list-panel').open) return false;
+    for (let parent = $('link-editor-panel').parentElement; parent; parent = parent.parentElement) {
+      if (parent.tagName === 'DETAILS' && !parent.open) return false;
+    }
+    return true;
+  };
   const fields = () => ({ label: $('link-label').value, url: $('link-url').value });
   const hasWork = () => Boolean(target || fields().label || fields().url);
   const status = text => { message = text; $('link-editor-status').textContent = text; };
   function purgePreview() { preview = null; $('link-before').value = ''; $('link-after').value = ''; $('link-change-preview').hidden = true; }
   function refresh() {
     const body = getBody(), busy = isBusy(), stale = target && target.body !== body;
-    if (body !== snapshot) {
+    const visible = inventoryVisible();
+    if (!visible) {
+      if (snapshot !== null || rendered !== null) inventoryGeneration++;
+      snapshot = null; links = []; error = '';
+      $('article-link-list').replaceChildren(); rendered = null;
+    } else if (body !== snapshot) {
       snapshot = body;
-      try { links = articleLinks(body); error = ''; } catch (failure) { links = []; error = failure.message; }
+      try { links = inspect(body); error = ''; } catch (failure) { links = []; error = failure.message; }
     }
     if (stale) purgePreview();
-    const visible = $('link-editor-panel').open && $('article-link-list-panel').open;
-    if (!visible) { $('article-link-list').replaceChildren(); rendered = null; }
-    else if (rendered !== snapshot) {
+    if (visible && rendered !== snapshot) {
       rendered = snapshot;
+      const generation = ++inventoryGeneration;
       $('article-link-list').replaceChildren(...links.slice(0, LINK_REVIEW_LIMIT).map(link => {
         const li = document.createElement('li'), label = document.createElement('p'), url = document.createElement('p'), state = document.createElement('p'), edit = document.createElement('button');
         label.textContent = 'Line ' + link.line + ' · ' + (link.label || '(empty label)'); url.textContent = 'URL: ' + link.url;
@@ -29,7 +41,7 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy 
         edit.type = 'button'; edit.className = 'secondary'; edit.textContent = 'Edit link on line ' + link.line;
         const original = snapshot;
         edit.addEventListener('click', () => {
-          if (isBusy()) return;
+          if (isBusy() || !inventoryVisible() || generation !== inventoryGeneration) return;
           if (getBody() !== original) { refresh(); report('The article changed. Choose a link from its current list.'); return; }
           if (!choose(link.start, link.end)) {
             $('body').focus(); $('body').setSelectionRange(link.start, link.end);
@@ -40,13 +52,13 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy 
       }));
     }
     for (const button of $('article-link-list').querySelectorAll('button')) button.disabled = busy;
-    $('article-link-status').textContent = error || (links.length + ' recognized inline link(s); ' + links.filter(link => link.href).length + ' supported web link(s). ' + (links.length > LINK_REVIEW_LIMIT ? 'Showing the first 40; the download includes all. ' : '') + 'Links inside supported emphasis are included. Plain URLs, reference links, images, nested links, and code are outside this inspection. No URLs were visited.');
+    $('article-link-status').textContent = !visible ? 'Open this inspection to read the current article links. No URLs are visited.' : error || (links.length + ' recognized inline link(s); ' + links.filter(link => link.href).length + ' supported web link(s). ' + (links.length > LINK_REVIEW_LIMIT ? 'Showing the first 40; the download includes all. ' : '') + 'Links inside supported emphasis are included. Plain URLs, reference links, images, nested links, and code are outside this inspection. No URLs were visited.');
     for (const id of ['start-link-editor','link-use-selection','link-label','link-url']) $(id).disabled = busy;
     $('link-preview').disabled = busy || !target || Boolean(stale);
     $('link-preview-remove').disabled = busy || !target?.existing || Boolean(stale);
     $('link-apply').disabled = busy || !preview || Boolean(stale);
     $('link-discard').disabled = busy || !hasWork();
-    $('download-link-notes').disabled = busy || !links.length;
+    $('download-link-notes').disabled = busy || !visible || !links.length;
     $('link-target-status').textContent = !target ? 'Choose a location or an existing link.' : stale ? 'The article changed. Choose a current location again; pending details are kept.' : (target.existing ? 'Edit the complete link on' : target.start === target.end ? 'Insert a link at' : 'Replace ' + (target.end - target.start) + ' selected characters on') + ' line ' + target.line + '.';
     $('link-editor-status').textContent = stale ? 'The article changed. The old preview was cleared. Choose a current selection or link again.' : message;
   }
@@ -100,8 +112,11 @@ export function installLinkEditor({ getBody, apply, workChanged, report, isBusy 
   $('link-discard').addEventListener('click', () => { if (!isBusy()) clear(); });
   $('link-editor-panel').addEventListener('toggle', () => { if (!$('link-editor-panel').open) purgePreview(); refresh(); });
   $('article-link-list-panel').addEventListener('toggle', refresh);
+  for (let parent = $('link-editor-panel').parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.addEventListener('toggle', refresh);
+  }
   $('download-link-notes').addEventListener('click', () => {
-    if (isBusy()) return;
+    if (isBusy() || !inventoryVisible()) return;
     try { download(articleLinkNotes(getBody()), 'article-link-review.txt', 'text/plain;charset=utf-8'); report('Link review notes download requested. It contains article link text and URLs only. Inspect before sharing; private source/review notes are excluded. No destination was loaded.'); }
     catch (failure) { report(failure.message); }
   });
