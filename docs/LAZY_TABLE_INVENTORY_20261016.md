@@ -1,6 +1,6 @@
 # Current table inventory and native bulk paste
 
-Candidate: [PR #91](https://github.com/nolankido/drafttopage/pull/91), starting main `d1eee54eb6a587a0527fc31691704b8d96bf533b`. Full stable-source release and native deployment outcomes belong in the PR. This document does not claim those unfinished checks have passed.
+Released in [PR #91](https://github.com/nolankido/drafttopage/pull/91), merged as `483e8b47f2406e619f5eea20687eaa2f61fe24f3`, tree `736f6edcd9981cc7bd8d965711bc4c845afd44f4`. Complete stable-source gate passed October 16, 2026, 16:35 UTC: 880 Node tests, 51 browser journeys, 304 layouts and all 15 document cases. Source SHA-256: `b15b4c0b46528132efe46808552151a48540767eca020d07046468401a9744dd`. Native preview build `d361fcb9-eee4-48bd-8f67-b88c5f179098` and production build `e2a5b700-de39-4093-9aa3-47b167d04c37` succeeded; production version `b5b447aa-c0ea-4f49-8b91-4d79e81ee7fe`. Separate genuine WordPress acceptance was NOT_RUN in this unchanged-serializer cycle; PR #87 retained eleven local cases. Later PRs #92 and #93 each reran eleven fresh genuine local cases. Independent public rendering remains unverified.
 
 ## Bounded behavior
 
@@ -10,7 +10,7 @@ Pending target and prepared cells retain their original semantics. Every source 
 
 All 27 focused table/model/diagnostic checks pass. Five new controller cases fail against the starting controller and pass against this change. They count actual inspector calls and cover default/ancestor deferral, source purging, unchanged selection/node identity, hidden-action rejection, prepared-cell retention and exact duplicate recheck, forty-choice/later-cursor fallback and failed inspection without old-list leakage. The earlier twenty table cases still pass against both controllers.
 
-The focused browser journey passes exact native export-byte equality across unchanged toggles, hidden native edits, retained prepared cells, stale preview/list purging, deliberate duplicate-table and new-end rechecks, exact surrounding UTF-16 source, checkpoint capture, approval reset, independently read actual downloaded HTML table text/private exclusions and 1440/390/320 layouts. The separate desk boundary-paste check below also passes. A complete stable-source release rerun is still required.
+The full browser gate passes exact native export-byte equality across unchanged toggles, hidden native edits, retained prepared cells, stale preview/list purging, deliberate duplicate-table and new-end rechecks, exact surrounding UTF-16 source, checkpoint capture, approval reset, independently read actual downloaded HTML table text/private exclusions and 1440/390/320 layouts. The desk boundary-paste check below also passes in that complete gate. Additional 320px table-choice/preparation viewport screenshots were inspected after validation without source changes.
 
 ## Bulk-input timeout diagnosis
 
@@ -35,4 +35,4 @@ A fresh 31-insertion rich Markdown/closed-panel starting profile attributes 64 o
 
 All eight accepted records pass. The first distinct-block tail worsened; a reverse-order repeat improved. Both records remain evidence of variability, not proof that the regression never occurs. Do not infer that avoiding one scan fixes tail stalls or all fixtures. These local sample statistics are not INP, completed paint, real-user outcomes or all-device guarantees. Earlier 356.7/417.5 ms maxima and active-link-control regressions remain unresolved.
 
-Before public SHA-256: `237bba0deeec5900851d1b8e9c5e0bcab32fcebe0f24d487cf5ab2dad8b4099e`. After: `78cf296dbb549790b752631691878c59fbb981418b0f82e41d7f41af000d1ccc`. Full checks and terminal build details must be recorded before release. Native Cloudflare Git deployment is unchanged. No tracking, outreach, services, charges, providers, Actions, cron or automatic approval are introduced.
+Before public SHA-256: `237bba0deeec5900851d1b8e9c5e0bcab32fcebe0f24d487cf5ab2dad8b4099e`. After: `78cf296dbb549790b752631691878c59fbb981418b0f82e41d7f41af000d1ccc`. Full checks and terminal build details are recorded above and in the PR. Native Cloudflare Git deployment is unchanged. No tracking, outreach, services, charges, providers, Actions, cron or automatic approval are introduced.
