@@ -1,6 +1,6 @@
 # Long-article editing: inactive WordPress handoff
 
-Cycle 13 is implemented in [PR #84](https://github.com/nolankido/drafttopage/pull/84), from main `408b19ebd63bd645d99bc70aef734778ce667def`. Complete stable-source release validation and native deployment outcomes are required before release and belong in the PR.
+Cycle 13 was released in [PR #84](https://github.com/nolankido/drafttopage/pull/84), merged as `166f25cacdf1c3eef948e8b1ab2967948085ddde`, tree `80d1bf9fe53aead890c97d7837cb3453da8f77ad`. The complete stable-source release gate passed 792 Node tests, 45 browser journeys, 286 layout checks and all 15 document cases. Repository source SHA-256: `1363cb2c7b178e92adc6305634bfdf77954134021038e0f1f10f73732210b419`. Native Cloudflare preview and production builds succeeded; production version `40feeb8b-1e52-40bb-9f7a-d92f0263e993`. Exact build IDs and environment scope are recorded in the PR.
 
 ## Measured problem and bounded change
 
@@ -64,7 +64,7 @@ This confirms lower median measured work in this selected case, while explicitly
 
 ## Validation and reproduction
 
-The 28 focused tests cover controller behavior, existing actionable findings, benchmark fixture sizes/statistics and the optional/local/source-bound harness. The new browser journey must pass destination switches, hidden and detached action guards, no inactive clipboard writes, byte-identical actual six-file WordPress kits after a destination round trip, private-field exclusions, fresh current findings, native near-limit approval invalidation and 1440/390/320 layouts. An initial long-article UI fixture accidentally exceeded 60,000 characters and was rejected while preserving current writing. It now uses an explicitly checked 58,750-character backup before native typing. Preliminary incomplete runs are not acceptance passes. Exact final counts, repository source/tree hashes and native build outcomes belong in PR #84.
+The 28 focused tests cover controller behavior, existing actionable findings, benchmark fixture sizes/statistics and the optional/local/source-bound harness. The new browser journey passed destination switches, hidden and detached action guards, no inactive clipboard writes, byte-identical actual six-file WordPress kits after a destination round trip, private-field exclusions, fresh current findings, native near-limit approval invalidation and 1440/390/320 layouts. An initial long-article UI fixture accidentally exceeded 60,000 characters and was rejected while preserving current writing. It now uses an explicitly checked 58,750-character backup before native typing. Preliminary incomplete runs are not acceptance passes. The complete stable-source gate passed October 16, 2026, 12:38 UTC, including unchanged-source verification. All 55 relative Markdown links in changed prose and diff checks also passed.
 
 After `npm run build`, an explicitly configured local browser can run:
 
