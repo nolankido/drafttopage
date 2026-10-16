@@ -1,5 +1,6 @@
 import { createWorkspaceBackup, parseWorkspaceBackup, MAX_BACKUP_BYTES } from './workspace.js';
 import { compareWorkspaces } from './revisions.js';
+import { activateOnEnterRelease } from './keyboard-action.js';
 
 export const RECOVERY_KEY = 'drafttopage.browser-recovery.v1';
 export const RECOVERY_LOCK = 'drafttopage-browser-recovery-v1';
@@ -262,6 +263,7 @@ export function installBrowserRecovery(options) {
     }
   });
   $('browser-recovery-start').addEventListener('click', keepActionFocus(() => { if ($('browser-recovery-consent').checked) return controller.start(); }));
+  activateOnEnterRelease($('browser-recovery-restore'));
   $('browser-recovery-restore').addEventListener('click', keepActionFocus(() => {
     if ($('browser-recovery-consent').checked && $('browser-recovery-reviewed').checked && inspection) return controller.resume(inspection);
   }));

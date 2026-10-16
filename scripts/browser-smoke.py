@@ -814,6 +814,51 @@ with sync_playwright() as p:
     assert page.locator('#markdown-action-status').inner_text()=='' and page.locator('#copy-article-markdown').is_disabled()
     layout(page,'copy-feedback');assert state['api']==[];context.close()
     report['checks'].append('Clipboard handoff: delayed native writes, one shared lock across destinations, duplicate-click exclusion, downloads while copying, stale-result identification, nearby success/failure feedback, native clipboard contents, manual fallback, approval reset, and narrow layouts')
+    # A complete held Enter must finish before restore can hand focus to writing.
+    for recovery_route in ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']:
+        page,context,state=open_page('/'+recovery_route+'/')
+        expect(page.locator('#desk-status')).to_contain_text('ready')
+        saved_keyboard='Fictional exact recovery 日本語 😀.\n\nEnding stays exact.'
+        current_keyboard='Current fictional writing to checkpoint.'
+        page.fill('#body',saved_keyboard)
+        open_details(page,'#browser-recovery-panel');page.check('#browser-recovery-consent');page.click('#browser-recovery-start')
+        expect(page.locator('#browser-recovery-pause')).to_be_enabled();page.click('#browser-recovery-pause')
+        page.fill('#body',current_keyboard);page.check('#reviewed');page.click('#browser-recovery-inspect')
+        page.check('#browser-recovery-consent');page.check('#browser-recovery-reviewed');page.locator('#browser-recovery-restore').focus()
+        page.evaluate("""()=>{window.restoreBodyInputs=[];document.getElementById('body').addEventListener('input',e=>window.restoreBodyInputs.push(e.inputType));}""")
+        page.keyboard.down('Enter');page.keyboard.down('Enter')
+        page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
+        assert page.locator('#body').input_value()==current_keyboard and page.locator('#reviewed').is_checked()
+        expect(page.locator('#browser-recovery-restore')).to_be_focused()
+        assert page.locator('#checkpoint-select option').count()==0 and page.evaluate('window.restoreBodyInputs')==[]
+        page.keyboard.up('Enter')
+        expect(page.locator('#body')).to_have_value(saved_keyboard);expect(page.locator('#body')).to_be_focused()
+        assert not page.locator('#reviewed').is_checked() and page.locator('#checkpoint-select option').count()==1
+        assert page.evaluate('window.restoreBodyInputs')==[]
+        page.keyboard.press('Control+End');page.keyboard.type(' Deliberate edit.')
+        expected_saved=saved_keyboard+' Deliberate edit.'
+        expect(page.locator('#body')).to_have_value(expected_saved)
+        if recovery_route in ['write','word-to-wordpress']:
+            page.click('#browser-recovery-pause')
+            page.fill('#body',current_keyboard);page.check('#reviewed');page.click('#browser-recovery-inspect')
+            page.check('#browser-recovery-consent');page.check('#browser-recovery-reviewed');page.locator('#browser-recovery-restore').focus()
+            page.keyboard.down('Enter');page.keyboard.press('Tab');page.keyboard.up('Enter')
+            assert page.locator('#body').input_value()==current_keyboard and page.locator('#reviewed').is_checked()
+            expect(page.locator('#browser-recovery-restore')).not_to_be_focused()
+            page.locator('#browser-recovery-restore').focus();page.keyboard.down('Enter');page.locator('#body').click();page.keyboard.up('Enter')
+            assert page.locator('#body').input_value()==current_keyboard and page.locator('#reviewed').is_checked()
+            page.locator('#browser-recovery-restore').focus();page.keyboard.down('Space')
+            assert page.locator('#body').input_value()==current_keyboard
+            page.keyboard.up('Space');expect(page.locator('#body')).to_have_value(expected_saved)
+            page.click('#browser-recovery-pause');page.fill('#body',current_keyboard);page.click('#browser-recovery-inspect')
+            page.check('#browser-recovery-consent');page.check('#browser-recovery-reviewed');page.click('#browser-recovery-restore')
+            expect(page.locator('#body')).to_have_value(expected_saved)
+        assert not page.locator('#reviewed').is_checked()
+        page.select_option('#publishing-destination','markdown');page.check('#reviewed')
+        with page.expect_download() as info:page.click('#download-article-markdown')
+        assert Path(info.value.path()).read_text()==expected_saved+'\n'
+        layout(page,'restore-key-release-'+recovery_route);assert state['api']==[];context.close()
+    report['checks'].append('Browser recovery activation release: all eight routes retain current writing/approval while native Enter repeats are held, restore exact Unicode text only after release with no body input, preserve checkpoints and deliberate subsequent typing; Tab/pointer cancellation, native Space and pointer restore, and narrow layouts')
     # Explicit recovery actions keep a useful keyboard position as controls change.
     recovery_key='drafttopage.browser-recovery.v1'
     page,context,state=open_page('/write/')
