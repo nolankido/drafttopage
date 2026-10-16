@@ -104,12 +104,66 @@ class Control {
 function controls(run){
   const prior=globalThis.document,map=new Map(),$=id=>{if(!map.has(id))map.set(id,new Control());return map.get(id);};globalThis.document={getElementById:$,createElement:tag=>new Control(tag)};
   const workspace={source:{profile:'personal',audience:'',purpose:'',notes:'PRIVATE_SOURCE'},draft:{title:'Fictional',excerpt:'',description:'',slug:'',questions:['PRIVATE_REVIEW'],body:'A resource remains. '+original}};
-  let busy=false,approval=true,linked=true,checkpointFailure=false,applies=0,confirmation=true,report='',download=null,workChanges=0;
+  let busy=false,approval=true,linked=true,checkpointFailure=false,applies=0,confirmation=true,report='',download=null,workChanges=0,inspections=0,reads=0;
   const history=createCheckpointHistory();$('body').value=workspace.draft.body;
-  const ui=installLinkEditor({getBody:()=>$('body').value,isBusy:()=>busy,workChanged:()=>{workChanges++;},report:text=>{report=text;},confirmAction:()=>confirmation,reveal:()=>{},download:(...args)=>{download=args;},apply:(plan,label)=>{if(checkpointFailure)throw Error('Checkpoint failed.');history.save(workspace,label);workspace.draft.body=plan.body;$('body').value=plan.body;approval=false;linked=false;applies++;ui.refresh();}});
+  const ui=installLinkEditor({getBody:()=>{reads++;return $('body').value;},inspect:body=>{inspections++;return articleLinks(body);},isBusy:()=>busy,workChanged:()=>{workChanges++;},report:text=>{report=text;},confirmAction:()=>confirmation,reveal:()=>{},download:(...args)=>{download=args;},apply:(plan,label)=>{if(checkpointFailure)throw Error('Checkpoint failed.');history.save(workspace,label);workspace.draft.body=plan.body;$('body').value=plan.body;approval=false;linked=false;applies++;ui.refresh();}});
   const prepare=()=>{$('body').setSelectionRange(2,10);$('link-use-selection').fire('click');$('link-label').value=fields.label;$('link-label').fire('input');$('link-url').value=fields.url;$('link-url').fire('input');$('link-preview').fire('click');};
-  try{run({$,ui,workspace,history,prepare,approval:()=>approval,linked:()=>linked,applies:()=>applies,report:()=>report,download:()=>download,workChanges:()=>workChanges,busy:value=>{busy=value;ui.refresh();},failCheckpoint:()=>{checkpointFailure=true;},confirm:value=>{confirmation=value;}});}finally{globalThis.document=prior;}
+  try{run({$,ui,workspace,history,prepare,inspections:()=>inspections,reads:()=>reads,approval:()=>approval,linked:()=>linked,applies:()=>applies,report:()=>report,download:()=>download,workChanges:()=>workChanges,busy:value=>{busy=value;ui.refresh();},failCheckpoint:()=>{checkpointFailure=true;},confirm:value=>{confirmation=value;}});}finally{globalThis.document=prior;}
 }
+test('Closed inventory never scans article links while preparation still becomes stale',()=>controls(({$,ui,prepare,inspections,approval,applies})=>{
+  assert.equal(inspections(),0);
+  for(let i=0;i<4;i++){$('body').value+=' revised';ui.refresh();}
+  assert.equal(inspections(),0);assert.equal($('download-link-notes').disabled,true);
+  prepare();assert.equal($('link-apply').disabled,false);assert.equal(inspections(),0);
+  $('body').value+=' new source';ui.refresh();
+  assert.equal($('link-after').value,'');assert.equal($('link-apply').disabled,true);assert.equal(ui.hasWork(),true);
+  $('link-apply').fire('click');assert.equal(applies(),0);assert.equal(approval(),true);assert.equal(inspections(),0);
+}));
+test('Inventory opens on current Unicode/CRLF source, caches visible scans and purges on either close',()=>controls(({$,ui,inspections,approval})=>{
+  $('body').value='😀 Intro\r\n\r\n[新しい](https://example.com/current)';
+  $('article-link-list-panel').open=true;$('article-link-list-panel').fire('toggle');assert.equal(inspections(),0);
+  $('link-editor-panel').open=true;$('link-editor-panel').fire('toggle');assert.equal(inspections(),1);
+  assert.match($('article-link-status').textContent,/1 recognized/);assert.equal($('article-link-list').children.length,1);
+  ui.refresh();assert.equal(inspections(),1);
+  $('link-editor-panel').open=false;$('link-editor-panel').fire('toggle');assert.equal(inspections(),1);assert.equal($('article-link-list').children.length,0);assert.equal($('download-link-notes').disabled,true);assert.doesNotMatch($('article-link-status').textContent,/recognized/);
+  $('body').value+='\r\n[Another](https://example.com/other)';ui.refresh();assert.equal(inspections(),1);
+  $('link-editor-panel').open=true;$('link-editor-panel').fire('toggle');assert.equal(inspections(),2);assert.equal($('article-link-list').children.length,2);
+  $('article-link-list-panel').open=false;$('article-link-list-panel').fire('toggle');ui.refresh();assert.equal(inspections(),2);assert.equal($('article-link-list').children.length,0);assert.equal(approval(),true);
+}));
+test('Hidden notes and detached inventory events cannot read source, reopen editing or replace pending details',()=>controls(({$,ui,inspections,reads,download,approval,workChanges})=>{
+  $('link-editor-panel').open=true;$('article-link-list-panel').open=true;ui.refresh();
+  const old=$('article-link-list').querySelectorAll('button')[0];
+  $('article-link-list-panel').open=false;$('article-link-list-panel').fire('toggle');
+  const beforeReads=reads(),beforeWork=workChanges(),beforeScans=inspections();
+  old.fire('click');$('download-link-notes').fire('click');
+  assert.equal(reads(),beforeReads);assert.equal(inspections(),beforeScans);assert.equal(workChanges(),beforeWork);assert.equal(ui.hasWork(),false);assert.equal(download(),null);assert.equal(approval(),true);
+  $('article-link-list-panel').open=true;$('article-link-list-panel').fire('toggle');
+  const reopenedReads=reads();old.fire('click');assert.equal(reads(),reopenedReads);assert.equal(ui.hasWork(),false);
+  const current=$('article-link-list').querySelectorAll('button')[0];current.fire('click');assert.equal(ui.hasWork(),true);assert.equal($('link-label').value,'Original resource');
+}));
+test('Changing source behind visible inventory rebuilds current links and rejects its detached previous row',()=>controls(({$,ui,inspections,applies,approval})=>{
+  $('link-editor-panel').open=true;$('article-link-list-panel').open=true;ui.refresh();const old=$('article-link-list').querySelectorAll('button')[0];
+  $('body').value='😀\r\n[Current](https://example.com/new)';ui.refresh();assert.equal(inspections(),2);
+  old.fire('click');assert.equal(ui.hasWork(),false);
+  $('article-link-list').querySelectorAll('button')[0].fire('click');assert.equal($('link-label').value,'Current');assert.equal($('link-url').value,'https://example.com/new');
+  assert.match($('link-target-status').textContent,/line 2/);assert.equal(applies(),0);assert.equal(approval(),true);
+}));
+test('Closed containing disclosures skip inventory scans and stale rows even with both inner panels open',()=>controls(({$,ui,inspections,approval})=>{
+  const parent=$('link-editor-panel').parentElement=new Control();parent.tagName='DETAILS';parent.open=false;
+  $('link-editor-panel').open=true;$('article-link-list-panel').open=true;ui.refresh();assert.equal(inspections(),0);
+  parent.open=true;ui.refresh();assert.equal(inspections(),1);const old=$('article-link-list').querySelectorAll('button')[0];
+  parent.open=false;ui.refresh();assert.equal(inspections(),1);assert.equal($('article-link-list').children.length,0);assert.equal($('download-link-notes').disabled,true);
+  old.fire('click');assert.equal(ui.hasWork(),false);assert.equal(approval(),true);
+  $('body').value='[Current](https://example.com/current)';ui.refresh();assert.equal(inspections(),1);
+  parent.open=true;ui.refresh();assert.equal(inspections(),2);assert.match($('article-link-list').children[0].children[0].textContent,/Current/);
+}));
+test('Inspection failures and hidden error state cannot retain old links or enable notes',()=>controls(({$,ui,inspections,approval})=>{
+  $('link-editor-panel').open=true;$('article-link-list-panel').open=true;ui.refresh();assert.equal(inspections(),1);
+  $('body').value='x'.repeat(60001);ui.refresh();assert.equal(inspections(),2);assert.equal($('article-link-list').children.length,0);assert.equal($('download-link-notes').disabled,true);assert.match($('article-link-status').textContent,/60,000/);
+  $('article-link-list-panel').open=false;$('article-link-list-panel').fire('toggle');assert.doesNotMatch($('article-link-status').textContent,/60,000/);
+  $('body').value=original;ui.refresh();assert.equal(inspections(),2);
+  $('article-link-list-panel').open=true;$('article-link-list-panel').fire('toggle');assert.equal(inspections(),3);assert.equal($('article-link-list').children.length,1);assert.equal($('download-link-notes').disabled,false);assert.equal(approval(),true);
+}));
 test('Preparation and view toggles keep approval; apply checkpoints exact writing before clearing approval and image mode',()=>controls(({$,ui,prepare,workspace,history,approval,linked,applies})=>{
   const before=workspace.draft.body;prepare();assert.equal(ui.hasWork(),true);assert.equal(approval(),true);assert.equal($('link-apply').disabled,false);assert.equal(workspace.draft.body,before);
   $('link-editor-panel').open=false;$('link-editor-panel').fire('toggle');assert.equal($('link-after').value,'');assert.equal(ui.hasWork(),true);assert.equal(approval(),true);

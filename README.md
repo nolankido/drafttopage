@@ -164,7 +164,9 @@ The optional formatting disclosure also offers guarded Strikethrough editing: se
 
 ## Guided hyperlink editing
 
-All five writing workspaces offer Add or edit link and an article-wide inline link inventory. Choose selected plain text, a cursor, or a complete existing link; enter a descriptive label and HTTP(S) URL; inspect an exact change or unlink preview; then apply with a checkpoint. Source outside the selected range stays exact. Stale targets, partial formatting, code/table contexts, malformed URLs, and overflow are rejected. Pending preparation stays out of unchanged private formats; no-op/discard keeps approval. No URL is fetched or verified. See [the link editor release](docs/GUIDED_LINK_EDITOR_RELEASE.md).
+All shared writing workspaces offer Add or edit link and an article-wide inline link inventory. Choose selected plain text, a cursor, or a complete existing link; enter a descriptive label and HTTP(S) URL; inspect an exact change or unlink preview; then apply with a checkpoint. Source outside the selected range stays exact. Stale targets, partial formatting, code/table contexts, malformed URLs, and overflow are rejected. Pending preparation stays out of unchanged private formats; no-op/discard keeps approval. No URL is fetched or verified. See [the link editor release](docs/GUIDED_LINK_EDITOR_RELEASE.md).
+
+The shared link inventory now inspects only while its panels and containing disclosures are open. Closing purges derived inspection, not pending details; article changes still invalidate a prepared target immediately. Opening reads current links, with the existing forty-row display and complete notes download. See [the measurement and safeguards](docs/LAZY_LINK_INVENTORY_20261016.md), including active-control regressions and unresolved slow outliers.
 
 ## Guided table editing
 

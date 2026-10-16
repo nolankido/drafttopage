@@ -136,6 +136,81 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # Closed link inventory defers inspection without losing pending preparation.
+    page,context,state=open_page('/word-to-wordpress/')
+    expect(page.locator('#start-link-editor')).to_be_enabled()
+    original='😀 Fictional article.\n\n[<img src=x onerror=bad()>](javascript:alert(1))\n\n'+ '\n\n'.join('[Resource '+str(i)+'](https://example.test/'+str(i)+')' for i in range(45))+'\n\n[**Styled**](https://example.test/styled)\n\n`[Code](https://example.test/code)`'
+    restore(page,{**backup,'draft':{**draft,'body':original}})
+    assert page.locator('#link-editor-panel').get_attribute('open') is None
+    assert page.locator('#article-link-list li').count()==0 and page.locator('#download-link-notes').is_disabled()
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    original_blocks=Path(info.value.path()).read_bytes()
+    open_details(page,'#editing-tools')
+    page.locator('#body').evaluate('el=>{const at=el.value.indexOf("[Resource 0]");el.setSelectionRange(at,at)}')
+    page.click('#start-link-editor');expect(page.locator('#link-label')).to_have_value('Resource 0')
+    page.fill('#link-label','Prepared fictional correction');page.fill('#link-url','https://example.test/prepared')
+    page.click('#link-preview');pending=page.locator('#link-after').input_value()
+    assert page.locator('#body').input_value()==original and page.locator('#reviewed').is_checked()
+    open_details(page,'#article-link-list-panel')
+    expect(page.locator('#article-link-list li')).to_have_count(40)
+    expect(page.locator('#article-link-status')).to_contain_text('47 recognized inline link(s); 46 supported')
+    expect(page.locator('#article-link-status')).to_contain_text('first 40')
+    assert page.locator('#article-link-list a, #article-link-list img, #article-link-list script').count()==0
+    page.locator('#editing-tools > summary').click()
+    expect(page.locator('#article-link-list li')).to_have_count(0)
+    assert page.locator('#download-link-notes').is_disabled()
+    page.locator('#editing-tools > summary').click()
+    expect(page.locator('#article-link-list li')).to_have_count(40)
+    page.evaluate("window.oldInventoryButton=document.querySelector('#article-link-list button')")
+    page.locator('#article-link-list-panel > summary').click()
+    expect(page.locator('#article-link-list li')).to_have_count(0)
+    assert page.locator('#link-after').input_value()==pending and page.locator('#link-apply').is_enabled()
+    downloads=[];page.on('download',lambda item:downloads.append(item.suggested_filename))
+    page.evaluate("()=>{document.getElementById('download-link-notes').dispatchEvent(new MouseEvent('click',{bubbles:true}));window.oldInventoryButton.click()}")
+    assert downloads==[] and page.locator('#link-after').input_value()==pending
+    assert page.locator('#link-label').input_value()=='Prepared fictional correction' and page.locator('#reviewed').is_checked()
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert Path(info.value.path()).read_bytes()==original_blocks
+    # Staleness still clears the preview while inventory parsing is deferred.
+    current='New 日本語 paragraph.\n\n'+original+'\n\n[Newest](https://example.test/newest)'
+    page.locator('#body').focus();page.keyboard.press('Control+Home');page.keyboard.insert_text('New 日本語 paragraph.\n\n')
+    page.keyboard.press('Control+End');page.keyboard.insert_text('\n\n[Newest](https://example.test/newest)')
+    assert page.locator('#body').input_value()==current
+    assert not page.locator('#reviewed').is_checked() and page.locator('#link-after').input_value()==''
+    assert page.locator('#link-apply').is_disabled() and page.locator('#link-label').input_value()=='Prepared fictional correction'
+    page.locator('#link-editor-panel > summary').click()
+    page.evaluate("document.getElementById('article-link-list-panel').open=true")
+    expect(page.locator('#article-link-list li')).to_have_count(0)
+    page.check('#reviewed');count=page.locator('#checkpoint-select option').count()
+    page.locator('#link-editor-panel > summary').click()
+    expect(page.locator('#article-link-list li')).to_have_count(40)
+    expect(page.locator('#article-link-status')).to_contain_text('48 recognized inline link(s); 47 supported')
+    page.evaluate('window.oldInventoryButton.click()')
+    assert page.locator('#link-label').input_value()=='Prepared fictional correction' and page.locator('#body').input_value()==current
+    assert page.locator('#reviewed').is_checked() and page.locator('#checkpoint-select option').count()==count
+    with page.expect_download() as info:page.click('#download-link-notes')
+    notes=Path(info.value.path()).read_text()
+    expected=subprocess.check_output(['node','--input-type=module','-e',"import {readFileSync} from 'node:fs';import {articleLinkNotes} from './public/link-editing.js';process.stdout.write(articleLinkNotes(JSON.parse(readFileSync(0,'utf8'))));"],input=json.dumps(current),text=True)
+    assert notes==expected and 'Resource 44' in notes and 'Newest' in notes and 'Code' not in notes
+    assert source['notes'] not in notes and draft['questions'][0] not in notes and page.locator('#reviewed').is_checked()
+    page.locator('#article-link-list li').filter(has_text='· Resource 0').get_by_role('button').click()
+    expect(page.locator('#link-label')).to_have_value('Resource 0')
+    expect(page.locator('#link-target-status')).to_contain_text('line 7')
+    assert page.locator('#body').input_value()==current and page.locator('#reviewed').is_checked()
+    page.fill('#link-label','Current correction');page.fill('#link-url','https://example.test/corrected')
+    page.click('#link-preview');page.click('#link-apply')
+    corrected=current.replace('[Resource 0](https://example.test/0)','[Current correction](https://example.test/corrected)')
+    assert page.locator('#body').input_value()==corrected and not page.locator('#reviewed').is_checked()
+    assert page.locator('#checkpoint-select option').count()==count+1
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    from document_benchmark import ArticleHTML
+    parsed=ArticleHTML(Path(info.value.path()).read_text())
+    assert {'text':'Current correction','href':'https://example.test/corrected'} in parsed.links
+    assert not parsed.unsafe and page.locator('#notes').input_value()==source['notes']
+    layout(page,'lazy-link-inventory');assert state['api']==[];context.close()
+    report['checks'].append('Lazy link inventory: closed derived-state purge, current Unicode line offsets, pending preparation and stale preview guards, detached/hidden actions, unchanged approved block bytes, forty-row/all-link notes with independent full-byte check, exact guarded edit/checkpoint/approval, inert unsafe labels, no URL/API requests and narrow layouts')
     # The optional strike control changes only a safe source selection.
     page,context,state=open_page('/write/')
     original='Old plan stays. **Strong** and `literal`.\n\n## A fictional section\n\n- Keep uncertainty'
