@@ -1,0 +1,25 @@
+# Keep restore activation out of recovered writing
+
+Starting combined candidate: local `2006ff94e67e4032f12671b575bb882cc3e84d71`, stacked on PRs #95 and #96. Main remains `814bfa5d89ff13f50c4abc3aa80f21632335fab9`. No new main merge or production deployment is claimed.
+
+## Reproduced problem
+
+The corrected-pointer full gate passed 900 Node tests but failed the existing browser-recovery keyboard journey on October 16, 2026, 19:54:10 UTC. Expected restored body was `Fictional keyboard recovery article.`; actual body had an additional newline. Source SHA-256 `13ba40c3047830dc317ea7aa3ddead074b79db362d5a4cf12703994daa7c2427`. The browser gate failed and the WordPress stage was not reached; this is not a release pass.
+
+Three read-only native-event probes show the original restore completing before Enter keyup, with keyup reaching the restored textarea. Those three ordinary probes did not themselves add a newline. A separate deterministic baseline reproduction holds Enter until restore focuses the article, then sends a native repeated keydown: the body changes from `Fictional exact recovery.` to `Fictional exact recovery.\n`. This establishes the held-key failure; it does not claim which exact event ordering caused the earlier single-press gate observation.
+
+## Bounded fix
+
+Only the browser-copy Restore button uses the new small keyboard helper. It prevents native Enter activation on press/repeat and activates once after the corresponding release, while the button remains focused, connected, visible and enabled. A focus change, pointer action anywhere or window blur cancels the pending gesture and removes its temporary listeners. Composition is not reinterpreted as restore. Normal pointer, native Space and assistive click activation keep the existing click handler. There is no timer, draft cache, input suppression in the article, or change to ordinary typing.
+
+The existing controller still owns consent, reviewed saved/current comparison, exact source rechecks, exclusive browser lock, checkpoint before replacement, cancellation/failure behavior, local copy bounds/deletion and approval reset. No automatic export approval, new storage accessor or file format, writing upload, provider call, third-party dependency or hosting configuration is added. The helper is a local static JavaScript module. This is a desktop Chromium and model check, not assistive-technology or physical-device certification.
+
+## Validation
+
+All 32 focused keyboard/recovery model checks pass, including six new cases for activation/repeat/release, unowned repeats, focus/pointer/window cancellation, disabled/detached/hidden controls, composition/other keys and later reuse without double activation. The unchanged earlier keyboard journey passes against the corrected helper, including cancelled restore, exact successful restore, focus, checkpoint, background save and cross-tab notification.
+
+The new actual-browser journey passes all eight public workspaces. Held Enter plus a repeat leaves current writing, approval and checkpoint count unchanged; release restores exact Unicode text with no native article input event. Deliberate subsequent typing works. Two routes additionally verify Tab/pointer cancellation, native Space restore and pointer restore. All eight require fresh export approval and independently read the actual downloaded Markdown bytes, including the exact ending. The 24 wide/narrow layout checks pass. An earlier partial diagnostic was interrupted when the helper changed; only the stable rerun is counted. One preliminary probe expected a transient restore status after autosave had already replaced it; the corrected probe reads actual source and event order.
+
+The complete corrected combined gate passed October 16, 2026, 20:07:06 to 20:14:19 UTC: 906 Node tests, 56 browser journeys, 346 viewport checks, all 15 document cases and eleven genuine local WordPress 7.1.3 / PHP 8.3.33 / SQLite Author-role save/reopen cases, without unfiltered HTML and with the invalid-block control. Tested local commit `f0b90a0f3abb0cc536c4497850280b1c1bbaf6d6`, tree `c4c79716aa7b950696004f31a95144fb9f5c7ef9`, source SHA-256 `40b5fff53c5c7c9384024fd8eed3ea7e2ffe2533eb22a910c60eb25da1ae4320`, public SHA-256 `6c36d30af36ad92869638a48a700ff4472e485859d1f34976e64394cf37fa919`. Its byte-identical remote source is in [PR #97](https://github.com/nolankido/drafttopage/pull/97), stacked after #95 and #96. Native preview build `ab25d248-c620-460d-80ae-16289ab30387` succeeded.
+
+This subsequent outcome checkpoint changes repository Markdown only. Build, static, Markdown-link, no-em-dash and diff-scope checks apply to the checkpoint; its public asset hash must remain identical. Its terminal preview result belongs in the PR, without another recursive documentation update or runtime-pass claim. Failed and incomplete prior runs remain recorded. The earlier `c4cc12a` gate is historical evidence for that exact source, not a substitute for this fix's acceptance. Production merge/deployment still needs renewed user authorization after the expired overnight window.
