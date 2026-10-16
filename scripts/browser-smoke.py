@@ -136,6 +136,102 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # Native paste, not the fill helper: Chromium insertText can emit an event per line.
+    bulk='\n\n'.join('Fictional paragraph '+str(i)+' keeps one uncertainty.' for i in range(1000))+'\n\n日本語 😀 END_NATIVE_PASTE'
+    assert 47000<len(bulk)<59000
+    for route_name in ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']:
+        page,context,state=open_page('/'+route_name+'/')
+        page.fill('#body','Earlier fictional writing.');page.check('#reviewed')
+        page.evaluate("window.nativeInputs=[];document.addEventListener('input',e=>{if(e.target.id==='body')nativeInputs.push({type:e.inputType,trusted:e.isTrusted,length:e.target.value.length,approved:document.getElementById('reviewed').checked})})")
+        page.evaluate('(text)=>navigator.clipboard.writeText(text)',bulk)
+        page.locator('#body').focus();page.keyboard.press('Control+A');page.keyboard.press('Control+V')
+        assert page.locator('#body').input_value()==bulk and not page.locator('#reviewed').is_checked()
+        utf16=len(bulk.encode('utf-16-le'))//2
+        assert page.evaluate('nativeInputs')==[{'type':'insertFromPaste','trusted':True,'length':utf16,'approved':False}]
+        assert page.locator('#body-count').inner_text().endswith(page.evaluate('(n)=>n.toLocaleString()+" / 60,000 characters"',utf16))
+        page.keyboard.press('Control+Z');assert page.locator('#body').input_value()=='Earlier fictional writing.'
+        page.keyboard.press('Control+Shift+Z');assert page.locator('#body').input_value()==bulk
+        page.check('#reviewed');events=page.evaluate('nativeInputs.length')
+        page.evaluate('(text)=>navigator.clipboard.writeText(text)','x'*60001)
+        page.locator('#body').focus();page.keyboard.press('Control+A');page.keyboard.press('Control+V')
+        assert page.locator('#body').input_value()==bulk and page.locator('#reviewed').is_checked()
+        assert page.evaluate('nativeInputs.length')==events
+        expect(page.locator('#body-paste-status')).to_contain_text('Current text is unchanged')
+        # A selected-range replacement remains native and undoable after rejection.
+        page.evaluate('(text)=>navigator.clipboard.writeText(text)','Replaced fictional passage.')
+        page.locator('#body').evaluate('el=>el.setSelectionRange(0,el.value.indexOf("\\n"))')
+        page.keyboard.press('Control+V')
+        assert page.locator('#body').input_value()=='Replaced fictional passage.'+bulk[bulk.index('\n'):]
+        assert not page.locator('#reviewed').is_checked()
+        page.keyboard.press('Control+Z');assert page.locator('#body').input_value()==bulk
+        if route_name=='write':
+            boundary=bulk+'x'*(60000-utf16-len(' LIMIT_END'))+' LIMIT_END'
+            assert len(boundary.encode('utf-16-le'))//2==60000
+            page.evaluate('(text)=>navigator.clipboard.writeText(text)',boundary.replace('\n','\r\n'))
+            page.locator('#body').focus();page.keyboard.press('Control+A');page.keyboard.press('Control+V')
+            assert page.locator('#body').input_value()==boundary
+            assert page.locator('#body-count').inner_text().endswith('60,000 / 60,000 characters')
+            page.keyboard.press('Control+Z');assert page.locator('#body').input_value()==bulk
+        assert state['api']==[]
+        if route_name=='write':layout(page,'native-bulk-paste')
+        context.close()
+    report['checks'].append('Eight workspaces: exact native 1,000-paragraph clipboard paste, one trusted input event, UTF-16 count and same-event approval reset, undo/redo, atomic oversized rejection retaining approval, selected replacement/undo; 60,000-character CRLF boundary on the desk and narrow layout')
+
+    page,context,state=open_page('/markdown-to-wordpress/')
+    pipe='| Name | Note |\n| --- | --- |\n| Fictional | Keep uncertainty |'
+    original='日本語 😀 opening.\n\n'+pipe+'\n\nMiddle.\n\n'+pipe+'\n\nEnding.'
+    restore(page,{**backup,'source':{**source,'notes':'PRIVATE_TABLE_SOURCE'},'draft':{**draft,'body':original,'questions':['PRIVATE_TABLE_REVIEW']}})
+    expect(page.locator('#table-select option')).to_have_count(0)
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    before_blocks=Path(info.value.path()).read_bytes()
+    open_details(page,'#table-editor-panel');expect(page.locator('#table-select option')).to_have_count(2)
+    page.select_option('#table-select','1');page.locator('#table-editor-panel > summary').click()
+    page.locator('#table-editor-panel > summary').click();assert page.locator('#table-select').input_value()=='1'
+    page.locator('#editing-tools > summary').click();page.locator('#editing-tools > summary').click()
+    assert page.locator('#table-select').input_value()=='1' and page.locator('#reviewed').is_checked()
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert Path(info.value.path()).read_bytes()==before_blocks
+    page.click('#table-open-selected');page.fill('#table-cell-0-1','Prepared second table.');page.click('#table-preview-change')
+    expect(page.locator('#table-change-preview')).to_be_visible()
+    page.locator('#editing-tools > summary').click()
+    page.locator('#body').focus();page.keyboard.press('Control+Home');page.keyboard.insert_text('New intro.\n\n')
+    current='New intro.\n\n'+original
+    expect(page.locator('#table-select option')).to_have_count(0)
+    assert page.locator('#table-after').input_value()=='' and page.locator('#table-cell-0-1').input_value()=='Prepared second table.'
+    assert not page.locator('#reviewed').is_checked()
+    page.locator('#editing-tools > summary').click();expect(page.locator('#table-select option')).to_have_count(2)
+    page.select_option('#table-select','1');page.click('#table-recheck');expect(page.locator('#table-apply')).to_be_disabled()
+    page.click('#table-preview-change');assert page.locator('#table-before').input_value()==pipe
+    replacement=page.locator('#table-after').input_value();last=current.rindex(pipe)
+    checkpoints=page.locator('#checkpoint-select option').count();page.click('#table-apply')
+    applied=current[:last]+replacement+current[last+len(pipe):]
+    assert page.locator('#body').input_value()==applied and page.locator('#checkpoint-select option').count()==checkpoints+1
+    assert not page.locator('#reviewed').is_checked();page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    blocks=Path(info.value.path()).read_text()
+    from html.parser import HTMLParser
+    class TableText(HTMLParser):
+        def __init__(self):super().__init__();self.tables=[];self.inside=False
+        def handle_starttag(self,tag,attrs):
+            if tag=='table':self.tables.append([]);self.inside=True
+        def handle_endtag(self,tag):
+            if tag=='table':self.inside=False
+        def handle_data(self,data):
+            if self.inside:self.tables[-1].append(data)
+    parsed=TableText();parsed.feed(blocks)
+    assert len(parsed.tables)==2 and 'Keep uncertainty' in ''.join(parsed.tables[0]) and 'Prepared second table.' in ''.join(parsed.tables[1])
+    assert 'PRIVATE_TABLE' not in blocks
+    # New-table preparation keeps every cell while an explicit end recheck follows hidden edits.
+    page.click('#table-create');page.fill('#table-head-0','New header');page.fill('#table-head-1','Note');page.fill('#table-cell-0-0','Prepared append')
+    page.locator('#table-editor-panel > summary').click();page.locator('#body').focus();page.keyboard.press('Control+End');page.keyboard.insert_text(' More ending.')
+    current=applied+' More ending.';expect(page.locator('#table-select option')).to_have_count(0)
+    page.locator('#table-editor-panel > summary').click();page.click('#table-recheck');assert page.locator('#table-cell-0-0').input_value()=='Prepared append'
+    page.click('#table-preview-change');page.click('#table-apply');assert page.locator('#body').input_value().startswith(current)
+    assert 'Prepared append' in page.locator('#body').input_value() and not page.locator('#reviewed').is_checked()
+    assert state['api']==[];layout(page,'lazy-table-inventory');context.close()
+    report['checks'].append('Lazy table inventory: closed/ancestor deferral, unchanged selected occurrence and exact export bytes, hidden-source choice/preview purge with cell retention, explicit duplicate-table and append-end rechecks, exact checkpointed apply, independent downloaded table text/private exclusion and narrow layouts')
+
     # Cached word totals remain exact and synchronous, including structural edits.
     page,context,state=open_page('/write/')
     page.evaluate("document.addEventListener('input',e=>{if(e.target.id==='body')window.currentCountAtInput={text:document.getElementById('body-count').textContent,approved:document.getElementById('reviewed').checked}})")

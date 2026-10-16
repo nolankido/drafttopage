@@ -9,6 +9,7 @@ parser.add_argument('--output',default='test-results/editing-benchmark.json')
 parser.add_argument('--samples',type=int,default=9)
 parser.add_argument('--only',help='Optional kind:destination:panels diagnostic subset')
 parser.add_argument('--link-inventory',choices=['closed','open'],default='closed',help='Explicit link inventory control, independent of reading/export panels')
+parser.add_argument('--table-inventory',choices=['closed','open'],default='closed',help='Explicit table inventory control, independent of reading/export panels')
 parser.add_argument('--unique-blocks',action='store_true',help='Make every fictional block distinct instead of repeating identical source')
 args=parser.parse_args()
 if not 3 <= args.samples <= 100:parser.error('Choose 3 to 100 samples.')
@@ -20,7 +21,7 @@ def public_digest():
  for f in sorted((root/'public').rglob('*')):
   if f.is_file():digest.update(str(f.relative_to(root)).encode()+b'\0'+f.read_bytes()+b'\0')
  return digest.hexdigest()
-report={'scope':'local Chromium, fictional articles, trusted text insertion; not real-user latency','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'publicSha256':public_digest(),'samples':args.samples,'subset':args.only,'linkInventory':args.link_inventory,'uniqueBlocks':args.unique_blocks,'cases':[],'errors':[],'unexpectedRequests':[]}
+report={'scope':'local Chromium, fictional articles, trusted text insertion; not real-user latency','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'publicSha256':public_digest(),'samples':args.samples,'subset':args.only,'linkInventory':args.link_inventory,'tableInventory':args.table_inventory,'uniqueBlocks':args.unique_blocks,'cases':[],'errors':[],'unexpectedRequests':[]}
 ordinary='A fictional neighborhood guide compares simple choices and preserves uncertainty. This paragraph is test writing only.\n\n'
 rich='## Fictional heading\n\nA **bold** and *italic* passage with ~~old wording~~ and [a fictional link](https://example.test/guide).\n\n- First item\n- Second item\n\n| Place | Note |\n| --- | --- |\n| Park | Quiet |\n\n'
 def article(unit,unique=False):
@@ -71,8 +72,13 @@ with sync_playwright() as p:
       document.getElementById('article-link-list-panel').open=opened;
       if(opened)for(let parent=document.getElementById('link-editor-panel').parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
     }""",args.link_inventory=='open')
+    page.evaluate("""opened=>{
+      document.getElementById('table-editor-panel').open=opened;
+      if(opened)for(let parent=document.getElementById('table-editor-panel').parentElement;parent;parent=parent.parentElement)if(parent.tagName==='DETAILS')parent.open=true;
+    }""",args.table_inventory=='open')
     page.evaluate('()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))')
     expect(page.locator('#article-link-list li')).to_have_count(40 if args.link_inventory=='open' and kind=='rich' else 0)
+    if args.table_inventory=='open':expect(page.locator('#table-select option')).to_have_count(40 if kind=='rich' else 0)
     page.evaluate("""()=>{
       window.editSamples=[];window.editFrames=[];let start=0;
       document.addEventListener('input',e=>{if(e.target.id==='body')start=performance.now();},true);
@@ -94,7 +100,7 @@ with sync_playwright() as p:
      assert not page.locator('#reviewed').is_checked()
     measures=page.evaluate('({sync:window.editSamples,frame:window.editFrames})')
     assert len(measures['sync'])==args.samples and len(measures['frame'])==args.samples
-    entry={'kind':kind,'destination':destination,'panels':panels,'linkInventory':args.link_inventory,'uniqueBlocks':args.unique_blocks,'characters':len(article(unit,args.unique_blocks)),'synchronousInputMs':stats(measures['sync']),'inputToFrameMs':stats(measures['frame'])}
+    entry={'kind':kind,'destination':destination,'panels':panels,'linkInventory':args.link_inventory,'tableInventory':args.table_inventory,'uniqueBlocks':args.unique_blocks,'characters':len(article(unit,args.unique_blocks)),'synchronousInputMs':stats(measures['sync']),'inputToFrameMs':stats(measures['frame'])}
     if cdp:
      profile=cdp.send('Profiler.stop')['profile'];hits={};inclusive={}
      nodes={node['id']:node for node in profile['nodes']}
