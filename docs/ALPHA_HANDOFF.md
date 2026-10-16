@@ -8,6 +8,8 @@ PR #47 contains a guided existing-article path, conversion findings before appro
 
 The newer main line has substantial additional conversion, formatting, document, layout and release-validation work. Preserve it. PR #74 already adapts the alpha recovery model to that line, with an additional explicit saved/current comparison. Another worktree had clipboard implementation edits in progress during this check; it was not modified. The appropriate next step is narrow reviewed ports or acceptance of the existing focused PRs, not replacement of newer main with the old alpha UI.
 
+Live status update: PR #74 was merged independently at **2026-10-16 09:37:18 UTC** as main commit `68523832af742a80df124608df33d3eb393f0cca`. This alpha pass did not merge it. Its tree is exactly `06cb9e5ab0a1b178236a127c2553eefd1b10ce08`, the recovery source independently checked below. Preserve that landed recovery implementation rather than porting it again. No deployed-runtime or combined-alpha acceptance is inferred from the external merge.
+
 ## Exact source checked in this pass
 
 | Line | Pin | What this pass independently checked |
@@ -42,9 +44,11 @@ The default command checks the alpha model against itself. Set the explicit path
 
 Using the original common baseline `b4b9df2635abcd5f764abceab32a4adf7dd950d4`, new merge-tree calculations reported **26 conflict paths against pinned main** and **39 against the recovery candidate**. Exit status 1 was expected. No merge was applied. The earlier 23-path result in `ALPHA_INTEGRATION.md` describes an older main pin, not the current count.
 
+After observing the independent merge, the calculation was repeated against main `6852383` and again reported **39 conflict paths**. The 26-path result applies to the earlier `f63fd67` main pin. PR #47 remains draft and unmerged.
+
 | Workstream | Review decision |
 | --- | --- |
-| Browser recovery | Review PR #74's adaptation and exact consent/comparison/removal behavior. Do not introduce a second storage key, lock or competing UI from PR #47. Never turn recovery on by default. |
+| Browser recovery | Preserve the landed PR #74 adaptation and accept its exact consent/comparison/removal behavior on the chosen candidate. Do not introduce a second storage key, lock or competing UI from PR #47. Never turn recovery on by default. |
 | Clipboard handoff | Let the active implementation finish. Then check all body/title/optional-field payloads, overlap locks, rejection, stale completion, approval reset and local feedback on the selected head. No completion or merge of that work is claimed here. |
 | File restoration and document conversion | Retain main's newer saved/current comparisons, Word recovery, reference links and formatting support. Port only missing safeguards with tests. |
 | Text-only WordPress comparison | Keep it optional. If ported, retain the independent text model and clearing/exclusion rules; evaluate whether it saves more effort than it adds. It does not certify formatting or saved-post success. |
