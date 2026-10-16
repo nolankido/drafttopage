@@ -9,6 +9,7 @@ parser.add_argument('--output',default='test-results/editing-benchmark.json')
 parser.add_argument('--samples',type=int,default=9)
 parser.add_argument('--only',help='Optional kind:destination:panels diagnostic subset')
 parser.add_argument('--link-inventory',choices=['closed','open'],default='closed',help='Explicit link inventory control, independent of reading/export panels')
+parser.add_argument('--unique-blocks',action='store_true',help='Make every fictional block distinct instead of repeating identical source')
 args=parser.parse_args()
 if not 3 <= args.samples <= 100:parser.error('Choose 3 to 100 samples.')
 output=Path(args.output);output.parent.mkdir(parents=True,exist_ok=True);output.unlink(missing_ok=True)
@@ -19,10 +20,17 @@ def public_digest():
  for f in sorted((root/'public').rglob('*')):
   if f.is_file():digest.update(str(f.relative_to(root)).encode()+b'\0'+f.read_bytes()+b'\0')
  return digest.hexdigest()
-report={'scope':'local Chromium, fictional articles, trusted text insertion; not real-user latency','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'publicSha256':public_digest(),'samples':args.samples,'subset':args.only,'linkInventory':args.link_inventory,'cases':[],'errors':[],'unexpectedRequests':[]}
+report={'scope':'local Chromium, fictional articles, trusted text insertion; not real-user latency','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'publicSha256':public_digest(),'samples':args.samples,'subset':args.only,'linkInventory':args.link_inventory,'uniqueBlocks':args.unique_blocks,'cases':[],'errors':[],'unexpectedRequests':[]}
 ordinary='A fictional neighborhood guide compares simple choices and preserves uncertainty. This paragraph is test writing only.\n\n'
 rich='## Fictional heading\n\nA **bold** and *italic* passage with ~~old wording~~ and [a fictional link](https://example.test/guide).\n\n- First item\n- Second item\n\n| Place | Note |\n| --- | --- |\n| Park | Quiet |\n\n'
-def article(unit):return (unit*(59000//len(unit))).strip()
+def article(unit,unique=False):
+ if not unique:return (unit*(59000//len(unit))).strip()
+ blocks=[];size=0;index=0
+ while True:
+  for part in unit.strip().split('\n\n'):
+   value=part.replace('| Park |','| Park '+str(index)+' |') if part.startswith('|') else part+' '+str(index)
+   if size+len(value)+2>=59000:return '\n\n'.join(blocks)
+   blocks.append(value);size+=len(value)+2;index+=1
 def stats(values):return {'median':round(statistics.median(values),2),'p95':round(sorted(values)[math.ceil(len(values)*.95)-1],2),'max':round(max(values),2)}
 with sync_playwright() as p:
  binary=os.environ.get('CHROMIUM_EXECUTABLE') or shutil.which('chromium') or shutil.which('chromium-browser')
@@ -52,7 +60,7 @@ with sync_playwright() as p:
     page.fill('#title','Fictional performance fixture')
     page.select_option('#publishing-destination',destination)
     # Seed outside the measured interval. Every timed insertion below is native.
-    page.locator('#body').evaluate('(el,text)=>{el.value=text;el.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText"}));}',article(unit))
+    page.locator('#body').evaluate('(el,text)=>{el.value=text;el.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText"}));}',article(unit,args.unique_blocks))
     page.evaluate("""opened=>{
       for(const id of ['preview-panel','export-content-panel','wordpress-review-panel','wordpress-kit-panel','export-format-review','additional-exports','publishing-kit-panel']){
         const panel=document.getElementById(id);if(panel)panel.open=opened;
@@ -86,7 +94,7 @@ with sync_playwright() as p:
      assert not page.locator('#reviewed').is_checked()
     measures=page.evaluate('({sync:window.editSamples,frame:window.editFrames})')
     assert len(measures['sync'])==args.samples and len(measures['frame'])==args.samples
-    entry={'kind':kind,'destination':destination,'panels':panels,'linkInventory':args.link_inventory,'characters':len(article(unit)),'synchronousInputMs':stats(measures['sync']),'inputToFrameMs':stats(measures['frame'])}
+    entry={'kind':kind,'destination':destination,'panels':panels,'linkInventory':args.link_inventory,'uniqueBlocks':args.unique_blocks,'characters':len(article(unit,args.unique_blocks)),'synchronousInputMs':stats(measures['sync']),'inputToFrameMs':stats(measures['frame'])}
     if cdp:
      profile=cdp.send('Profiler.stop')['profile'];hits={};inclusive={}
      nodes={node['id']:node for node in profile['nodes']}

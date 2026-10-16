@@ -136,6 +136,62 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # Cached word totals remain exact and synchronous, including structural edits.
+    page,context,state=open_page('/write/')
+    page.evaluate("document.addEventListener('input',e=>{if(e.target.id==='body')window.currentCountAtInput={text:document.getElementById('body-count').textContent,approved:document.getElementById('reviewed').checked}})")
+    body='First paragraph.\n\nSecond **marked** phrase.\n\n```\nHidden words.\n```\n\n## Heading'
+    restore(page,{**backup,'draft':{**draft,'body':body}})
+    def count_text(value):
+        words=int(subprocess.check_output(['node','--input-type=module','-e',"import {readFileSync} from 'node:fs';import {articleWordCount} from './public/draft-review.js';process.stdout.write(String(articleWordCount(JSON.parse(readFileSync(0,'utf8')))));"],input=json.dumps(value),text=True))
+        return page.evaluate('([words,length])=>words.toLocaleString()+" approximate words; "+length.toLocaleString()+" / 60,000 characters"',[words,len(value.encode('utf-16-le'))//2])
+    assert page.locator('#body-count').inner_text()==count_text(body)
+    page.check('#reviewed');page.locator('#body').focus();page.keyboard.press('Control+End');page.keyboard.insert_text(' appended words')
+    body+=' appended words'
+    captured=page.evaluate('window.currentCountAtInput')
+    assert captured=={'text':count_text(body),'approved':False}
+    page.fill('#title','Metadata does not change article words');page.fill('#notes','Private fictional count fixture.')
+    assert page.locator('#body-count').inner_text()==count_text(body) and page.locator('#body').input_value()==body
+    unique='\n\n'.join('Fictional paragraph '+str(i)+' keeps one uncertainty.' for i in range(1000))
+    assert 40000<len(unique)<59000
+    bodies=[
+        'same words\n\nsame words','```\nsame words\n\nsame words\n```',
+        'same words\n===\n\nsame words','# same words\n\nsame words',
+        'same words\n\n```\nsame words','same words\n\n```\nsame words\n```\n\nsame words',
+        'café 日本語 😀 and can’t-stop 2026\r\n\r\n[**A label**](https://example.test/) ~~old words~~ `not counted`',
+        '| A | B |\n| --- | --- |\n| One | Two |\n\n***\n\n> A quote.'
+    ]
+    for value in bodies:
+        page.check('#reviewed');page.fill('#body',value)
+        # Textareas normalize CRLF to LF on actual entry. Compare that exact current source.
+        current=page.locator('#body').input_value()
+        assert page.evaluate('window.currentCountAtInput')=={'text':count_text(current),'approved':False}
+        assert page.locator('#body-count').inner_text()==count_text(current)
+    restore(page,{**backup,'source':{**source,'notes':'Private fictional count fixture.'},'draft':{**draft,'body':unique}})
+    assert page.locator('#body').input_value()==unique and page.locator('#body-count').inner_text()==count_text(unique)
+    page.check('#reviewed');page.locator('#body').focus();page.keyboard.press('Control+End');page.keyboard.insert_text(' Current words.')
+    body=unique+' Current words.'
+    assert page.locator('#body').input_value()==body and page.evaluate('window.currentCountAtInput')=={'text':count_text(body),'approved':False}
+    open_details(page,'#text-format-tools')
+    page.locator('#body').evaluate('el=>el.setSelectionRange(0,el.value.indexOf("\\n"))')
+    page.check('#reviewed');before=page.locator('#checkpoint-select option').count();page.click('[data-format=strike]')
+    marked=page.locator('#body').input_value()
+    assert marked=='~~'+body[:body.index('\n')]+'~~'+body[body.index('\n'):]
+    assert page.locator('#body-count').inner_text()==count_text(marked) and not page.locator('#reviewed').is_checked()
+    assert page.locator('#checkpoint-select option').count()==before+1
+    open_details(page,'#checkpoint-panel');page.click('#restore-checkpoint')
+    assert page.locator('#body').input_value()==body and page.locator('#body-count').inner_text()==count_text(body)
+    assert not page.locator('#reviewed').is_checked()
+    page.select_option('#publishing-destination','wordpress');page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    exported=Path(info.value.path()).read_text()
+    assert 'Fictional paragraph 999' in exported and 'Private fictional count fixture.' not in exported and draft['questions'][0] not in exported
+    assert page.locator('#body-count').inner_text()==count_text(body) and page.locator('#reviewed').is_checked()
+    layout(page,'bounded-word-count')
+    page.click('#clear')
+    assert page.locator('#body').input_value()=='' and page.locator('#body-count').inner_text()==count_text('')
+    assert page.locator('#notes').input_value()=='' and not page.locator('#reviewed').is_checked()
+    assert state['api']==[];context.close()
+    report['checks'].append('Word-count cache: exact synchronous input-event totals and approval invalidation, semantic fence/heading/code/Unicode edits, metadata invariance, 1000 unique current paragraphs beyond cache bound, formatting/checkpoint restore, current native export/private exclusions, clear reset and narrow layouts')
     # Closed link inventory defers inspection without losing pending preparation.
     page,context,state=open_page('/word-to-wordpress/')
     expect(page.locator('#start-link-editor')).to_be_enabled()
