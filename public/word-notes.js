@@ -56,7 +56,7 @@ export function createWordNotes(parts, mainRelationships, types, readRelationshi
           output.push('### ' + group.label + ' ' + number, result.markdown);
           warnings.push(...result.warnings);
         }
-        warnings.push(group.selected.size + ' referenced ' + group.name + ' became visible labels and an appended note section.');
+        warnings.push('Converted ' + group.selected.size + ' referenced ' + (group.selected.size === 1 ? group.kind : group.name) + ' to an appended note section with visible labels.');
       }
       if (group.notes.size > group.selected.size) warnings.push('Unreferenced ' + group.name + ' were excluded; only notes reached by visible article references are imported.');
     }

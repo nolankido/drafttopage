@@ -1,6 +1,6 @@
 # Referenced Word footnotes and endnotes
 
-Release: `word-notes-20261016`.
+Release: `word-notes-20261016.1`.
 
 ## Problem and resulting behavior
 
