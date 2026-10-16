@@ -5,25 +5,36 @@ import { downloadText } from './download.js';
 export function installWordPressImages({ getDraft, changed, report, editImage = () => false, isBusy = () => false, reveal = revealArticleSelection, download = downloadText }) {
   const $ = id => document.getElementById(id);
   let selected = false, bodySnapshot = null, rendered = null, images = [], error = '';
+  function clearInactive() {
+    selected = false; bodySnapshot = null; rendered = null; images = []; error = '';
+    $('wordpress-linked-images').checked = false;
+    $('wordpress-linked-images').disabled = true; $('download-image-plan').disabled = true;
+    $('wordpress-image-list').replaceChildren();
+    $('wordpress-image-status').textContent = ''; $('wordpress-image-limit').textContent = '';
+  }
   function sync() {
+    // Option queries also run for other exports. Never inspect or retain their
+    // article here; returning to WordPress needs a fresh, unchecked inspection.
+    if ($('publishing-destination').value !== 'wordpress') { clearInactive(); return false; }
     const body = getDraft().body;
     if (body !== bodySnapshot) {
       selected = false; bodySnapshot = body;
       try { images = analyzeWordPressImages(body); error = ''; }
       catch (failure) { images = []; error = failure.message; }
     }
-    if ($('publishing-destination').value !== 'wordpress' || !images.some(image => image.eligible)) selected = false;
+    if (!images.some(image => image.eligible)) selected = false;
     $('wordpress-linked-images').checked = selected;
     return selected;
   }
   function refresh() {
+    if ($('publishing-destination').value !== 'wordpress') { clearInactive(); return; }
     sync();
-    const busy = isBusy(), visible = $('publishing-destination').value === 'wordpress', eligible = images.filter(image => image.eligible).length;
-    $('wordpress-linked-images').disabled = busy || !visible || !eligible;
-    $('download-image-plan').disabled = busy || !visible || !images.length;
+    const busy = isBusy(), eligible = images.filter(image => image.eligible).length;
+    $('wordpress-linked-images').disabled = busy || !eligible;
+    $('download-image-plan').disabled = busy || !images.length;
     $('wordpress-image-status').textContent = error || (!images.length ? 'No supported inline Markdown image references found. Images in code and reference-style image syntax are outside this inspection.' : images.length + ' image reference(s); ' + eligible + ' can become linked Image blocks. ' + (selected ? eligible + ' selected; ' + (images.length - eligible) + ' stay text.' : 'Images currently stay text. Open Images for WordPress to choose linked blocks.'));
     const key = JSON.stringify([bodySnapshot, selected]);
-    if (!visible || !$('wordpress-image-panel').open) { $('wordpress-image-list').replaceChildren(); rendered = null; }
+    if (!$('wordpress-image-panel').open) { $('wordpress-image-list').replaceChildren(); rendered = null; }
     else if (key !== rendered) {
       rendered = key;
       $('wordpress-image-list').replaceChildren(...images.slice(0, IMAGE_REVIEW_LIMIT).map(image => {
@@ -49,7 +60,7 @@ export function installWordPressImages({ getDraft, changed, report, editImage = 
   }
   $('wordpress-linked-images').addEventListener('change', () => {
     const requested = $('wordpress-linked-images').checked;
-    if (isBusy()) { refresh(); return; }
+    if (isBusy() || $('publishing-destination').value !== 'wordpress') { refresh(); return; }
     sync(); selected = Boolean(requested && images.some(image => image.eligible) && $('publishing-destination').value === 'wordpress');
     $('wordpress-linked-images').checked = selected;
     changed(); refresh();

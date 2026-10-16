@@ -136,6 +136,71 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # Image inspection is inactive outside WordPress and never retains consent.
+    page,context,state=open_page('/markdown-to-wordpress/')
+    restore(page,backup)
+    images_body='Opening.\n\n![Fictional map](https://example.test/one.png)\n\nInline ![Unsafe](http://example.test/bad.png) text.\n\nEnding.'
+    page.fill('#body',images_body);open_details(page,'#wordpress-image-panel')
+    expect(page.locator('#wordpress-image-list > li')).to_have_count(2)
+    assert not page.locator('#wordpress-linked-images').is_checked()
+    page.evaluate('window.oldImageInspect=document.querySelector("#wordpress-image-list button")')
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    plain_images=Path(info.value.path()).read_text();assert '<img ' not in plain_images
+    page.check('#wordpress-linked-images');assert not page.locator('#reviewed').is_checked()
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    linked_images=Path(info.value.path()).read_text()
+    image_nodes=ET.fromstring('<root>'+linked_images+'</root>').findall('.//img')
+    assert len(image_nodes)==1 and image_nodes[0].attrib=={'src':'https://example.test/one.png','alt':'Fictional map'}
+    assert source['notes'] not in linked_images and draft['questions'][0] not in linked_images
+    inactive_downloads=[];page.on('download',lambda download:inactive_downloads.append(download))
+    for destination in ['html','word','markdown']:
+        page.select_option('#publishing-destination',destination)
+        assert not page.locator('#reviewed').is_checked() and not page.locator('#wordpress-linked-images').is_checked()
+        assert page.locator('#wordpress-linked-images').is_disabled() and page.locator('#download-image-plan').is_disabled()
+        assert page.locator('#wordpress-image-list > li').count()==0
+        assert page.locator('#wordpress-image-status').text_content()=='' and page.locator('#wordpress-image-limit').text_content()==''
+        page.check('#reviewed');selected=page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')
+        page.evaluate("""() => {
+          const choice=document.getElementById('wordpress-linked-images');choice.checked=true;choice.dispatchEvent(new Event('change',{bubbles:true}));
+          document.getElementById('download-image-plan').dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          window.oldImageInspect.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+        }""")
+        assert page.locator('#reviewed').is_checked() and not page.locator('#wordpress-linked-images').is_checked()
+        assert page.locator('#body').input_value()==images_body and page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')==selected
+    assert inactive_downloads==[]
+    page.select_option('#publishing-destination','wordpress');expect(page.locator('#wordpress-image-list > li')).to_have_count(2)
+    assert not page.locator('#wordpress-linked-images').is_checked() and not page.locator('#reviewed').is_checked()
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert Path(info.value.path()).read_text()==plain_images
+    page.check('#wordpress-linked-images');assert not page.locator('#reviewed').is_checked();page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    assert Path(info.value.path()).read_text()==linked_images
+    page.select_option('#publishing-destination','markdown')
+    current_images='日本語 😀\n\n![New location](https://example.test/new.png)\n\n![Blocked](http://example.test/blocked.png)'
+    page.fill('#body',current_images);page.select_option('#publishing-destination','wordpress')
+    expect(page.locator('#wordpress-image-list > li')).to_have_count(2)
+    expect(page.locator('#wordpress-image-list > li').first).to_contain_text('Line 3')
+    expect(page.locator('#wordpress-image-list > li').last).to_contain_text('Stays literal text')
+    assert not page.locator('#wordpress-linked-images').is_checked()
+    selected=page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')
+    page.evaluate('window.oldImageInspect.dispatchEvent(new MouseEvent("click",{bubbles:true}))')
+    assert page.locator('#body').evaluate('el=>[el.selectionStart,el.selectionEnd]')==selected
+    page.locator('#wordpress-image-list button').first.click()
+    expect(page.locator('#image-url')).to_have_value('https://example.test/new.png')
+    page.click('#image-preview');expect(page.locator('#image-before')).to_have_value('![New location](https://example.test/new.png)')
+    assert page.locator('#body').input_value()==current_images and not page.locator('#reviewed').is_checked()
+    layout(page,'inactive-wordpress-images')
+    page.check('#wordpress-linked-images');page.fill('#title','A title-only edit')
+    assert page.locator('#wordpress-linked-images').is_checked()
+    page.fill('#body',current_images+'\n\nEdited.');assert not page.locator('#wordpress-linked-images').is_checked()
+    page.check('#wordpress-linked-images');restore(page,backup)
+    assert not page.locator('#wordpress-linked-images').is_checked() and not page.locator('#reviewed').is_checked()
+    assert page.locator('#article-preview img').count()==0 and state['api']==[]
+    context.close()
+    report['checks'].append('Inactive WordPress images: native plain/linked block byte equality across destination round trip, independent image attributes, explicit renewed consent, hidden/detached event exclusion, zero inactive downloads, current Unicode references/warnings, exact guided-edit source, title/body/restore invalidation, inert previews, private-field exclusions and narrow layouts')
     # Hidden WordPress handoff work is discarded and re-created from current text.
     page,context,state=open_page('/markdown-to-wordpress/')
     restore(page,backup)
