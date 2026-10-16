@@ -59,3 +59,15 @@ export function wordImagePlaceholders(body) {
   validBody(body);
   return [...body.matchAll(/\\?\[(?:Image or object omitted from Word document|Word image [1-9]\d{0,4})\\?\]/g)].map(match => ({ start: match.index, end: match.index + match[0].length, line: body.slice(0, match.index).split('\n').length }));
 }
+export function describeWordImagePlaceholders(body) {
+  const positions = wordImagePlaceholders(body), totals = new Map(), seen = new Map();
+  const labels = positions.map(item => body.slice(item.start, item.end).replace(/\\([\[\]])/g, '$1'));
+  for (const label of labels) totals.set(label, (totals.get(label) || 0) + 1);
+  return positions.map((item, index) => {
+    const label = labels[index], occurrence = (seen.get(label) || 0) + 1;
+    seen.set(label, occurrence);
+    const before = Array.from(body.slice(Math.max(0, item.start - 100), item.start).split(/\r?\n/).at(-1)).slice(-45).join('');
+    const after = Array.from(body.slice(item.end, item.end + 100).split(/\r?\n/)[0]).slice(0, 45).join('');
+    return { ...item, label, occurrence, count: totals.get(label), context: (before + body.slice(item.start, item.end) + after).replace(/\s+/g, ' ') };
+  });
+}

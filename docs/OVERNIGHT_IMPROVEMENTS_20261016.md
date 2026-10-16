@@ -43,6 +43,14 @@ The [ten-writer public alpha kit](PUBLIC_ALPHA_STUDY_20261016.md) is prepared wi
 
 **Real-user acceptance is NOT_RUN.** No participants were contacted, no completed results were invented, and intention to return is not counted as repeat use. The templates and existing sample assets are checked locally. This is documentation preparation, not completion of the ten-user research gate.
 
+## Cycle 9: Word image reconciliation
+
+Implemented on `feat/word-image-reconciliation-20261016`, from main `e5529da55d0808e6ef08a4c59a7d8338cc8ddd75`. See [the release notes](WORD_IMAGE_RECONCILIATION_20261016.md). The release PR records its number, exact validated tree/source hash, merge and terminal native Cloudflare checks.
+
+The image picker now retains original Word numbers after earlier replacements, identifies duplicate labels by occurrence, and shows nearby text plus the pinned location. An optional selected image-map.json from the existing original-image ZIP can be inspected without opening any image, URL or folder. It validates the unchanged v1 map fully, including bounds and bidirectional file/placement references. Reusing Word alternative text requires a matching current placeholder and explicit document/context comparison; different pending text requires confirmation. URLs remain manually entered. Missing/shortened alt text, omitted files, map scope and original-byte privacy limits are visible. Individual image applies keep the map, while discarding or replacing the workspace purges it and cancels in-flight reads. Temporary map data is excluded from backups, browser recovery, checkpoints, collections and exports. Existing preview/checkpoint/approval and separate linked-image consent remain required.
+
+Local targeted checks passed 35 image/model/controller tests, including ten new cases. The preliminary desk-only browser run passed 34 journeys and 160 layout checks. Its new journey recovered a fictional three-image DOCX through the UI, independently read the actual downloaded ZIP, verified original image bytes, opened its actual map, explicitly reused alt text, rejected stale comparison, checked backup exclusion, retained original/duplicate labels, and downloaded three native Image blocks after separate consent. It checked map deletion, invalid-map preservation and 1440/390/320-pixel layout. The stable-source full release gate and its exact results belong in the PR. This does not claim a Media Library upload, real-user session, screen-reader/physical-device test, fresh Word/Google Docs clipboard acceptance or new WordPress save/reopen evidence. The block serializer and hosting configuration are unchanged.
+
 ## Release outcomes and continuation checkpoint
 
 | Cycle | GitHub outcome | Confirmed native Cloudflare production version |
@@ -58,10 +66,9 @@ The latest full runtime gate remains PR #75: 746 tests, 39 browser journeys and 
 
 ## Next items
 
-1. Image reconciliation: make the handoff from Word image placeholders and recovered files to supported article image references easier to inspect without fetching or uploading images. Preserve explicit linked-image consent and original-byte privacy disclosures.
-2. Actionable formatting losses and frequent fidelity defects, chosen from reproducible source cases.
-3. Actual ten-writer sessions and repeat-use evidence remain an owner dependency. Do not contact people, invent findings or treat the prepared kit as completed research.
-4. Continue with device/accessibility, preview editing, repeat publishing and performance before broad marketing or paid claims. Discovery, distribution, repeat usage and a paid proposition still need actual evidence.
+1. Actionable formatting losses and frequent fidelity defects, chosen from reproducible source cases.
+2. Actual ten-writer sessions and repeat-use evidence remain an owner dependency. Do not contact people, invent findings or treat the prepared kit as completed research.
+3. Continue with device/accessibility, preview editing, repeat publishing and performance before broad marketing or paid claims. Discovery, distribution, repeat usage and a paid proposition still need actual evidence.
 
 ## Continuation rules
 
