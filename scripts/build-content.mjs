@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { renderPage, RELEASE } from './site-shell.mjs';
 import { writingPages } from './writing-pages.mjs';
 import { HOME_PAGE } from './home-page.mjs';
+import { CONVERSION_CHECKS } from './conversion-checks.mjs';
 import { ARTICLE_TYPES, TEMPLATES, EXAMPLES } from '../public/content-data.js';
 import { createMarkdown } from '../public/markdown.js';
 import { createArticleMarkdown } from '../public/article-markdown.js';
@@ -21,6 +22,7 @@ function add(path, title, description, body, { script = false, wide = false } = 
   pages.set(path, renderPage({ route: path, title, description, body, script: script ? '/resources.js' : '', wide }));
 }
 const heading = (label, title, intro) => `<header class="page-intro"><p class="eyebrow">${label}</p><h1>${title}</h1><p class="lead">${intro}</p></header>`;
+add('/help/conversion-checks/', 'Word and Google Docs conversion troubleshooting', 'Check a Word sample, fix plain-text paste and table issues, and verify editable blocks in a saved WordPress draft. Includes dated test scope and limits.', CONVERSION_CHECKS);
 add('/', 'Prepare your draft for WordPress', 'Convert Word, Google Docs, or Markdown into editable WordPress blocks. Free local tools, a readable preview, and no account needed.', HOME_PAGE, { wide: true });
 
 add('/templates/', 'Note templates', 'Six copyable note outlines for personal essays, project updates, and practical guides. Prepare source material without inventing missing facts.', `${heading('Start with your material', 'A better starting point than a blank box.', 'Choose an outline, fill it in using your own facts, and mark what you do not know. These templates work with or without pilot access.')}

@@ -14,6 +14,9 @@ import os
 import shutil
 import subprocess
 import sys
+from contextlib import contextmanager
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 from pathlib import Path
 from urllib.parse import urlparse, unquote
 from playwright.sync_api import sync_playwright, expect
@@ -35,6 +38,22 @@ report = {'mode':'local routed responses, real ES modules and CSP; no live authe
 source = {'profile':'update','notes':'Fictional source notes, not part of the article.','audience':'Readers','purpose':'Explain the experiment.'}
 draft = {'title':'An edited local article','excerpt':'A brief summary.','description':'A factual description.','slug':'edited-local-article','body':'An article paragraph.\n\n## A heading\n\n- One\n- Two','questions':['Does this preserve uncertainty?']}
 backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':draft}
+
+@contextmanager
+def static_download_site():
+    # Native static downloads bypass Playwright routing. Give this fixture a real
+    # loopback response, with the same public CSP; no production request is made.
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self,*args,**kwargs):super().__init__(*args,directory=str(root/'public'),**kwargs)
+        def log_message(self,*args):pass
+        def end_headers(self):
+            self.send_header('Content-Security-Policy',csp)
+            self.send_header('X-Content-Type-Options','nosniff')
+            super().end_headers()
+    server=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+    thread=Thread(target=server.serve_forever,daemon=True);thread.start()
+    try:yield 'http://127.0.0.1:'+str(server.server_port)
+    finally:server.shutdown();server.server_close();thread.join()
 
 def open_more(page):
     if not page.locator('#start-notes').is_visible():
@@ -62,15 +81,15 @@ with sync_playwright() as p:
     if binary: options['executable_path'] = binary
     browser = p.chromium.launch(**options)
     report['browser_version']=browser.version
-    def open_page(path, js=True, blocked_modules=()):
+    def open_page(path, js=True, blocked_modules=(), site_origin=origin):
         print('Browser fixture: '+path,flush=True)
         state = {'calls':0,'expired':False,'failure':False,'accept':True,'api':[], 'blocked':[]}
         context = browser.new_context(viewport={'width':1440,'height':1000},java_script_enabled=js,accept_downloads=True,reduced_motion='reduce')
         # Test-browser clipboard permission is scoped to this fictional local origin.
-        context.grant_permissions(['clipboard-read','clipboard-write'],origin=origin)
+        context.grant_permissions(['clipboard-read','clipboard-write'],origin=site_origin)
         def route(r):
             u = urlparse(r.request.url)
-            if u.netloc != 'drafttopage.test':
+            if u.netloc != urlparse(site_origin).netloc:
                 report['unexpected_requests'].append(r.request.url); r.abort(); return
             if u.path in blocked_modules:
                 state['blocked'].append(u.path); r.abort('blockedbyclient'); return
@@ -97,7 +116,7 @@ with sync_playwright() as p:
         page=context.new_page(); page.set_default_timeout(15000)
         page.on('pageerror',lambda error: report['errors'].append(str(error)))
         page.on('dialog',lambda dialog: dialog.accept() if state['accept'] else dialog.dismiss())
-        page.goto(origin+path)
+        page.goto(site_origin+path)
         return page,context,state
     def layout(page,name):
         for width in [1440,390,320]:
@@ -136,6 +155,49 @@ with sync_playwright() as p:
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
+    # The public walkthrough starts with an actual downloaded file, not seeded editor text.
+    with static_download_site() as sample_origin:
+        page,context,state=open_page('/help/conversion-checks/',js=False,site_origin=sample_origin)
+        expect(page.locator('h1')).to_contain_text('Check a Word or Google Docs draft')
+        for anchor in ['word','google-docs','wordpress','tested']:
+            page.locator('nav[aria-label="Conversion checks"] a[href="#'+anchor+'"]').click()
+            expect(page.locator('#'+anchor)).to_be_visible()
+        with page.expect_download() as info:
+            page.get_by_role('link',name='Download the fictional Word sample',exact=True).click()
+        sample_bytes=Path(info.value.path()).read_bytes()
+        layout(page,'conversion-checks');assert state['api']==[];context.close()
+    with zipfile.ZipFile(io.BytesIO(sample_bytes)) as z:
+        assert z.testzip() is None
+        xml=ET.fromstring(z.read('word/document.xml'))
+        sample_text=''.join(xml.itertext())
+        assert all(value in sample_text for value in ['A small publishing plan','Before publishing','Planned'])
+    page,context,state=open_page('/word-to-wordpress/')
+    page.locator('#import-file').set_input_files({'name':'fictional-sample.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':sample_bytes})
+    expect(page.locator('#import-preview')).to_be_visible()
+    assert page.locator('#body').input_value()==''
+    expect(page.locator('#apply-import')).to_be_disabled()
+    expect(page.locator('#import-reading-preview')).to_contain_text('Planned')
+    page.check('#import-changes-ok');page.click('#apply-import')
+    expect(page.locator('#title')).to_have_value('A small publishing plan')
+    open_details(page,'#preview-panel')
+    expect(page.locator('#article-preview').get_by_role('heading',name='Before publishing',exact=True)).to_be_visible()
+    expect(page.locator('#article-preview li')).to_have_count(2)
+    expect(page.locator('#article-preview td')).to_have_count(4)
+    assert not page.locator('#reviewed').is_checked()
+    page.check('#reviewed')
+    with page.expect_download() as info:page.click('#download-wordpress')
+    from html.parser import HTMLParser
+    class WalkthroughReader(HTMLParser):
+        def __init__(self):super().__init__(convert_charrefs=True);self.tags=[];self.text=[]
+        def handle_starttag(self,tag,attrs):self.tags.append(tag)
+        def handle_data(self,text):self.text.append(text)
+    blocks=Path(info.value.path()).read_text();reader=WalkthroughReader();reader.feed(blocks)
+    assert all(value in ''.join(reader.text) for value in ['Before publishing','clear structure','Review the article.','Preview the destination.','Publish','Planned'])
+    assert 'A small publishing plan' not in ''.join(reader.text)
+    assert reader.tags.count('li')==2 and reader.tags.count('td')==4 and reader.tags.count('table')==1
+    assert '<!-- wp:heading' in blocks and '<!-- wp:table' in blocks
+    assert state['api']==[];context.close()
+    report['checks'].append('Public conversion walkthrough: no-JavaScript guide anchors, real sample download and independent Word ZIP read, native staged file import/acknowledgement, separate title, exact expected passages/list/table in actual WordPress download; dated scope and source-specific troubleshooting')
     # Native paste, not the fill helper: Chromium insertText can emit an event per line.
     bulk='\n\n'.join('Fictional paragraph '+str(i)+' keeps one uncertainty.' for i in range(1000))+'\n\n日本語 😀 END_NATIVE_PASTE'
     assert 47000<len(bulk)<59000

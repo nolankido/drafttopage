@@ -47,6 +47,8 @@ The release marker is `revision-recovery-20261014`. Validation and publication r
 
 ## Next priorities
 
+The later original twenty-item conversion roadmap is reconciled in [the October 16 status](ROADMAP_STATUS_20261016.md). Numbered follow-up engineering cycles are not evidence that every original user-research or demand gate has passed.
+
 1. Complete the private owner activation checklist using fictional notes and genuine provider acceptance, with spending controls confirmed privately.
 2. Run screen-reader and real-mobile usability sessions, especially navigation among notes, article, checkpoints, and exports.
 3. Evaluate draft quality against a small explicit set of fictional source scenarios, checking uncertainty, unsupported claims, voice, and edits.

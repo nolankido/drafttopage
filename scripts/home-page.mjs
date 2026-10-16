@@ -19,7 +19,7 @@ export const HOME_PAGE = `
     <p class="lead">Bring your writing. Check the formatting. Take editable blocks into your next post.</p>
     <p>Start with Word, Google Docs, or Markdown. Keep supported headings, lists, links, and simple tables.</p>
     <div class="actions"><a class="button" href="#start">Choose your draft <span aria-hidden="true">↗</span></a><a class="text-link" href="/markdown-to-wordpress/#sample">Try a fictional sample</a></div>
-    <ul class="home-assurances" aria-label="Public tool basics"><li>Free</li><li>No account</li><li>Writing stays in this tab</li></ul>
+    <ul class="home-assurances" aria-label="Public tool basics"><li>Free</li><li>No account</li><li>Local conversion</li></ul>
     <p class="small">You review and publish in WordPress. Save a backup before leaving.</p>
   </div>
   <aside class="home-start" id="start" aria-labelledby="start-heading">
@@ -35,7 +35,7 @@ export const HOME_PAGE = `
     <section class="comparison-input" aria-labelledby="example-input-heading"><p class="comparison-label" id="example-input-heading">Simple Markdown in</p><pre><code>${escapeHTML(HOME_EXAMPLE)}</code></pre></section>
     <section class="comparison-result" aria-labelledby="example-output-heading"><p class="comparison-label" id="example-output-heading">Supported formatting out</p><div class="home-reading">${exampleHTML}</div><p class="small">Headings, paragraphs, emphasis, and lists become editable WordPress blocks.</p></section>
   </div>
-  <div class="actions"><a class="button" href="/markdown-to-wordpress/#sample">Open the working sample</a><a class="text-link" href="/examples/">More fictional examples</a></div>
+  <div class="actions"><a class="button" href="/markdown-to-wordpress/#sample">Open the working sample</a><a class="text-link" href="/examples/">More fictional examples</a><a class="text-link" href="/help/conversion-checks/#tested">What has been tested?</a></div>
 </div></section>
 <section class="section wrap" id="process"><p class="eyebrow">One article, three steps</p><h2>Keep the next step clear.</h2><div class="steps">
   <article><p class="step-number">01 / Bring</p><h3>Open or paste your draft.</h3><p>Choose a Word file, paste a Google Docs selection, or bring plain text and Markdown.</p></article>
