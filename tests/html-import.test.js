@@ -216,7 +216,29 @@ test('Plain clipboard fallback is labelled, acknowledged, re-previewable, and pu
   ui.openCopied(); await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/plain' ? 'Plain body with no hidden formatting.' : '' } });
   assert.match($('import-summary').textContent, /Copied plain text/); assert.match($('import-warnings').childNodes[0].textContent, /cannot be recovered/); assert.equal($('apply-import').disabled, true);
   await $('preview-import').fire(); assert.match($('import-summary').textContent, /Copied plain text/);
-  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire(); assert.equal(applications.length, 1); assert.equal(applications[0].body, 'Plain body with no hidden formatting.'); assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, '');
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire(); assert.equal(applications.length, 1); assert.equal(createHTMLSource(applications[0]), '<p>Plain body with no hidden formatting.</p>\n'); assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, '');
+}));
+test('Plain clipboard syntax stays literal through preview, re-preview and explicit apply', () => withDOM(async ({ $, ui, applications }) => {
+  const source = '---\ntitle: Keep this in the body\n---\n\n# Literal heading\n\n**Literal emphasis**';
+  ui.openCopied(); $('body').value = 'Existing writing.';
+  await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/plain' ? source : '' } });
+  assert.equal($('body').value, 'Existing writing.'); assert.equal(applications.length, 0);
+  assert.equal($('apply-import').disabled, true); assert.match($('import-warnings').childNodes[0].textContent, /Punctuation stays literal/);
+  const before = $('import-body-preview').value;
+  await $('preview-import').fire(); assert.equal($('import-body-preview').value, before);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire();
+  assert.equal(applications.length, 1); assert.equal(applications[0].title, ''); assert.equal(applications[0].body, before);
+  assert.equal(ui.pending(), false);
+}));
+test('Escaping beyond the article limit keeps current writing and blocks an older copied preview', () => withDOM(async ({ $, ui, applications, message }) => {
+  ui.openCopied(); $('body').value = 'Current article.';
+  await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/plain' ? 'Earlier preview.' : '' } });
+  const before = $('import-body-preview').value;
+  await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/plain' ? '!'.repeat(30001) : '' } });
+  assert.equal($('body').value, 'Current article.'); assert.equal($('import-body-preview').value, before); assert.match(message(), /60,000|nothing was truncated/);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire();
+  assert.equal($('apply-import').disabled, true); assert.equal(applications.length, 0);
+  await $('preview-import').fire(); assert.equal($('apply-import').disabled, true);
 }));
 test('Oversized or unreadable clipboard data keeps the previous conversion and its source available', () => withDOM(async ({ $, ui }) => {
   ui.openCopied(); await $('import-text').fire('paste', { clipboardData: { getData: () => '<p>Valid</p>' } });
@@ -263,8 +285,8 @@ test('Copied writing can join the current article through the existing exact ins
 });
 test('Cancelling the fictional example keeps retained copied source and its existing preview', () => withDOM(async ({ $, ui, confirm }) => {
   ui.openCopied(); await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/plain' ? 'Keep this copied draft.' : '' } });
-  confirm(false); await $('import-html-example').fire(); assert.match($('import-summary').textContent, /Copied plain text/); assert.equal($('import-body-preview').value, 'Keep this copied draft.');
-  await $('preview-import').fire(); assert.equal($('import-body-preview').value, 'Keep this copied draft.');
+  confirm(false); await $('import-html-example').fire(); assert.match($('import-summary').textContent, /Copied plain text/); assert.equal(createHTMLSource({ body: $('import-body-preview').value }), '<p>Keep this copied draft.</p>\n');
+  const before = $('import-body-preview').value; await $('preview-import').fire(); assert.equal($('import-body-preview').value, before);
 }, { pasteFirst: true }));
 test('Selected HTML files retain raw text for retry and cannot bypass the review acknowledgement', () => withDOM(async ({ $, parse, applications }) => {
   const raw = '<table><tr><td>Name</td></tr><tr><td>One</td></tr></table>';
