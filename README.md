@@ -212,6 +212,10 @@ The optional [long-article editing benchmark](docs/LONG_ARTICLE_PERFORMANCE_2026
 
 [Inactive WordPress image inspection](docs/INACTIVE_IMAGE_INSPECTION_20261016.md) also skips article reads and clears derived references outside WordPress. Returning rechecks current images without reselecting them; linked-image consent and export approval remain separate explicit choices.
 
+## Google Docs checklist support
+
+The [Google Docs checklist conversion](docs/GOOGLE_DOCS_CHECKLISTS_20261016.md) keeps supported explicit states as readable `[Checked]` and `[Unchecked]` labels, with reviewed list nesting and strikethrough. Its retained application-origin fixture now has a disclosed-conversion contract and an additional local WordPress save/reopen case. The labels are ordinary article text, not interactive checkboxes.
+
 ## Manual public alpha study
 
 The [ten-writer public alpha kit](docs/PUBLIC_ALPHA_STUDY_20261016.md) provides fictional material, six task cards and a blank private session-record template. It tests first conversion through actual handoff, voluntary recovery and observed repeat use. The study is prepared, **NOT_RUN**. No participants were contacted or counted. Completed records stay outside this public repository; the private AI pilot remains separate and inactive.

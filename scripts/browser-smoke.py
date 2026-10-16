@@ -25,6 +25,7 @@ parser = argparse.ArgumentParser()
 scope = parser.add_mutually_exclusive_group()
 scope.add_argument('--desk-only', action='store_true')
 scope.add_argument('--documents-only', action='store_true')
+scope.add_argument('--checklists-only', action='store_true')
 args = parser.parse_args()
 root = Path.cwd()
 out = root / 'test-results'
@@ -34,7 +35,7 @@ out.mkdir(exist_ok=True)
 origin = 'https://drafttopage.test'
 csp = next(line.split(':', 1)[1].strip() for line in (root/'public/_headers').read_text().splitlines() if 'Content-Security-Policy:' in line)
 app_html = subprocess.check_output(['node','--input-type=module','-e',"import {appPage} from './src/pages.js'; process.stdout.write(appPage)"], text=True)
-report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'documents-only' if args.documents_only else 'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}, 'motion':'reduced for deterministic fixture geometry'}
+report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'documents-only' if args.documents_only else 'checklists-only' if args.checklists_only else 'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}, 'motion':'reduced for deterministic fixture geometry'}
 source = {'profile':'update','notes':'Fictional source notes, not part of the article.','audience':'Readers','purpose':'Explain the experiment.'}
 draft = {'title':'An edited local article','excerpt':'A brief summary.','description':'A factual description.','slug':'edited-local-article','body':'An article paragraph.\n\n## A heading\n\n- One\n- Two','questions':['Does this preserve uncertainty?']}
 backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':draft}
@@ -149,6 +150,16 @@ with sync_playwright() as p:
         report['document_benchmark'] = {'result':corpus['result'],'cases':len(corpus['cases']),'counts':corpus['counts']}
         report['layout'].update(corpus['layout'])
         report['checks'].append('Pinned document corpus: exact and sampled text, structure, disclosures, rejections, independent Word bytes, and native file import/export')
+        browser.close()
+        assert not report['errors'] and not report['unexpected_requests'], report
+        report['result']='PASS'
+        (out/'browser-results.json').write_text(json.dumps(report,indent=2))
+        print(json.dumps(report,indent=2))
+        sys.exit(0)
+    from checklist_acceptance import run_checklist_acceptance
+    run_checklist_acceptance(open_page, root, out, layout)
+    report['checks'].append('Google Docs checklist: native fixture clipboard, explicit-state and exact hierarchy review, contradictory-marker rejection, cancellation and checkpointed apply, actual WordPress/HTML/Word downloads, edit invalidation, no source images or API calls, and narrow layouts')
+    if args.checklists_only:
         browser.close()
         assert not report['errors'] and not report['unexpected_requests'], report
         report['result']='PASS'

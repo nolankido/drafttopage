@@ -61,6 +61,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   mark(root);
   const notices = new Map();
   const warn = message => notices.set(message, (notices.get(message) || 0) + 1);
+  const checkboxRole = node => (attr(node, 'role') || '').trim().toLowerCase().split(/\s+/).includes('checkbox');
   function skip(node) {
     const name = tag(node);
     if (name === 'base') { warn('Source HTML base URLs were ignored. Only the source page URL you supply is used for relative links.'); return true; }
@@ -69,21 +70,33 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (node.nodeType === 1 && (node.hasAttribute('hidden') || attr(node, 'aria-hidden')?.toLowerCase() === 'true' || style.get('display') === 'none' || style.get('visibility') === 'hidden')) {
       warn('Explicitly hidden content was omitted.'); return true;
     }
+    if (name !== 'li' && (checkboxRole(node) || attr(node, 'aria-checked') !== null)) throw new Error('Checkbox state outside a list item cannot be preserved. Choose a supported checklist selection before importing.');
     if (name === 'ins' || name === 'del') throw new Error('Resolve tracked changes before importing this HTML. Current writing is unchanged.');
     return false;
+  }
+  function rejectFlattenedChecklist(node) {
+    if (tag(node) === 'li' && (checkboxRole(node) || attr(node, 'aria-checked') !== null)) throw new Error('Checklist items inside this container cannot be preserved. Move the checklist into the main article before importing.');
   }
   function plain(node) {
     if (node.nodeType === 3) return node.nodeValue;
     if (node.nodeType !== 1 && node.nodeType !== 11) return '';
     if (skip(node)) return '';
+    rejectFlattenedChecklist(node);
     if (tag(node) === 'br') return '\n';
     if (tag(node) === 'img') { warn('Images were replaced with text placeholders; no image was loaded.'); return '[Image: ' + (attr(node, 'alt') || 'no description supplied') + ']'; }
     return children(node).map(plain).join('');
+  }
+  function strikeFormatting(node, style = styles(node), decoration = inlineDecoration(node)) {
+    let strike = decoration !== undefined ? /(?:^|\s)line-through(?:\s|$)/.test(decoration) : tag(node) === 's' || tag(node) === 'strike';
+    if (strike && (style.get('text-decoration-style') === 'double' || /(?:^|\s)double(?:\s|$)/.test(decoration || ''))) { strike = false; warn('Double strikethrough was simplified to plain text.'); }
+    else if (strike && /(?:dotted|dashed|wavy)/.test(style.get('text-decoration-style') || decoration || '')) warn('Strikethrough line styling was simplified to a single ordinary line.');
+    return strike;
   }
   function inlineNodes(node, inLink = false) {
     const text = value => [{ type: 'text', text: value }];
     if (node.nodeType === 3) return text(whitespace(node.nodeValue));
     if (node.nodeType !== 1 && node.nodeType !== 11 || skip(node)) return [];
+    rejectFlattenedChecklist(node);
     const name = tag(node);
     if (name === 'img') { warn('Images were replaced with text placeholders; no image was loaded.'); return text('[Image: ' + whitespace(attr(node, 'alt') || 'no description supplied') + ']'); }
     if (name === 'br') return text('\n');
@@ -107,9 +120,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     const bold = weight ? weight === 'bold' || Number(weight) >= 600 : name === 'strong' || name === 'b';
     const italic = style.has('font-style') ? style.get('font-style') === 'italic' : name === 'em' || name === 'i';
     const decoration = inlineDecoration(node);
-    let strike = decoration !== undefined ? /(?:^|\s)line-through(?:\s|$)/.test(decoration) : name === 's' || name === 'strike';
-    if (strike && (style.get('text-decoration-style') === 'double' || /(?:^|\s)double(?:\s|$)/.test(decoration || ''))) { strike = false; warn('Double strikethrough was simplified to plain text.'); }
-    else if (strike && /(?:dotted|dashed|wavy)/.test(style.get('text-decoration-style') || decoration || '')) warn('Strikethrough line styling was simplified to a single ordinary line.');
+    const strike = strikeFormatting(node, style, decoration);
     if (['sup', 'sub', 'u', 'mark'].includes(name) || decoration && /(?:^|\s)(?:underline|overline)(?:\s|$)/.test(decoration)) warn('Some inline formatting was simplified to plain text.');
     if ((bold || italic || strike) && /[\r\n]/.test(children(node).map(plain).join(''))) { warn('Multiline emphasis was simplified.'); return content; }
     if (bold) content = [{ type: 'strong', children: content }];
@@ -123,7 +134,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     return result.markdown;
   }
   const inline = node => writeInline(inlineNodes(node));
-  function flattened(nodes) {
+  function flattened(nodes, strike = false) {
     const pieces = nodes.flatMap(node => {
       if (blocks.has(tag(node))) { warn('Paragraph breaks inside a list item or table cell were simplified.'); return [...inlineNodes(node), { type: 'text', text: ' ' }]; }
       return inlineNodes(node);
@@ -135,21 +146,64 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       }
       return { ...part, children: simplify(part.children) };
     });
-    return writeInline(simplify(pieces)).trim();
+    const content = simplify(pieces);
+    return writeInline(strike ? [{ type: 's', children: content }] : content).trim();
   }
-  function list(node, depth, budget) {
+  function checkboxState(item, depth, explicitLevel = false) {
+    const role = (attr(item, 'role') || '').trim().toLowerCase(), checked = attr(item, 'aria-checked');
+    if (role !== 'checkbox') {
+      if (checked !== null || explicitLevel || checkboxRole(item)) throw new Error('Checklist state needs a checkbox list item with explicit true or false aria-checked. Correct the source before importing.');
+      return null;
+    }
+    const state = checked?.trim().toLowerCase();
+    if (!['true', 'false'].includes(state)) throw new Error('Checklist state must be explicitly true or false. Mixed or missing states cannot be preserved.');
+    const level = attr(item, 'aria-level');
+    if (level === null ? explicitLevel : !/^[1-6]$/.test(level.trim()) || Number(level) !== depth) throw new Error('Checklist levels must match their list depth. Nested sibling lists need explicit aria-level values on every checkbox item.');
+    return state;
+  }
+  const checkboxMarker = node => tag(node) === 'img' && (attr(node, 'aria-roledescription') || '').trim().toLowerCase() === 'checkbox';
+  function checklistText(nodes, state) {
+    // A marker is redundant only when its literal accessible label agrees with
+    // the item's explicit state. Its src is never read, loaded, or decoded.
+    function inspect(node) {
+      if (skip(node)) return;
+      if (checkboxMarker(node)) {
+        const expected = state === 'true' ? 'checked' : 'unchecked';
+        if ((attr(node, 'alt') || '').trim().toLowerCase() !== expected) throw new Error('A checkbox image marker has an unknown or conflicting state. Compare it with the explicit checklist state before importing.');
+      }
+      for (const child of children(node)) inspect(child);
+    }
+    for (const node of nodes) inspect(node);
+    const leading = nodes.find(node => !(node.nodeType === 3 && !node.nodeValue.trim()) && node.nodeType !== 8 && !skip(node));
+    return checkboxMarker(leading || {}) ? nodes.filter(node => node !== leading) : nodes;
+  }
+  function list(node, depth, budget, explicitLevels = false) {
     if (depth > 6) throw new Error('Lists support at most six levels. Simplify this list before importing.');
     const ordered = tag(node) === 'ol';
     if (node.hasAttribute('reversed') || (ordered && attr(node, 'type') && attr(node, 'type') !== '1') || (ordered && styles(node).has('list-style-type') && styles(node).get('list-style-type') !== 'decimal')) throw new Error('Reversed or lettered lists are not supported. Use an ordinary numbered list.');
     const startText = attr(node, 'start');
     if (ordered && startText !== null && !/^\d{1,9}$/.test(startText)) throw new Error('Ordered list starts must be integers from 0 to 999999999.');
     const start = ordered && startText !== null ? Number(startText) : 1;
-    const items = children(node).filter(child => !(child.nodeType === 3 && !child.nodeValue.trim()) && child.nodeType !== 8 && !skip(child));
-    if (!items.length || items.some(item => tag(item) !== 'li')) throw new Error('This list has unsupported structure. Simplify it before importing.');
+    const items = []; let preceding = null;
+    for (const child of children(node)) {
+      if (child.nodeType === 3 && !child.nodeValue.trim() || child.nodeType === 8) continue;
+      // A hidden item must not make its following sibling list attach to an
+      // earlier visible item. Keep that boundary even though its text is omitted.
+      if (skip(child)) { preceding = null; continue; }
+      if (tag(child) === 'li') { preceding = { node: child, siblings: [] }; items.push(preceding); }
+      else if (!ordered && tag(child) === 'ul' && preceding) {
+        checkboxState(preceding.node, depth, true);
+        preceding.siblings.push(child); explicitLevels = true;
+      } else throw new Error('This list has unsupported structure. Simplify it before importing.');
+    }
+    if (!items.length) throw new Error('This list has unsupported structure. Simplify it before importing.');
+    // Google's sibling-list form is accepted only as an explicit checklist.
+    // Plan its hierarchy without reparenting or otherwise changing source nodes.
+    const states = items.map(item => checkboxState(item.node, depth, explicitLevels));
     const lines = [];
     for (let index = 0; index < items.length; index++) {
       if (++budget.items > 200 || (ordered && start + index > 999999999)) throw new Error('A list supports at most 200 items and nine-digit numbers.');
-      const item = items[index];
+      const item = items[index].node, state = states[index];
       if (attr(item, 'value') !== null) throw new Error('Per-item numbering is not supported. Use consecutive list numbers.');
       const own = [], nestedLists = []; let childSeen = false;
       for (const child of children(item)) {
@@ -161,11 +215,16 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
           own.push(child);
         }
       }
-      const text = flattened(own);
+      const visibleOwn = state === null ? own : checklistText(own, state);
+      const text = flattened(visibleOwn, state !== null && strikeFormatting(item));
       if (!text) throw new Error('Empty list items cannot be preserved. Add text before importing.');
+      nestedLists.push(...items[index].siblings);
       if (nestedLists.length > 1) throw new Error('Multiple nested lists in one item cannot be preserved separately. Combine or simplify them before importing.');
-      lines.push('  '.repeat(depth - 1) + (ordered ? start + index + '. ' : '- ') + text);
-      for (const child of nestedLists) lines.push(...list(child, depth + 1, budget));
+      const label = state === null ? '' : writeInline([{ type: 'text', text: state === 'true' ? '[Checked] ' : '[Unchecked] ' }]);
+      if (state !== null) warn('Checklist states were kept as [Checked] and [Unchecked] text labels. These labels are not interactive checkboxes.');
+      if (items[index].siblings.length) warn('Nested checklist levels were reconstructed from explicit source levels. Compare the hierarchy with your original document.');
+      lines.push('  '.repeat(depth - 1) + (ordered ? start + index + '. ' : '- ') + label + text);
+      for (const child of nestedLists) if (!skip(child)) lines.push(...list(child, depth + 1, budget, explicitLevels));
     }
     return lines;
   }
@@ -174,7 +233,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     for (const child of children(node)) {
       if (tag(child) === 'caption') captions.push(inline(child).trim());
       else if (tag(child) === 'tr') rows.push(child);
-      else if (['thead', 'tbody', 'tfoot'].includes(tag(child))) rows.push(...children(child).filter(n => tag(n) === 'tr'));
+      else if (['thead', 'tbody', 'tfoot'].includes(tag(child)) && !skip(child)) rows.push(...children(child).filter(n => tag(n) === 'tr'));
     }
     if (!rows.length || rows.length > 101) throw new Error('Tables need a header and at most 100 data rows.');
     const visibleRows = rows.filter(row => !skip(row));
