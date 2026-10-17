@@ -7,6 +7,7 @@ import { copiedWritingSource, parseCopiedWriting } from './copied-writing.js';
 import { downloadText } from './download.js';
 import { installWordComments } from './word-comment-controls.js';
 import { HTML_SOURCE_SAMPLE } from './html-source-sample.js';
+import { wordImageDownloadAllowed } from './word-image-metadata.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
@@ -22,7 +23,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
   const revisionLabel = () => candidate?.wordRevisions?.mode === 'previous' ? 'Previous text' : 'Proposed text';
   const hasTextRevisions = () => Boolean(candidate?.wordRevisions && candidate.wordRevisions.insertions + candidate.wordRevisions.deletions);
   const clearWordImages = () => {
-    wordImageKit = null; $('word-image-private-ok').checked = false;
+    wordImageKit = null; $('word-image-private-ok').checked = false; $('word-image-metadata-ok').checked = false;
+    $('word-image-metadata-review').hidden = true; $('word-image-metadata-files').replaceChildren();
     $('word-image-kit-review').hidden = true; $('download-word-images').disabled = true;
     $('word-image-kit-status').textContent = '';
     $('word-image-kit-files').replaceChildren(); $('word-image-kit-skipped').replaceChildren();
@@ -133,7 +135,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     if ($('start-insert-import')) $('start-insert-import').disabled = reading || isBusy();
     if ($('start-copied-paste')) $('start-copied-paste').disabled = reading || isBusy();
     $('prepare-word-images').disabled = reading || isBusy() || !wordFile || !candidate?.wordImages?.length;
-    $('download-word-images').disabled = reading || isBusy() || !wordImageKit?.bytes || !$('word-image-private-ok').checked;
+    $('download-word-images').disabled = !wordImageDownloadAllowed(wordImageKit, $('word-image-private-ok').checked, $('word-image-metadata-ok').checked, reading || isBusy());
+    $('word-image-metadata-ok').disabled = reading || isBusy() || !wordImageKit?.metadata?.length;
     $('discard-word-images').disabled = reading || isBusy();
     $('word-image-private-ok').disabled = reading || isBusy();
   }
@@ -152,12 +155,16 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
       $('word-image-kit-files').replaceChildren(...prepared.images.map(image => {
         const item = document.createElement('li'); item.textContent = image.name + ' · ' + image.width + ' × ' + image.height + ' pixels · ' + image.bytes.toLocaleString() + ' bytes · ' + image.placeholders.join(', '); return item;
       }));
+      $('word-image-metadata-files').replaceChildren(...(prepared.metadata || []).map(image => {
+        const item = document.createElement('li'); item.textContent = image.name + ': ' + image.signals.join(', '); return item;
+      }));
+      $('word-image-metadata-review').hidden = !(prepared.metadata || []).length;
       $('word-image-kit-skipped').replaceChildren(...prepared.skipped.map(image => {
         const item = document.createElement('li'); item.textContent = image.placeholder + ': ' + image.note; return item;
       }));
       $('word-image-private-label').hidden = !prepared.bytes;
       $('word-image-kit-review').hidden = false;
-      $('word-image-kit-status').textContent = prepared.images.length + ' original image file(s) prepared; ' + prepared.skipped.length + ' position(s) need separate work. ' + (prepared.bytes ? 'The ZIP also includes article-body.md, image-map.json with Word alt text, and README.txt. Review and download before applying this import.' : 'No supported image files could be recovered. The article can still be imported.');
+      $('word-image-kit-status').textContent = prepared.images.length + ' original image file(s) prepared; ' + prepared.skipped.length + ' position(s) need separate work. ' + ((prepared.metadata || []).length ? prepared.metadata.length + ' file(s) have recognizable metadata markers. Review the separate privacy warning before downloading. ' : '') + (prepared.bytes ? 'The ZIP also includes article-body.md, image-map.json with Word alt text, and README.txt. Review and download before applying this import.' : 'No supported image files could be recovered. The article can still be imported.');
       report($('word-image-kit-status').textContent);
     } catch (error) {
       $('word-image-kit-status').textContent = (error.message || 'Image recovery is unavailable.') + ' The article preview and current writing are kept.';
@@ -167,8 +174,9 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     }
   });
   $('word-image-private-ok').addEventListener('change', updateApply);
+  $('word-image-metadata-ok').addEventListener('change', updateApply);
   $('download-word-images').addEventListener('click', () => {
-    if (reading || isBusy() || !wordImageKit?.bytes || !$('word-image-private-ok').checked) return;
+    if (!wordImageDownloadAllowed(wordImageKit, $('word-image-private-ok').checked, $('word-image-metadata-ok').checked, reading || isBusy())) return;
     try { download(wordImageKit.bytes, wordImageKit.filename, 'application/zip'); report('Word image package download requested. Inspect the saved files, then upload images and replace placeholders in WordPress yourself. Nothing was published.'); }
     catch (error) { report('The image download could not start. Prepared files and your article preview are kept. ' + error.message); }
   });
