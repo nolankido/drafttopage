@@ -1,4 +1,4 @@
-// Temporary narrow diagnostic, do not merge.
+// Temporary map controller and guide validation only.
 import { execFileSync } from 'node:child_process';
 await import('./build-content.mjs');
-execFileSync(process.execPath, ['--test', '--test-name-pattern=Next match|Repeated image|Protected Markdown|first 40', 'tests/word-image-sequence.test.js'], { stdio: 'inherit', timeout: 60000 });
+execFileSync(process.execPath, ['--test', '--test-name-pattern=Map button|All guide', 'tests/word-image-sequence.test.js'], { stdio: 'inherit', timeout: 60000 });
