@@ -24,6 +24,6 @@ export function wordpressMediaFixture() {
     ]
   };
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href)) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   process.stdout.write(JSON.stringify(wordpressMediaFixture()) + '\n');
 }
