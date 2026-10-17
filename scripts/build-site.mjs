@@ -1,2 +1,3 @@
-// All public pages use a shared shell and a deterministic local build.
+// Temporary preview-only acceptance hook, excluded from the main PR.
 import './build-content.mjs';
+await import('./temporary-wordpress-validation.mjs');
