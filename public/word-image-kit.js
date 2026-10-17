@@ -1,5 +1,6 @@
 import { inspectDocxArchive, readDocxImagePart, wordImagePartName, MAX_WORD_IMAGE_BYTES } from './docx-archive.js';
 import { createWordImageZip } from './zip.js';
+import { wordImageMetadataSignals } from './word-image-metadata.js';
 
 export const MAX_WORD_IMAGE_FILES = 40;
 export const MAX_WORD_IMAGE_TOTAL = 12 * 1024 * 1024;
@@ -66,7 +67,8 @@ export async function prepareWordImageKit(input, candidate) {
         if (total + entry.length > MAX_WORD_IMAGE_TOTAL) throw new Error('This image would exceed the 12 MiB combined image limit.');
         const content = await readDocxImagePart(input, record.part);
         const dimensions = wordImageDimensions(content, record.mime);
-        file = { name: 'word-image-' + String(record.index).padStart(3, '0') + (record.mime === 'image/png' ? '.png' : '.jpg'), content, ...dimensions };
+        const metadataSignals = wordImageMetadataSignals(content, record.mime);
+        file = { metadataSignals, name: 'word-image-' + String(record.index).padStart(3, '0') + (record.mime === 'image/png' ? '.png' : '.jpg'), content, ...dimensions };
         total += content.length; files.push(file);
       } catch (failure) { error = failure.message || 'This image could not be read.'; }
       parts.set(record.part, { file, error });
@@ -76,10 +78,17 @@ export async function prepareWordImageKit(input, candidate) {
     else { placement.filename = result.file.name; placement.note = 'Original image file. Review alt text and placement in WordPress.'; }
   }
   const images = files.map(({ name, content, width, height }) => ({ name, bytes: content.length, width, height, placeholders: placements.filter(p => p.filename === name).map(p => p.placeholder) }));
-  if (!files.length) return { bytes: null, filename: '', images, placements, skipped };
+  const metadata = files.filter(file => file.metadataSignals.length).map(file => ({ name: file.name, signals: [...file.metadataSignals] }));
+  if (!files.length) return { bytes: null, filename: '', images, placements, skipped, metadata };
   const map = JSON.stringify({ format: 'drafttopage-word-images-v1', placementScope: 'This selected Word import before later edits or insertion into another article.', images, placements }, null, 2) + '\n';
   const instructions = [
     'WORD IMAGES FOR A MANUAL WORDPRESS HANDOFF',
+    '',
+    'LOCAL METADATA MARKER REVIEW',
+    metadata.length ? metadata.length + ' recovered image file(s) contain recognized metadata segment types.' : 'No recognized EXIF or text-metadata segments were found. This does not establish that the images contain no metadata.',
+    ...metadata.flatMap(item => [item.name + ': ' + item.signals.join(', ')]),
+    'These are marker names only. The contents of metadata and any GPS/location details were not decoded, shown, or removed. Detection is not exhaustive.',
+    'The recovered image files are the ORIGINAL BYTES. Inspect the images and remove metadata yourself if necessary before uploading or sharing them.',
     '',
     'This ZIP contains original embedded PNG/JPEG files, the converted article body, and image-map.json. It excludes private workspace source/review notes. Keep the files private until ready to publish.',
     '',
@@ -100,5 +109,5 @@ export async function prepareWordImageKit(input, candidate) {
     ...placements.flatMap(p => [p.placeholder + ': ' + (p.filename || 'NOT RECOVERED'), 'Word alternative text: ' + (p.alt || '[not supplied]') + (p.altTruncated ? ' [shortened to 500 characters; inspect Word]' : ''), p.note, ''])
   ].join('\n');
   const bytes = createWordImageZip([...files.map(({ name, content }) => ({ name, content })), { name: 'article-body.md', content: candidate.draft.body.trim() + '\n' }, { name: 'image-map.json', content: map }, { name: 'README.txt', content: instructions }]);
-  return { bytes, filename: 'drafttopage-word-images.zip', images, placements, skipped };
+  return { bytes, filename: 'drafttopage-word-images.zip', images, placements, skipped, metadata };
 }

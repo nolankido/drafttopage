@@ -51,6 +51,12 @@
 <button id="prepare-word-images" type="button" class="secondary">Prepare Word image files</button>
 <p id="word-image-kit-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
 <div id="word-image-kit-review" hidden><ul id="word-image-kit-files" class="word-image-kit-files" aria-label="Prepared Word image files"></ul><ul id="word-image-kit-skipped" class="small" aria-label="Images to handle separately"></ul>
+<section id="word-image-metadata-review" hidden aria-labelledby="word-image-metadata-heading">
+<h4 id="word-image-metadata-heading">Image metadata privacy review</h4>
+<p class="small">Some original images contain EXIF, XMP, IPTC, comments, or text segments that can include creator or location details. Draft to Page checks recognizable metadata marker types locally. It does not read the values, remove metadata, or guarantee the files are free of private information.</p>
+<ul id="word-image-metadata-files" class="word-image-kit-files" aria-label="Files with metadata markers"></ul>
+<label class="check"><input id="word-image-metadata-ok" type="checkbox" disabled><span>I reviewed these metadata indicators. I will inspect the original files and remove private metadata if needed before uploading or sharing them.</span></label>
+</section>
 <label id="word-image-private-label" class="check"><input id="word-image-private-ok" type="checkbox"><span>I reviewed this package. It includes article text and original image files, with possible metadata and areas hidden by Word cropping.</span></label>
 <div class="actions"><button id="download-word-images" type="button" class="button" disabled>Download images &amp; placement notes</button><button id="discard-word-images" type="button" class="secondary">Discard prepared image package</button></div></div>
 <p class="small"><strong>Download before importing.</strong> Applying or clearing this import discards the prepared image package. Extract the ZIP, upload the files to your WordPress Media Library, and replace the numbered placeholders yourself. These files are separate from workspace backups and article exports.</p>
