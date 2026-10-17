@@ -1,5 +1,8 @@
 # Local WordPress save-and-reopen acceptance
 
+The later [fictional Word image and real local Media Library handoff runner](WORDPRESS_MEDIA_LIBRARY_ACCEPTANCE_20261016.md) adds an optional post-upload acceptance case to the same local Playground test. This historical release description does not claim that newer media test has run, that a hosted HTTPS WordPress site was exercised, or that real authors completed the workflow.
+
+
 This document records the original acceptance cycle. The later [direct Visual paste extension](WORDPRESS_VISUAL_PASTE_20261016.md) replaces parser/store seeding with actual source-UI copying and native clipboard paste for all twelve primary cases, and retains a separately identified Code editor fallback. Use that extension for the current handoff contract; the original observations below remain historical.
 
 This cycle follows the document benchmark in PR #71. It runs the exported source through an actual WordPress installation, saves unpublished drafts using the editor's Save control and real REST/database requests, closes the editor page, and opens each saved post in a fresh page. It adds save/reopen guidance to the workspace, converter guides, help, and downloaded WordPress kit.

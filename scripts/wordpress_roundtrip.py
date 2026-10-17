@@ -16,6 +16,7 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 from document_benchmark import ArticleHTML, normalized
+from wordpress_media_acceptance import run_wordpress_media_handoff
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'test-results'
@@ -141,7 +142,7 @@ def main():
     OUT.mkdir(exist_ok=True)
     report_file = OUT / 'wordpress-results.json'
     report_file.unlink(missing_ok=True)
-    report = {'result': 'RUNNING', 'scope': 'local WordPress native clipboard, Visual paste, save/reopen, and Code editor fallback', 'cases': [],
+    report = {'result': 'RUNNING', 'scope': 'local WordPress native clipboard, Visual paste, save/reopen, Code editor fallback, and Media Library image handoff', 'cases': [],
               'runtimeErrors': [], 'unexpectedRequests': [], 'fixtureAssets': [], 'negativeControl': False,
               'startedAt': datetime.now(timezone.utc).isoformat()}
     def save():
@@ -187,6 +188,7 @@ def main():
                 report['browser'] = browser.version
                 context = browser.new_context(viewport={'width': 1440, 'height': 1000}, reduced_motion='reduce')
                 context.grant_permissions(['clipboard-read', 'clipboard-write'], origin='https://drafttopage.test')
+                media_aliases = {}
                 def route(request):
                     url = request.request.url
                     if url.startswith(ORIGIN + '/'):
@@ -194,6 +196,16 @@ def main():
                     elif url == 'https://example.test/roundtrip.png?a=1&b=2':
                         report['fixtureAssets'].append('fictional linked image')
                         request.fulfill(content_type='image/svg+xml', body='<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>')
+                    elif url.startswith('https://wordpress-media.test/'):
+                        recorded = media_aliases.get(url)
+                        if not recorded or not recorded['source_url'].startswith(ORIGIN + '/') or not recorded['bytes']:
+                            report['unexpectedRequests'].append('Unregistered local media alias: ' + url)
+                            request.abort()
+                            return
+                        # Serve the exact bytes previously retrieved and verified
+                        # from the real local Media Library, without nested
+                        # network operations inside the Playwright route callback.
+                        request.fulfill(status=200, body=recorded['bytes'], content_type=recorded['mime'])
                     elif url == 'https://s.w.org/images/block-editor/welcome-canvas.svg':
                         report['fixtureAssets'].append('WordPress welcome artwork')
                         request.fulfill(content_type='image/svg+xml', body='<svg xmlns="http://www.w3.org/2000/svg"/>')
@@ -394,6 +406,17 @@ def main():
                     entry.update({'result': 'PASS', 'status': reopened['status'], 'validAfterReopen': True})
                     page.close()
                     save()
+                print('WordPress Media Library round trip: fictional multi-image Word file', flush=True)
+                report['mediaLibrary'] = {'result': 'RUNNING'}
+                save()
+                report['mediaLibrary'] = run_wordpress_media_handoff(
+                    root=ROOT, origin=ORIGIN, config=config, new_page=new_page,
+                    open_editor=open_editor, save_draft=save_draft,
+                    visible_editor_control=visible_editor_control,
+                    observe_native_paste=observe_native_paste, check_blocks=check_blocks,
+                    check_post=check_post, media_aliases=media_aliases, rest_path=rest_path
+                )
+                save()
                 context.close()
                 browser.close()
         assert not report['runtimeErrors'], report['runtimeErrors']
@@ -404,6 +427,8 @@ def main():
     except Exception as error:
         report['result'] = 'FAIL'
         report['error'] = str(error)
+        if report.get('mediaLibrary', {}).get('result') == 'RUNNING':
+            report['mediaLibrary'] = {'result': 'FAIL', 'reason': 'Full local media acceptance did not finish.'}
         for case in report['cases']:
             if case['result'] == 'RUNNING':
                 case['result'] = 'FAIL'

@@ -12,7 +12,9 @@ const digest = 'a'.repeat(64);
 const copiedDigest = 'b'.repeat(64), editedDigest = 'c'.repeat(64);
 const savedDigest = item => typeof item.expectedSavedSource === 'string'
   ? createHash('sha256').update(item.expectedSavedSource).digest('hex') : digest;
-const complete = () => ({ result: 'PASS', scope: 'local WordPress native clipboard, Visual paste, save/reopen, and Code editor fallback', playground: configuration.playground,
+const mediaFixture = configuration.mediaLibraryFixture;
+const mediaAlias = filename => mediaFixture.fixtureHTTPSOrigin + '/wp-content/uploads/2026/10/' + filename;
+const complete = () => ({ result: 'PASS', scope: 'local WordPress native clipboard, Visual paste, save/reopen, Code editor fallback, and Media Library image handoff', playground: configuration.playground,
   sourceSha256: digest, sourceUnchanged: true,
   environment: { wordpress: configuration.wordpress, php: configuration.php + '.33', marker: 'drafttopage-local-acceptance',
     databaseClass: 'WP_SQLite_DB', pdoDrivers: ['sqlite'], unfilteredHTMLDisabled: true },
@@ -29,7 +31,24 @@ const complete = () => ({ result: 'PASS', scope: 'local WordPress native clipboa
     ...(item.listPaths ? { listHierarchyVerified: true } : {}),
     ...(item.rawText ? { rawTextVerified: true } : {}),
     ...(item.editAfterReopen ? { editedAndReopened: true, editedSha256: editedDigest, secondReopenExact: true } : {}),
-    ...(item.file ? { source: 'native file fixture' } : {}) }))
+    ...(item.file ? { source: 'native file fixture' } : {}) })),
+  mediaLibrary: {
+    result: 'PASS', fixtureId: mediaFixture.id, sourceDocumentSha256: digest,
+    imagePackageVerified: true, mapV1Verified: true, wordpressAttachmentCount: 2,
+    nativeVisualPasteTrusted: true, exportMatchesClipboard: true, privateFieldsOmitted: true,
+    exportApprovedSeparately: true, reusedMedia: true, syntheticHttpsAlias: true,
+    postId: 99, postTitle: mediaFixture.expectedTitle, postText: mediaFixture.expectedText,
+    postStatus: 'draft', saveResponse: 200, savedSha256: digest,
+    validAfterReopen: true, reopenedSavedSourceExact: true,
+    uploads: mediaFixture.imageFiles.map((file, index) => ({
+      filename: file.filename, mime: file.mime, mediaId: index + 101, uploadStatus: 201,
+      originalSha256: digest, servedSha256: digest, localLoopback: true,
+      fixtureHttpsAlias: mediaAlias(file.filename)
+    })),
+    placements: mediaFixture.imageOrder.map(item => ({
+      filename: item.filename, alt: item.alt, src: mediaAlias(item.filename)
+    }))
+  }
 });
 
 test('Every retained article shape uses native Visual paste and the Code-editor fallback has separate coverage', () => {
@@ -162,4 +181,78 @@ else:raise AssertionError('Changed table shape was accepted')
 print('7 damaged saved-post cases rejected')
 `], { encoding: 'utf8' });
   assert.equal(result.trim(), '7 damaged saved-post cases rejected');
+});
+
+test('Multi-image Media Library handoff demands actual attachment bytes, native blocks, reuse and save/reopen evidence', () => {
+  const validated = validateWordPressEvidence(complete(), configuration, digest);
+  assert.equal(validated.mediaLibraryUploads, 2);
+  assert.equal(validated.mediaLibraryImageBlocks, 3);
+  assert.deepEqual(mediaFixture.imageFiles.map(item => item.filename), ['word-image-001.png', 'word-image-002.jpg']);
+  assert.deepEqual(mediaFixture.imageOrder.map(item => item.filename),
+    ['word-image-001.png', 'word-image-002.jpg', 'word-image-001.png']);
+  const corruptions = [
+    ['no media report', report => delete report.mediaLibrary],
+    ['unrun media', report => report.mediaLibrary.result = 'NOT_RUN'],
+    ['unknown Word file', report => report.mediaLibrary.sourceDocumentSha256 = 'short'],
+    ['wrong fixture', report => report.mediaLibrary.fixtureId = 'other'],
+    ['map not inspected', report => report.mediaLibrary.mapV1Verified = false],
+    ['package bytes unchecked', report => report.mediaLibrary.imagePackageVerified = false],
+    ['only one upload', report => report.mediaLibrary.uploads.pop()],
+    ['second upload denied', report => report.mediaLibrary.uploads[1].uploadStatus = 403],
+    ['missing Media Library ID', report => delete report.mediaLibrary.uploads[0].mediaId],
+    ['same media ID for distinct images', report => report.mediaLibrary.uploads[1].mediaId = report.mediaLibrary.uploads[0].mediaId],
+    ['download differs from uploaded bytes', report => report.mediaLibrary.uploads[0].servedSha256 = copiedDigest],
+    ['wrong MIME', report => report.mediaLibrary.uploads[0].mime = 'image/svg+xml'],
+    ['non-loopback remote upload', report => report.mediaLibrary.uploads[0].localLoopback = false],
+    ['unexpected media host', report => report.mediaLibrary.uploads[0].fixtureHttpsAlias = 'https://elsewhere.test/wp-content/uploads/a.png'],
+    ['unescaped remote path', report => report.mediaLibrary.uploads[0].fixtureHttpsAlias = 'https://wordpress-media.test/assets/a.png'],
+    ['missing third image', report => report.mediaLibrary.placements.pop()],
+    ['image mapping corrupted', report => report.mediaLibrary.placements[2].filename = 'word-image-002.jpg'],
+    ['wrong Word alternative text', report => report.mediaLibrary.placements[0].alt = 'Invented caption'],
+    ['wrong uploaded URL', report => report.mediaLibrary.placements[1].src = 'https://wrong.test/pic.jpg'],
+    ['no duplicated upload', report => report.mediaLibrary.placements[2].src = mediaAlias('word-image-002.jpg')],
+    ['no native Visual paste', report => report.mediaLibrary.nativeVisualPasteTrusted = false],
+    ['export source differs from clipboard', report => report.mediaLibrary.exportMatchesClipboard = false],
+    ['private notes leaked', report => report.mediaLibrary.privateFieldsOmitted = false],
+    ['auto approval', report => report.mediaLibrary.exportApprovedSeparately = false],
+    ['post accidentally published', report => report.mediaLibrary.postStatus = 'publish'],
+    ['save unsuccessful', report => report.mediaLibrary.saveResponse = 500],
+    ['image source not retained', report => report.mediaLibrary.reopenedSavedSourceExact = false],
+    ['invalid post ID', report => report.mediaLibrary.postId = 0]
+  ];
+  for (const [description, corruption] of corruptions) {
+    const fake = complete();
+    corruption(fake);
+    assert.throws(() => validateWordPressEvidence(fake, configuration, digest),
+      /WordPress (evidence|Media Library|media evidence|saved image)/i, description);
+  }
+});
+
+test('The generated multi-image Word fixture has two source files, three occurrences and no personal data', async () => {
+  const { wordpressMediaFixture } = await import('../scripts/wordpress-media-fixture.mjs');
+  const fixture = wordpressMediaFixture();
+  assert.equal(fixture.kind, 'fictional-multi-image-word');
+  assert.equal(fixture.originals.length, 2);
+  assert.equal(fixture.occurrences.length, 3);
+  assert.deepEqual(fixture.originals.map(item => [item.filename, item.mime]),
+    mediaFixture.imageFiles.map(item => [item.filename, item.mime]));
+  assert.deepEqual(fixture.occurrences.map(item => ({ filename: item.filename, alt: item.alt })),
+    mediaFixture.imageOrder);
+  assert.ok(Buffer.from(fixture.docxBase64, 'base64').length > 1000);
+  assert.notEqual(fixture.originals[0].data, fixture.originals[1].data);
+  assert.ok(fixture.occurrences[0].filename === fixture.occurrences[2].filename);
+});
+
+test('Media acceptance runs inside the pinned WordPress loopback harness rather than a public account', () => {
+  const media = readFileSync(new URL('../scripts/wordpress_media_acceptance.py', import.meta.url), 'utf8');
+  const runner = readFileSync(new URL('../scripts/wordpress_roundtrip.py', import.meta.url), 'utf8');
+  const release = readFileSync(new URL('../scripts/verify-release.mjs', import.meta.url), 'utf8');
+  assert.match(media, /ALIAS_ORIGIN = 'https:\/\/wordpress-media\.test'/);
+  assert.match(media, /wp\.apiFetch\(\{ path: '\/wp\/v2\/media', method: 'POST', body: form \}\)/);
+  assert.match(media, /sourceDocumentSha256/);
+  assert.match(media, /reopenedSavedSourceExact/);
+  assert.match(runner, /media_aliases = \{\}/);
+  assert.match(runner, /run_wordpress_media_handoff/);
+  assert.match(release, /mediaLibraryUploads/);
+  for (const source of [media, runner]) assert.doesNotMatch(source, /https:\/\/drafttopage\.com\/wp-admin|https:\/\/wordpress\.com\/wp-admin/);
 });
