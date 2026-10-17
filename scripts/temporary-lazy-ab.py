@@ -65,10 +65,11 @@ def main():
      report["runs"].append(item);report["browser"]=evidence["browser"];save()
      print("ABBA",case,index,version,"median",item["synchronousInputMs"]["median"],"p95",item["synchronousInputMs"]["p95"],flush=True)
     rows=[r for r in report["runs"] if r["case"]==case]
-    report["summary"].append({"case":case,metric:{
-      version:stats([r for r in rows if r["version"]==version],metric)
-      for version in ("before","after")}
-      for metric in ("synchronousInputMs","inputToFrameMs")})
+    summary={"case":case}
+    for metric in ("synchronousInputMs","inputToFrameMs"):
+     summary[metric]={version:stats([r for r in rows if r["version"]==version],metric)
+                      for version in ("before","after")}
+    report["summary"].append(summary)
     save()
   report["publicUnchanged"]=public_digest(ROOT/"public")==before_public
   if len(report["runs"])!=4*len(CASES) or not report["publicUnchanged"]:
