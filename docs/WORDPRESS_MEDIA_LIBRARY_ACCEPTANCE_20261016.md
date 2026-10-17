@@ -4,7 +4,7 @@ This release adds a **separate end-to-end acceptance case** to the existing, exp
 
 ## Source and destination
 
-The source is a **fictional, deterministic DOCX** generated from the existing licensed-independent test helpers. It has one ordinary paragraph and three image occurrences: two different embedded PNG/JPEG files, with the PNG reused in positions 1 and 3. The two occurrences of that PNG have distinct Word alternative text. This is **not** a current Word version, a real author's draft, or a hosted WordPress test.
+The source is a **fictional DOCX with fixed article and image content** generated from the existing licensed-independent test helpers. ZIP entry timestamps can vary between generated files, so the archive is not claimed to have a stable byte hash across runs. It has one ordinary paragraph and three image occurrences: two different embedded PNG/JPEG files, with the PNG reused in positions 1 and 3. The two occurrences of that PNG have distinct Word alternative text. This is **not** a current Word version, a real author's draft, or a hosted WordPress test.
 
 The destination is the disposable WordPress 7.1.3, PHP 8.3, SQLite Playground site already used by `scripts/wordpress_roundtrip.py`. The test asserts the fixture marker, Author role with unfiltered HTML disabled, loopback URL and unpublished draft status. It never connects to a public WordPress account.
 

@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { sourceDigest as snapshotSource } from './source-snapshot.mjs';
 
 export function validateWordPressEvidence(evidence, configuration, sourceSha256) {
   const expected = configuration.cases;
@@ -61,13 +62,13 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
       !Array.isArray(media.placements) || media.placements.length !== fixture.expectedImageBlocks) {
     throw new Error('WordPress evidence lacks a complete real local Media Library image round trip.');
   }
-  const mediaIds = new Set(), mediaUrls = new Map();
+  const mediaIds = new Set(), originalDigests = new Set(), mediaAliases = new Set(), mediaUrls = new Map();
   for (let index = 0; index < fixture.imageFiles.length; index++) {
     const wanted = fixture.imageFiles[index], received = media.uploads[index];
     if (!received || received.filename !== wanted.filename || received.mime !== wanted.mime ||
         !Number.isInteger(received.mediaId) || received.mediaId <= 0 ||
         mediaIds.has(received.mediaId) || received.uploadStatus !== 201 ||
-        received.localLoopback !== true || !isDigest(received.originalSha256) ||
+        received.localLoopback !== true || !isDigest(received.originalSha256) || originalDigests.has(received.originalSha256) ||
         received.servedSha256 !== received.originalSha256 ||
         typeof received.fixtureHttpsAlias !== 'string') {
       throw new Error('WordPress Media Library attachment evidence is incomplete or damaged.');
@@ -79,7 +80,12 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
         alias.pathname.split('/').some(part => part === '..' || part === '.')) {
       throw new Error('WordPress media evidence must use only its isolated test HTTPS alias.');
     }
+    if (mediaAliases.has(alias.href)) {
+      throw new Error('WordPress Media Library uploads must use distinct fixture HTTPS URLs.');
+    }
     mediaIds.add(received.mediaId);
+    originalDigests.add(received.originalSha256);
+    mediaAliases.add(alias.href);
     mediaUrls.set(wanted.filename, received.fixtureHttpsAlias);
   }
   if (mediaUrls.size !== fixture.imageFiles.length || media.placements.some((item, index) => {
@@ -112,16 +118,7 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
   if (!env.DRAFTTOPAGE_WORDPRESS_CLI) report.wordpress = { result: 'NOT_RUN', reason: 'Set DRAFTTOPAGE_WORDPRESS_CLI to run the separate local WordPress save/reopen gate.' };
   const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   const sourceDigest = () => {
-    try {
-      const paths = git(['ls-files', '-z', '--cached', '--others', '--exclude-standard']).split('\0').filter(Boolean).sort();
-      const hash = createHash('sha256');
-      for (const path of paths) {
-        hash.update(path + '\0');
-        try { hash.update(readFileSync(resolve(root, path))); } catch (error) { if (error.code !== 'ENOENT') throw error; hash.update('[deleted]'); }
-        hash.update('\0');
-      }
-      return hash.digest('hex');
-    } catch { return null; }
+    try { return snapshotSource(root); } catch { return null; }
   };
   try { report.head = git(['rev-parse', 'HEAD']).trim(); } catch { report.head = null; }
   report.sourceSha256 = sourceDigest();

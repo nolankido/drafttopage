@@ -18,7 +18,7 @@
 | Source remained unchanged during the WordPress runner | **true** |
 | Real author documents, hosted installations, physical devices | **NOT_RUN** |
 
-The runner produced `result: PASS`, `mediaLibrary.result: PASS`, `completedCases: 13`, `totalCases: 13`, `environment.wordpress: 7.1.3`, and `sourceUnchanged: true`. The published diagnostic is limited to aggregate fictional-fixture outcomes, not the full raw WordPress report.
+The runner's report contains `result: PASS`, `mediaLibrary.result: PASS`, a `cases` array with 13 passing entries, `environment.wordpress: 7.1.3`, and `sourceUnchanged: true`. The temporary preview hook summarized that array as `completedCases: 13` and `totalCases: 13`; those summary fields are not fields emitted by the WordPress runner. The published diagnostic is limited to aggregate fictional-fixture outcomes, not the full raw WordPress report.
 
 ## What was actually executed
 
@@ -33,7 +33,10 @@ The local WordPress server used HTTP loopback. The browser test mapped its actua
 - Public repository source tested: `eb45d7a2fb4113fdd210fbb206675334c4a18d97`, with only an **unmerged temporary test build hook** added in the isolated branch. The runner verified no source changed during its test.
 - Temporary validation branch test commit: `ab96a81a12c0276bb9440d67364e42315fd165d5`.
 - [Successful Cloudflare preview build](https://dash.cloudflare.com/10751507dfad053ca2e7887d5bf082a7/workers/services/view/drafttopage/production/previews/validate-word-media-playground-20261016/builds/e2af96f8-9f50-4975-b49d-c4da4c58a571), completed 2026-10-17 05:36:29 UTC.
-- The temporary preview provided a synthetic-only test result at `/_dtp-wordpress-probe-20261016.html` with the passing results above.
+- The [original temporary preview diagnostic](https://7ded1305-drafttopage.nolankido.workers.dev/_dtp-wordpress-probe-20261016.html) preserved the synthetic-only aggregate result. Its WordPress command exited with code 0 after 263 seconds, and its separately extracted report summary recorded all 13 cases and the Media Library case as passing.
+- A [later temporary diagnostic](https://07f4fdb3-drafttopage.nolankido.workers.dev/_dtp-wordpress-probe-20261016.html), at `2e813e0c2b80f12e66f2bcb6d6e59f9d9be32852`, reran the local WordPress acceptance in 415 seconds and passed the new source-bound receipt check. It also passed focused WordPress/receipt tests and static checks. That branch contained the initial receipt candidate plus an unmerged diagnostic hook, not the final corrected release source.
+
+The temporary build hooks captured command outcomes without always failing the overall Cloudflare build when an inner command failed. Their green deployment status alone is not acceptance evidence. The results above come from the individual command exit codes and extracted WordPress summaries. A separate full Node-suite attempt timed out after 220 seconds and is not a passing Node-suite result; the final release PR records validation of its corrected source independently.
 
 The [manual nonroot Linux reproduction instructions](WORDPRESS_PLAYGROUND_REPRODUCE_20261016.md) describe the same pinned tools and temporary dependency setup. No additional GitHub Actions or scheduled checks were enabled.
 

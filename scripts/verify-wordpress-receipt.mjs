@@ -1,33 +1,17 @@
 // Deliberate, offline acceptance receipt check. No installs, WordPress requests,
 // browser launch, or publishing. Requires an actual prior local runner result.
-import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { validateWordPressEvidence } from './verify-release.mjs';
+import { sourceDigest } from './source-snapshot.mjs';
+
+export { sourceDigest } from './source-snapshot.mjs';
 
 const command = (root, args) => execFileSync('git', args, {
   cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']
 });
-
-export function sourceDigest(root = process.cwd(), git = command, read = readFileSync) {
-  root = resolve(root);
-  const paths = git(root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard'])
-    .split('\0').filter(Boolean).sort();
-  if (!paths.length) throw new Error('No Git source files found for WordPress receipt validation.');
-  const hash = createHash('sha256');
-  for (const path of paths) {
-    hash.update(path + '\0');
-    try { hash.update(read(resolve(root, path))); }
-    catch (error) {
-      if (error.code !== 'ENOENT') throw error;
-      hash.update('[deleted]');
-    }
-    hash.update('\0');
-  }
-  return hash.digest('hex');
-}
 
 export function verifyWordPressReceipt({
   root = process.cwd(), read = readFileSync, git = command
