@@ -1,3 +1,3 @@
-// TEMPORARY manually invoked preview validation. NEVER MERGE.
+// TEMPORARY read-only post-deployment checks. NEVER MERGE.
 import './build-content.mjs';
-if (process.env.DTP_PREVIEW_REUSE_CHILD !== '1') await import('./temporary-preview-reuse-validation.mjs');
+await import('./temporary-preview-live.mjs');
