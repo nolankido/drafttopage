@@ -85,10 +85,14 @@ export function createArticleWordCounter({ readStructure = articleStructure, cou
     return words;
   };
 }
-export function analyzeDraft(draft, { imageFindings = true } = {}) {
+export function analyzeDraft(draft, { imageFindings = true, structure = null } = {}) {
   const body = draft?.body, title = draft?.title || '';
   if (typeof title !== 'string' || title.length > 160) throw new Error('Check the article title before reviewing.');
-  const blocks = articleStructure(body), headings = [], links = [], findings = [], seen = new Map();
+  // A caller can share a freshly validated current-body structure with other
+  // inspectors. Invalid input still follows articleStructure's original guard.
+  const blocks = structure !== null && typeof body === 'string' && body.length <= ARTICLE_BODY_LIMIT
+    ? structure : articleStructure(body);
+  const headings = [], links = [], findings = [], seen = new Map();
   let words = 0, totalFindings = 0;
   const add = (block, kind, message, start = block.start, end = block.end) => {
     totalFindings++;
