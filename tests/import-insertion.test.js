@@ -216,5 +216,5 @@ test('All five generated workspaces expose labelled insertion controls and link 
     for (const id of ['start-insert-import','import-destination','import-insertion-controls','preview-insertion','import-insertion-before','import-insertion-after']) assert.ok(page.includes('id="' + id + '"'), route + ':' + id);
     assert.match(page, /for="import-destination"/); assert.match(page, /for="import-insertion-before"/); assert.match(page, /for="import-insertion-after"/);
   }
-  const help = await readFile('public/help/article-import/index.html', 'utf8'); assert.match(help, /id="insert-writing"/); assert.match(help, /No autosave, upload, AI request/);
+  const help = await readFile('public/help/article-import/index.html', 'utf8'); assert.match(help, /id="insert-writing"/); assert.match(help, /Browser recovery is optional and off by default/); assert.match(help, /not the pending conversion or insertion choices/); assert.match(help, /No upload, AI request/);
 });
