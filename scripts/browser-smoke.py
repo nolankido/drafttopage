@@ -1034,6 +1034,10 @@ with sync_playwright() as p:
     recovery_key='drafttopage.browser-recovery.v1'
     page,context,state=open_page('/write/')
     expect(page.locator('#desk-status')).to_contain_text('ready')
+    expect(page.locator('#article-save-status')).to_contain_text('Saving is off')
+    assert page.locator('#article-save-status').get_attribute('aria-live')=='off'
+    page.click('#article-save-options')
+    expect(page.locator('#browser-recovery-consent')).to_be_focused()
     page.fill('#body','Unstored fictional writing.')
     assert page.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
     restore(page,backup)
@@ -1045,10 +1049,20 @@ with sync_playwright() as p:
     assert saved['workspace']['source']==source and saved['workspace']['draft']==draft
     assert set(saved)=={'format','version','savedAt','workspace'}
     assert 'reviewed' not in saved['workspace'] and 'preferences' not in saved['workspace']
+    # A staged import must not indefinitely defer saves of the current article.
+    open_details(page,'#import-panel')
+    page.select_option('#import-format','markdown')
+    page.fill('#import-text','# Pending import\n\nPENDING_IMPORT_ONLY must stay outside the recovery copy.')
+    page.click('#preview-import')
+    expect(page.locator('#import-preview')).to_be_visible()
     page.fill('#body','Newest fictional recovery article.')
     page.wait_for_function('(key)=>JSON.parse(localStorage.getItem(key)).workspace.draft.body==="Newest fictional recovery article."',arg=recovery_key)
+    expect(page.locator('#article-save-status')).to_contain_text('Current writing saved in this browser')
+    assert 'PENDING_IMPORT_ONLY' not in page.evaluate('(key)=>localStorage.getItem(key)',recovery_key)
+    expect(page.locator('#import-preview')).to_be_visible()
     page.check('#reviewed');page.reload()
     expect(page.locator('#browser-recovery-summary')).to_contain_text('saved copy available')
+    expect(page.locator('#article-save-status')).to_contain_text('Saving is off')
     assert page.locator('#body').input_value()=='' and not page.locator('#reviewed').is_checked()
     assert not page.locator('#browser-recovery-consent').is_checked()
     page.click('#browser-recovery-inspect')
@@ -1104,9 +1118,12 @@ with sync_playwright() as p:
     expect(other.locator('#body')).to_have_value('')
     assert other.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
     assert state['api']==[];context.close()
-    report['checks'].append('Opt-in browser recovery: real localStorage and Web Locks, default-off/no writes, consent, debounced save, reload without auto-restore, exact private field comparison, stale/cancelled restore protection, checkpointed approval-clearing restore, private export exclusion, real competing tabs, pause, deletion, and clear')
+    report['checks'].append('Opt-in browser recovery: real localStorage and Web Locks, default-off/no writes, visible passive save status and options focus, consent, current-article autosave while a staged import stays pending and excluded, reload without auto-restore, exact private field comparison, stale/cancelled restore protection, checkpointed approval-clearing restore, private export exclusion, real competing tabs, pause, deletion, and clear')
     page,context,state=open_page('/markdown-to-wordpress/',blocked_modules=('/browser-recovery.js',))
     expect(page.locator('#browser-recovery-status')).to_contain_text('could not load')
+    expect(page.locator('#article-save-status')).to_contain_text('unavailable')
+    page.click('#article-save-options')
+    expect(page.locator('#backup-private-ok')).to_be_focused()
     page.fill('#body','Core conversion stays available.');page.check('#reviewed')
     expect(page.locator('#download-wordpress')).to_be_enabled()
     assert page.evaluate('(key)=>localStorage.getItem(key)',recovery_key) is None
