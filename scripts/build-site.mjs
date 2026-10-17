@@ -1,4 +1,5 @@
 // TEMPORARY test-only Cloudflare preview hook. NEVER MERGE THIS FILE.
+// Explicit manual validation commit: source feature files remain identical to PR #116.
 import './build-content.mjs';
 import { spawnSync } from 'node:child_process';
 import { readdirSync, writeFileSync } from 'node:fs';
