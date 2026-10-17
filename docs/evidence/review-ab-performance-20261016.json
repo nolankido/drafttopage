@@ -1,0 +1,640 @@
+{
+  "evidenceScope": "Synthetic local browser and fictional articles, no user records or field latency",
+  "observedPreview": "https://validate-paired-export-review-20261016-drafttopage.nolankido.workers.dev/_dtp_review_ab_probe_20261016.json",
+  "previewHead": "80bc78292eaacb44b993e8792e16cdd505f9aec6",
+  "diagnosticCommit": "72cda71fdd90521803835710216960fc2ee8b996",
+  "steps": [
+    {
+      "label": "Node regression suite",
+      "result": "PASS",
+      "seconds": 94
+    },
+    {
+      "label": "Static checks",
+      "result": "PASS",
+      "seconds": 7
+    },
+    {
+      "label": "Python syntax",
+      "result": "PASS",
+      "seconds": 0
+    },
+    {
+      "label": "Create isolated Python venv",
+      "result": "PASS",
+      "seconds": 4
+    },
+    {
+      "label": "Pinned Python Playwright",
+      "result": "PASS",
+      "seconds": 4
+    },
+    {
+      "label": "Pinned Chromium",
+      "result": "PASS",
+      "seconds": 12
+    },
+    {
+      "label": "Rootless Chromium libraries",
+      "result": "PASS",
+      "seconds": 7
+    },
+    {
+      "label": "Controlled ABBA browser benchmark",
+      "result": "PASS",
+      "seconds": 268
+    }
+  ],
+  "benchmark": {
+    "baselineCommit": "4338b5e2629c7764a8382cfe52fefaf8db27b08c",
+    "candidateCommit": "642affa77efbe46f5158341f15816d1c0b5f4512",
+    "cases": [
+      "ordinary:wordpress:open",
+      "rich:wordpress:open",
+      "rich:word:open",
+      "rich:html:open",
+      "rich:markdown:open"
+    ],
+    "errors": [],
+    "method": "serial ABBA order per case; only three pinned modules differ",
+    "moduleBlobs": {
+      "draft-review.js": [
+        "f9fb7ec6cc3f613e2a3a938da115f5f913dbdf80",
+        "1a2a58f29c4cfa59b05c2c34934c3e8924691f48"
+      ],
+      "export-review.js": [
+        "8d72c3b37e81b2039547a236baa49205ae3247bc",
+        "e3f77ee8eba5201f1c1751fedd7c890ae453ff02"
+      ],
+      "wordpress-images.js": [
+        "d18a3f96fb695eacd7f2c879c2ebc5fc036635fb",
+        "a52fb8230c2a0dc7f2601801a3db6b087c9d43f7"
+      ]
+    },
+    "publicBeforeSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+    "publicUnchanged": true,
+    "result": "PASS",
+    "runnerCommit": "72cda71fdd90521803835710216960fc2ee8b996",
+    "runs": [
+      {
+        "browser": "143.0.7499.4",
+        "case": "ordinary:wordpress:open",
+        "characters": 58918,
+        "inputToFrameMs": {
+          "max": 180,
+          "median": 108.3,
+          "p95": 171.4
+        },
+        "order": 1,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 170.5,
+          "median": 99.3,
+          "p95": 162.4
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "ordinary:wordpress:open",
+        "characters": 58918,
+        "inputToFrameMs": {
+          "max": 183.8,
+          "median": 121.8,
+          "p95": 176.6
+        },
+        "order": 2,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 173.9,
+          "median": 113.5,
+          "p95": 155.9
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "ordinary:wordpress:open",
+        "characters": 58918,
+        "inputToFrameMs": {
+          "max": 201.9,
+          "median": 84.1,
+          "p95": 145
+        },
+        "order": 3,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 192.7,
+          "median": 77.9,
+          "p95": 130
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "ordinary:wordpress:open",
+        "characters": 58918,
+        "inputToFrameMs": {
+          "max": 186.2,
+          "median": 105,
+          "p95": 141
+        },
+        "order": 4,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 174.3,
+          "median": 97.9,
+          "p95": 131.7
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:wordpress:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 738.7,
+          "median": 379.2,
+          "p95": 652.2
+        },
+        "order": 1,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 694.8,
+          "median": 346.5,
+          "p95": 602.2
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:wordpress:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 676.3,
+          "median": 375.2,
+          "p95": 667.4
+        },
+        "order": 2,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 611.4,
+          "median": 339.6,
+          "p95": 607.4
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:wordpress:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 771.2,
+          "median": 400.1,
+          "p95": 761.1
+        },
+        "order": 3,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 710.8,
+          "median": 361,
+          "p95": 703.2
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:wordpress:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 678.1,
+          "median": 401.1,
+          "p95": 664.7
+        },
+        "order": 4,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 613.5,
+          "median": 368.5,
+          "p95": 612.5
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:word:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 331.1,
+          "median": 284.5,
+          "p95": 321.2
+        },
+        "order": 1,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 300.1,
+          "median": 255.4,
+          "p95": 292.8
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:word:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 390,
+          "median": 257.2,
+          "p95": 363.9
+        },
+        "order": 2,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 362,
+          "median": 227.2,
+          "p95": 333.3
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:word:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 543.3,
+          "median": 263,
+          "p95": 436.1
+        },
+        "order": 3,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 504.7,
+          "median": 233.8,
+          "p95": 395
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:word:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 434.6,
+          "median": 264.3,
+          "p95": 419
+        },
+        "order": 4,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 398.5,
+          "median": 234.8,
+          "p95": 375.2
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:html:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 326.6,
+          "median": 255.9,
+          "p95": 326.4
+        },
+        "order": 1,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 298.2,
+          "median": 220.3,
+          "p95": 295.4
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:html:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 436.7,
+          "median": 252.9,
+          "p95": 409.9
+        },
+        "order": 2,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 381.9,
+          "median": 222.7,
+          "p95": 361.3
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:html:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 415.9,
+          "median": 232.4,
+          "p95": 383
+        },
+        "order": 3,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 387.4,
+          "median": 201.4,
+          "p95": 339.7
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:html:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 437.7,
+          "median": 256.5,
+          "p95": 363.7
+        },
+        "order": 4,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 398.2,
+          "median": 227.8,
+          "p95": 329.5
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:markdown:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 204.4,
+          "median": 135.5,
+          "p95": 204
+        },
+        "order": 1,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 179,
+          "median": 119.9,
+          "p95": 176.6
+        },
+        "version": "before"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:markdown:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 205,
+          "median": 127.1,
+          "p95": 169.5
+        },
+        "order": 2,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 185.8,
+          "median": 109.9,
+          "p95": 141.8
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:markdown:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 149.7,
+          "median": 127.2,
+          "p95": 142.2
+        },
+        "order": 3,
+        "publicSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "synchronousInputMs": {
+          "max": 134.1,
+          "median": 110.4,
+          "p95": 124.6
+        },
+        "version": "after"
+      },
+      {
+        "browser": "143.0.7499.4",
+        "case": "rich:markdown:open",
+        "characters": 58833,
+        "inputToFrameMs": {
+          "max": 172.3,
+          "median": 129.8,
+          "p95": 160.9
+        },
+        "order": 4,
+        "publicSha256": "b2f96f6f2e1fea6ecce588826b5d3a43d8cb9f2bb644637380283926adcb59f3",
+        "synchronousInputMs": {
+          "max": 153.1,
+          "median": 113.3,
+          "p95": 138.3
+        },
+        "version": "before"
+      }
+    ],
+    "sampleCount": 31,
+    "scope": "Fictional near-limit Markdown in local Chromium, not real-user INP",
+    "summary": [
+      {
+        "case": "ordinary:wordpress:open",
+        "inputToFrameMs": {
+          "after": {
+            "medianOfMedians": 102.95,
+            "p95Range": [
+              145,
+              176.6
+            ],
+            "worst": 201.9
+          },
+          "before": {
+            "medianOfMedians": 106.65,
+            "p95Range": [
+              141,
+              171.4
+            ],
+            "worst": 186.2
+          }
+        },
+        "synchronousInputMs": {
+          "after": {
+            "medianOfMedians": 95.7,
+            "p95Range": [
+              130,
+              155.9
+            ],
+            "worst": 192.7
+          },
+          "before": {
+            "medianOfMedians": 98.6,
+            "p95Range": [
+              131.7,
+              162.4
+            ],
+            "worst": 174.3
+          }
+        }
+      },
+      {
+        "case": "rich:wordpress:open",
+        "inputToFrameMs": {
+          "after": {
+            "medianOfMedians": 387.65,
+            "p95Range": [
+              667.4,
+              761.1
+            ],
+            "worst": 771.2
+          },
+          "before": {
+            "medianOfMedians": 390.15,
+            "p95Range": [
+              652.2,
+              664.7
+            ],
+            "worst": 738.7
+          }
+        },
+        "synchronousInputMs": {
+          "after": {
+            "medianOfMedians": 350.3,
+            "p95Range": [
+              607.4,
+              703.2
+            ],
+            "worst": 710.8
+          },
+          "before": {
+            "medianOfMedians": 357.5,
+            "p95Range": [
+              602.2,
+              612.5
+            ],
+            "worst": 694.8
+          }
+        }
+      },
+      {
+        "case": "rich:word:open",
+        "inputToFrameMs": {
+          "after": {
+            "medianOfMedians": 260.1,
+            "p95Range": [
+              363.9,
+              436.1
+            ],
+            "worst": 543.3
+          },
+          "before": {
+            "medianOfMedians": 274.4,
+            "p95Range": [
+              321.2,
+              419
+            ],
+            "worst": 434.6
+          }
+        },
+        "synchronousInputMs": {
+          "after": {
+            "medianOfMedians": 230.5,
+            "p95Range": [
+              333.3,
+              395
+            ],
+            "worst": 504.7
+          },
+          "before": {
+            "medianOfMedians": 245.1,
+            "p95Range": [
+              292.8,
+              375.2
+            ],
+            "worst": 398.5
+          }
+        }
+      },
+      {
+        "case": "rich:html:open",
+        "inputToFrameMs": {
+          "after": {
+            "medianOfMedians": 242.65,
+            "p95Range": [
+              383,
+              409.9
+            ],
+            "worst": 436.7
+          },
+          "before": {
+            "medianOfMedians": 256.2,
+            "p95Range": [
+              326.4,
+              363.7
+            ],
+            "worst": 437.7
+          }
+        },
+        "synchronousInputMs": {
+          "after": {
+            "medianOfMedians": 212.05,
+            "p95Range": [
+              339.7,
+              361.3
+            ],
+            "worst": 387.4
+          },
+          "before": {
+            "medianOfMedians": 224.05,
+            "p95Range": [
+              295.4,
+              329.5
+            ],
+            "worst": 398.2
+          }
+        }
+      },
+      {
+        "case": "rich:markdown:open",
+        "inputToFrameMs": {
+          "after": {
+            "medianOfMedians": 127.15,
+            "p95Range": [
+              142.2,
+              169.5
+            ],
+            "worst": 205
+          },
+          "before": {
+            "medianOfMedians": 132.65,
+            "p95Range": [
+              160.9,
+              204
+            ],
+            "worst": 204.4
+          }
+        },
+        "synchronousInputMs": {
+          "after": {
+            "medianOfMedians": 110.15,
+            "p95Range": [
+              124.6,
+              141.8
+            ],
+            "worst": 185.8
+          },
+          "before": {
+            "medianOfMedians": 116.6,
+            "p95Range": [
+              138.3,
+              176.6
+            ],
+            "worst": 179
+          }
+        }
+      }
+    ]
+  }
+}
