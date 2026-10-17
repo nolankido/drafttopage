@@ -190,29 +190,50 @@ def run_document_benchmark(open_page, root, out):
     from playwright.sync_api import expect
     fixture_root = root / 'tests/fixtures/documents'
     manifest = json.loads((fixture_root / 'manifest.json').read_text())
+    authored_path = fixture_root / 'authored-cases.json'
+    authored = json.loads(authored_path.read_text(encoding='utf-8'))
+    assert authored['origin'] == 'authored-synthetic', 'Authored cases must declare their provenance'
+    all_ids = [item['id'] for item in manifest['cases']] + [item['id'] for item in authored['cases']]
+    assert len(all_ids) == len(set(all_ids)), 'Document benchmark IDs must be unique'
     report_path = out / 'document-benchmark.json'
     report_path.unlink(missing_ok=True)
-    report = {'result': 'RUNNING', 'scope': manifest['scope'], 'cases': [], 'layout': {},
+    report = {'result': 'RUNNING', 'scope': manifest['scope'] + ' Additional authored synthetic regression cases are reported separately.', 'cases': [], 'layout': {},
+              'pinnedCaseCount': len(manifest['cases']), 'authoredCaseCount': len(authored['cases']),
+              'authoredManifestSha256': hashlib.sha256(authored_path.read_bytes()).hexdigest(),
               'manifestSha256': hashlib.sha256((fixture_root / 'manifest.json').read_bytes()).hexdigest(),
               'limits': ['Upstream microdocuments are not representative user articles.',
                          'Paste captures are historical upstream fixtures, not fresh application sessions.',
                          'Long Markdown sample uses passage checks, not exact whole-document fidelity.',
-                         'No real WordPress save/reopen, real-device, or assistive-technology acceptance.']}
+                         'No real WordPress save/reopen, real-device, or assistive-technology acceptance.',
+                         'Authored fictional input probes are not real Word, Google Docs, or customer captures.']}
     def save():
         report_path.write_text(json.dumps(report, indent=2) + '\n')
     save()
     fixtures = {entry['file']: entry for entry in manifest['fixtures']}
-    for case in manifest['cases']:
-        print('Document corpus: ' + case['id'], flush=True)
-        entry = {'id': case['id'], 'file': case['file'], 'expected': case['expect']['category'], 'result': 'RUNNING'}
+    source_cases = [('pinned-upstream', item) for item in manifest['cases']]
+    source_cases += [('authored-synthetic', item) for item in authored['cases']]
+    for origin, case in source_cases:
+        print('Document corpus (' + origin + '): ' + case['id'], flush=True)
+        entry = {'id': case['id'], 'file': case.get('file'), 'origin': origin,
+                 'expected': case['expect']['category'], 'result': 'RUNNING'}
         report['cases'].append(entry)
         page = context = None
         try:
-            path = fixture_root / case['file']
-            source = path.read_bytes()
-            digest = hashlib.sha256(source).hexdigest()
-            assert digest == fixtures[case['file']]['sha256'], 'Fixture bytes differ from the pinned corpus'
-            entry.update({'sourceSha256': digest, 'source': fixtures[case['file']]['source']})
+            if origin == 'pinned-upstream':
+                path = fixture_root / case['file']
+                source = path.read_bytes()
+                kind = path.suffix[1:]
+                source_ref = fixtures[case['file']]['source']
+                digest = hashlib.sha256(source).hexdigest()
+                assert digest == fixtures[case['file']]['sha256'], 'Fixture bytes differ from the pinned corpus'
+            else:
+                assert case['kind'] == 'md' and case['id'].startswith('authored-'), 'Unknown authored case format'
+                source = case['source'].encode('utf-8')
+                assert len(source) <= 512 * 1024, 'Authored source exceeds import limit'
+                kind = 'md'
+                digest = hashlib.sha256(source).hexdigest()
+                source_ref = 'Locally authored fictional Markdown test input, not an application capture'
+            entry.update({'sourceSha256': digest, 'source': source_ref})
             page, context, state = open_page('/write/')
             expect(page.locator('#desk-status')).to_contain_text('ready')
             page.fill('#title', 'Existing benchmark writing')
@@ -220,7 +241,7 @@ def run_document_benchmark(open_page, root, out):
             page.check('#reviewed')
             started = time.perf_counter()
             result = page.evaluate(CONVERT, {'data': base64.b64encode(source).decode(),
-                                           'kind': path.suffix[1:], 'options': case.get('options', {})})
+                                           'kind': kind, 'options': case.get('options', {})})
             entry['conversionAndExportsMs'] = round((time.perf_counter() - started) * 1000, 1)
             wanted = case['expect']
             if wanted['category'] == 'rejected':
@@ -237,7 +258,12 @@ def run_document_benchmark(open_page, root, out):
                     if not parent.evaluate('el=>el.open'):
                         parent.locator(':scope > summary').click()
                 page.click('#start-import')
-                page.locator('#import-file').set_input_files(str(path))
+                if origin == 'pinned-upstream':
+                    page.locator('#import-file').set_input_files(str(path))
+                else:
+                    page.locator('#import-file').set_input_files({
+                        'name': case['id'] + '.md', 'mimeType': 'text/markdown', 'buffer': source
+                    })
                 if case.get('options', {}).get('firstRowHeaders'):
                     expect(page.locator('#desk-status')).to_contain_text('no explicit header row')
                     page.check('#import-first-row-headers')
@@ -277,6 +303,10 @@ def run_document_benchmark(open_page, root, out):
             if context:
                 context.close()
             save()
+    report['originCounts'] = {
+        origin: sum(case['origin'] == origin for case in report['cases'])
+        for origin in ['pinned-upstream', 'authored-synthetic']
+    }
     report['counts'] = {category: sum(case['expected'] == category for case in report['cases'])
                         for category in ['preserved', 'disclosed', 'rejected', 'sampled']}
     report['result'] = 'PASS' if all(case['result'] == 'PASS' for case in report['cases']) else 'FAIL'

@@ -1,0 +1,286 @@
+{
+  "version": 1,
+  "origin": "authored-synthetic",
+  "scope": "Locally authored fictional Markdown input cases. These are not application-origin captures, real user documents, device tests, or compatibility evidence.",
+  "cases": [
+    {
+      "id": "authored-cjk",
+      "kind": "md",
+      "source": "東京で文章を書く。",
+      "expect": {
+        "category": "preserved",
+        "text": "東京で文章を書く。"
+      },
+      "reason": "CJK source text must survive all article exports."
+    },
+    {
+      "id": "authored-arabic",
+      "kind": "md",
+      "source": "مرحبا بالعالم، هذا نص.",
+      "expect": {
+        "category": "preserved",
+        "text": "مرحبا بالعالم، هذا نص."
+      },
+      "reason": "Right-to-left text must survive without script or direction stripping."
+    },
+    {
+      "id": "authored-combining",
+      "kind": "md",
+      "source": "Café and naïve.",
+      "expect": {
+        "category": "preserved",
+        "text": "Café and naïve."
+      },
+      "reason": "Combining marks and precomposed accents should retain the input characters."
+    },
+    {
+      "id": "authored-emoji",
+      "kind": "md",
+      "source": "An idea 💡 becomes a post ✍️.",
+      "expect": {
+        "category": "preserved",
+        "text": "An idea 💡 becomes a post ✍️."
+      },
+      "reason": "Supplementary-plane emoji and variation selectors should survive the Word ZIP."
+    },
+    {
+      "id": "authored-punctuation",
+      "kind": "md",
+      "source": "Literal punctuation: @mentions, #hashtag, 50% and $5.",
+      "expect": {
+        "category": "preserved",
+        "text": "Literal punctuation: @mentions, #hashtag, 50% and $5."
+      },
+      "reason": "Ordinary punctuation should not be reinterpreted as article metadata."
+    },
+    {
+      "id": "authored-two-paragraphs",
+      "kind": "md",
+      "source": "First paragraph.\n\nSecond paragraph.",
+      "expect": {
+        "category": "preserved",
+        "text": "First paragraph. Second paragraph."
+      },
+      "reason": "Separate ordinary paragraphs need both text passages and stable export ordering."
+    },
+    {
+      "id": "authored-title-handoff",
+      "kind": "md",
+      "source": "# Checklist draft\n\n## Actions\n\nFirst step.",
+      "expect": {
+        "category": "disclosed",
+        "title": "Checklist draft",
+        "text": "Actions First step.",
+        "warnings": [
+          "opening title heading was moved"
+        ]
+      },
+      "reason": "Opening H1 moves into a separate title while the remaining body survives.",
+      "ui": true
+    },
+    {
+      "id": "authored-emphasis",
+      "kind": "md",
+      "source": "One **bold** and *italic* phrase.",
+      "expect": {
+        "category": "preserved",
+        "text": "One bold and italic phrase."
+      },
+      "reason": "Common inline emphasis must not delete text during three-format export."
+    },
+    {
+      "id": "authored-strikethrough",
+      "kind": "md",
+      "source": "Now ~~old~~ new.",
+      "expect": {
+        "category": "preserved",
+        "text": "Now old new.",
+        "strikes": [
+          "old"
+        ]
+      },
+      "reason": "Supported strikethrough must survive as an actual mark in HTML and Word."
+    },
+    {
+      "id": "authored-safe-link",
+      "kind": "md",
+      "source": "Read [the guide](https://example.com/path) now.",
+      "expect": {
+        "category": "preserved",
+        "text": "Read the guide now.",
+        "links": [
+          {
+            "text": "the guide",
+            "href": "https://example.com/path"
+          }
+        ]
+      },
+      "reason": "The link label and exact safe HTTPS target should survive both HTML exports."
+    },
+    {
+      "id": "authored-bullets",
+      "kind": "md",
+      "source": "- First\n- Second",
+      "expect": {
+        "category": "preserved",
+        "text": "First Second",
+        "listItems": [
+          "First",
+          "Second"
+        ]
+      },
+      "reason": "Bullet item identity should remain across destination formats.",
+      "ui": true
+    },
+    {
+      "id": "authored-ordered-start",
+      "kind": "md",
+      "source": "4. Alpha\n5. Beta",
+      "expect": {
+        "category": "preserved",
+        "text": "Alpha Beta",
+        "listItems": [
+          "Alpha",
+          "Beta"
+        ]
+      },
+      "reason": "A numbered list starting at four should retain its items and numbering structure."
+    },
+    {
+      "id": "authored-nested-list",
+      "kind": "md",
+      "source": "1. Parent\n  - Child\n2. Second",
+      "expect": {
+        "category": "preserved",
+        "text": "Parent Child Second",
+        "listPaths": [
+          {
+            "path": [
+              0,
+              0
+            ],
+            "text": "Parent"
+          },
+          {
+            "path": [
+              0,
+              0,
+              0
+            ],
+            "text": "Child"
+          },
+          {
+            "path": [
+              0,
+              1
+            ],
+            "text": "Second"
+          }
+        ]
+      },
+      "reason": "A nested mixed list should retain child text instead of flattening it away."
+    },
+    {
+      "id": "authored-header-table",
+      "kind": "md",
+      "source": "| Item | Qty |\n| --- | --- |\n| Tea | 2 |",
+      "expect": {
+        "category": "preserved",
+        "text": "Item Qty Tea 2",
+        "rows": [
+          [
+            "Item",
+            "Qty"
+          ],
+          [
+            "Tea",
+            "2"
+          ]
+        ]
+      },
+      "reason": "A simple header table should preserve cell rows across HTML and Word."
+    },
+    {
+      "id": "authored-fenced-code",
+      "kind": "md",
+      "source": "```js\nconst n = 2;\nconsole.log(n);\n```",
+      "expect": {
+        "category": "preserved",
+        "text": "const n = 2; console.log(n);"
+      },
+      "reason": "Fenced code should retain literal text while remaining inert."
+    },
+    {
+      "id": "authored-literal-tags",
+      "kind": "md",
+      "source": "Use `<script>bad()</script>` literally.",
+      "expect": {
+        "category": "preserved",
+        "text": "Use <script>bad()</script> literally."
+      },
+      "reason": "Literal source tags inside inline code must remain text, never active DOM."
+    },
+    {
+      "id": "authored-blockquote",
+      "kind": "md",
+      "source": "> Keep your original file.",
+      "expect": {
+        "category": "preserved",
+        "text": "Keep your original file."
+      },
+      "reason": "A normal Markdown quote should retain its content in the destination."
+    },
+    {
+      "id": "authored-open-frontmatter",
+      "kind": "md",
+      "source": "---\ntitle: Open\nBody",
+      "expect": {
+        "category": "rejected",
+        "error": "front-matter block is not closed"
+      },
+      "reason": "An unfinished front-matter block must reject before replacing current writing.",
+      "ui": true
+    },
+    {
+      "id": "authored-duplicate-frontmatter",
+      "kind": "md",
+      "source": "---\ntitle: One\ntitle: Two\n---\nBody",
+      "expect": {
+        "category": "rejected",
+        "error": "duplicate field"
+      },
+      "reason": "Duplicate metadata fields must reject without choosing an arbitrary title.",
+      "ui": true
+    },
+    {
+      "id": "authored-control-byte",
+      "kind": "md",
+      "source": "Hello\u0000world",
+      "expect": {
+        "category": "rejected",
+        "error": "unsupported control characters"
+      },
+      "reason": "Control bytes must reject before a dangerous or lossy export."
+    },
+    {
+      "id": "authored-reserved-metadata",
+      "kind": "md",
+      "source": "---\nconstructor: evil\n---\nBody",
+      "expect": {
+        "category": "rejected",
+        "error": "unsupported field"
+      },
+      "reason": "Reserved metadata names must not reach object properties or the writer's article."
+    },
+    {
+      "id": "authored-invalid-slug",
+      "kind": "md",
+      "source": "---\nslug: Mixed Case\n---\nBody",
+      "expect": {
+        "category": "rejected",
+        "error": "lowercase letters"
+      },
+      "reason": "Unsafe slug values must reject rather than being silently rewritten."
+    }
+  ]
+}
