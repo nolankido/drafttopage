@@ -57,7 +57,8 @@
 </section>
 <label id="import-changes-section" class="check" hidden><input id="import-changes-ok" type="checkbox"><span id="import-changes-label">I reviewed the converted article and the formatting changes or omissions listed above.</span></label>
 <section id="import-unmapped-section" hidden><h3>Unmapped front matter</h3><pre id="import-unmapped" class="code-sample"></pre><p class="small">These fields will not be imported. Keep any values your destination needs in your original file or private notes.</p><label class="check"><input id="import-unmapped-ok" type="checkbox"><span>I will handle these unmapped fields separately.</span></label></section>
-<div class="actions"><button id="apply-import" type="button" class="button" disabled>Import into editor</button></div>
+<p id="import-continue-help" class="small" hidden>Continue opens your chosen export with approval unchecked. Choose Import and edit if you want to change the article first.</p>
+<div class="actions"><button id="apply-import-and-continue" type="button" class="button" aria-describedby="import-continue-help" hidden disabled>Import and continue to export</button><button id="apply-import" type="button" class="button" disabled>Import into editor</button></div>
 </section>
 <div class="actions"><button id="cancel-import" type="button" class="secondary">Clear selected file or import preview</button></div>
 <p class="small">An import preview is temporary and is not included in workspace backups. Apply the import to keep its article and questions. <a href="/help/article-import/" target="_blank" rel="noopener">Supported formats, insertion steps, and examples (new tab)</a></p>

@@ -78,7 +78,7 @@ class Node {
   append(...nodes) { this.childNodes.push(...nodes); } replaceChildren(...nodes) { this.childNodes = nodes; }
   setAttribute() {} focus() { this.focused = true; } select() { this.selectionStart = 0; this.selectionEnd = this.value.length; }
 }
-async function ui(run) {
+async function ui(run, options = {}) {
   const prior = { document: globalThis.document, confirm: globalThis.confirm }, nodes = new Map(), $ = id => { if (!nodes.has(id)) nodes.set(id, new Node()); return nodes.get(id); };
   globalThis.document = { getElementById: $, createElement: tag => new Node(tag), createDocumentFragment: () => new Node(), createTextNode: text => ({ nodeType: 3, nodeValue: text }) };
   const workspace = { source: { profile: 'personal', notes: 'PRIVATE_SOURCE', purpose: 'Existing purpose', audience: 'Existing audience' }, draft: { ...draft(body()), title: 'Existing title', excerpt: 'Existing excerpt', description: 'Existing description', slug: 'existing', questions: ['EXISTING_PRIVATE_QUESTION'] } };
@@ -88,7 +88,8 @@ async function ui(run) {
   const history = createCheckpointHistory();
   const controller = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, workChanged: () => { workChanges++; },
     apply: value => { replacements++; workspace.draft = value; },
-    applyInsertion: plan => { if (fail) throw new Error('Checkpoint refused'); history.save(workspace, 'Before article insertion'); workspace.draft.body = plan.body; $('body').value = plan.body; approval = false; linked = false; insertions++; }
+    applyInsertion: plan => { if (fail) throw new Error('Checkpoint refused'); history.save(workspace, 'Before article insertion'); workspace.draft.body = plan.body; $('body').value = plan.body; approval = false; linked = false; insertions++; },
+    ...options
   });
   const stage = async (text = '# Imported title\n\nAdditional **writing**.') => { $('import-text').value = text; await $('preview-import').fire(); };
   const mode = async value => { $('import-destination').value = value; await $('import-destination').fire('change'); };
@@ -104,6 +105,28 @@ test('Append preview and apply preserve all existing fields and private notes wi
   assert.deepEqual(workspace, { ...original, draft: { ...original.draft, body: original.draft.body + '\n\nAdditional **writing**.' } });
   assert.equal(state().approval, false); assert.equal(state().linked, false); assert.equal(history.list().length, 1); assert.equal($('import-insertion-after').value, '');
 }));
+test('Insertion destinations refuse a programmatically fired continuation without changing writing or the reviewed plan', async () => {
+  let continued = 0;
+  await ui(async ({ $, controller, workspace, stage, mode, history, state }) => {
+    const original = structuredClone(workspace); await stage();
+    assert.equal($('apply-import-and-continue').hidden, false); assert.equal($('import-continue-help').hidden, false);
+    for (const destination of ['append', 'selection']) {
+      await mode(destination);
+      if (destination === 'selection') {
+        const start = $('body').value.indexOf('Keep this paragraph.');
+        $('body').selectionStart = start; $('body').selectionEnd = start + 'Keep this paragraph.'.length;
+      }
+      await $('preview-insertion').fire(); const preview = $('import-insertion-after').value;
+      assert.equal($('apply-import').disabled, false); assert.equal($('apply-import').textContent, 'Apply article insertion');
+      assert.equal($('apply-import-and-continue').hidden, true); assert.equal($('apply-import-and-continue').disabled, true); assert.equal($('import-continue-help').hidden, true);
+      await $('apply-import-and-continue').fire();
+      assert.deepEqual(workspace, original); assert.equal(state().insertions, 0); assert.equal(state().replacements, 0); assert.equal(state().confirms, 0);
+      assert.equal(state().approval, true); assert.equal(state().linked, true); assert.equal(history.list().length, 0); assert.equal(continued, 0);
+      assert.equal(controller.pending(), true); assert.equal($('import-insertion-preview').hidden, false); assert.equal($('import-insertion-after').value, preview);
+    }
+    await $('apply-import').fire(); assert.equal(state().insertions, 1); assert.equal(state().replacements, 0); assert.equal(continued, 0);
+  }, { continueToExport: () => { continued++; } });
+});
 test('Selection insertion requires explicit complete blocks, then changes only the selected occurrence', () => ui(async ({ $, workspace, stage, mode, state }) => {
   const original = workspace.draft.body; await stage(); await mode('selection'); $('body').selectionStart = 2; $('body').selectionEnd = 3; await $('preview-insertion').fire();
   assert.equal($('apply-import').disabled, true); assert.match(state().message, /complete/);
@@ -138,6 +161,18 @@ test('Insertion still requires conversion acknowledgements and unmapped-field de
   assert.equal($('apply-import').disabled, true); await $('apply-import').fire(); assert.equal(state().insertions, 0);
   $('import-unmapped-ok').checked = true; await $('import-unmapped-ok').fire('change'); assert.equal($('apply-import').disabled, false); await $('apply-import').fire(); assert.equal(state().insertions, 1);
 }));
+test('Continuation also requires an explicit decision about unmapped import metadata', async () => {
+  let continued = 0;
+  await ui(async ({ $, controller, workspace, stage, state }) => {
+    const original = structuredClone(workspace);
+    await stage('---\ntitle: Imported title\nlayout: article\n---\n\nNew body.');
+    assert.equal($('import-unmapped-section').hidden, false); assert.equal($('apply-import-and-continue').disabled, true);
+    await $('apply-import-and-continue').fire(); assert.deepEqual(workspace, original); assert.equal(state().replacements, 0); assert.equal(continued, 0); assert.equal(controller.pending(), true);
+    $('import-unmapped-ok').checked = true; await $('import-unmapped-ok').fire('change'); assert.equal($('apply-import-and-continue').disabled, false);
+    await $('apply-import-and-continue').fire(); assert.equal(state().replacements, 1); assert.equal(continued, 1); assert.equal(controller.pending(), false);
+    assert.equal(workspace.draft.body, 'New body.'); assert.equal(Object.hasOwn(workspace.draft, 'layout'), false); assert.deepEqual(workspace.source, original.source);
+  }, { continueToExport: () => { continued++; } });
+});
 test('Exact insertion no-ops and clearing preparation keep approval, history and current article', () => ui(async ({ $, workspace, history, stage, mode, state }) => {
   const original = structuredClone(workspace); await stage('Keep this paragraph.'); await mode('selection');
   const start = $('body').value.indexOf('Keep this'); $('body').selectionStart = start; $('body').selectionEnd = start + 'Keep this paragraph.'.length;

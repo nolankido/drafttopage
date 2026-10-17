@@ -151,11 +151,11 @@ function withDOM(run, options = {}) {
     if (name === 'template') Object.defineProperty(node, 'innerHTML', { set() { node.content = parseTree; assigned++; } });
     return node;
   } };
-  let confirmValue = true, busy = false, applications = [], message = '', fail = false;
+  let confirmValue = true, busy = false, applications = [], intents = [], message = '', fail = false;
   globalThis.confirm = () => confirmValue;
   $('import-format').value = 'auto';
-  const ui = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, apply: draft => { if (fail) throw new Error('Checkpoint refused'); applications.push(draft); }, ...options });
-  return Promise.resolve().then(() => run({ $, ui, message: () => message, applications, assigned: () => assigned, parse: root => { parseTree = root; }, confirm: value => { confirmValue = value; }, busy: value => { busy = value; }, fail: () => { fail = true; } })).finally(() => { globalThis.document = previous; globalThis.confirm = priorConfirm; });
+  const ui = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, apply: (draft, intent) => { if (fail) throw new Error('Checkpoint refused'); applications.push(draft); intents.push(intent); }, ...options });
+  return Promise.resolve().then(() => run({ $, ui, message: () => message, applications, intents, assigned: () => assigned, parse: root => { parseTree = root; }, confirm: value => { confirmValue = value; }, busy: value => { busy = value; }, fail: () => { fail = true; } })).finally(() => { globalThis.document = previous; globalThis.confirm = priorConfirm; });
 }
 test('HTML parsing is explicit, preflighted, detached, and title escaping is decoded', () => withDOM(({ assigned }) => {
   assert.equal(parseArticleImport('<h1>Literal</h1>').draft.body, '<h1>Literal</h1>'); assert.equal(assigned(), 0);
@@ -173,12 +173,49 @@ test('Staged HTML requires acknowledgement, cancellation retains it, and apply p
   ui.openFormatted(); assert.equal($('import-format').value, 'html'); assert.equal($('import-html-options').hidden, false);
   $('import-text').value = 'HTML fixture'; await $('preview-import').fire(); assert.equal(applications.length, 0);
   assert.ok($('import-reading-preview').childNodes.length); assert.equal($('apply-import').disabled, true);
+  assert.equal($('apply-import-and-continue').hidden, true); assert.equal($('import-continue-help').hidden, true);
   await $('apply-import').fire(); assert.equal(applications.length, 0);
   $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, false);
+  await $('apply-import-and-continue').fire(); assert.equal(applications.length, 0); assert.equal(ui.pending(), true);
   confirm(false); await $('apply-import').fire(); assert.equal(applications.length, 0); assert.ok(ui.pending());
   confirm(true); await $('apply-import').fire(); assert.equal(applications.length, 1); assert.equal(applications[0].title, 'Fictional title.');
   assert.equal($('import-reading-preview').childNodes.length, 0); assert.equal($('import-body-preview').value, ''); assert.equal(ui.pending(), false); assert.equal($('import-changes-ok').checked, false);
 }));
+test('Copied-writing continuation preserves the reviewed draft and clears retained clipboard context before navigation', async () => {
+  const continued = []; let readState;
+  const expected = { title: 'Fictional title.', excerpt: '', description: '', slug: 'fictional-title', body: 'Keep **this** body\\. [Guide](https://example.com/guide)', questions: [] };
+  await withDOM(async ({ $, ui, parse, applications, intents }) => {
+    readState = () => ({ pending: ui.pending(), staged: ui.staged(), text: $('import-text').value, sourceURL: $('import-source-url').value, status: $('import-file-status').textContent, preview: $('import-body-preview').value, applications: structuredClone(applications) });
+    parse(tree(element('h1', ['Fictional title.']), element('p', ['Keep ', element('strong', ['this']), ' body. ', element('a', ['Guide'], { href: '../guide' })])));
+    ui.openCopied(); $('import-source-url').value = 'https://example.com/folder/page'; await $('import-source-url').fire('input');
+    const source = '<h1>Fictional title.</h1><p>Keep <strong>this</strong> body. <a href="../guide">Guide</a></p>';
+    await $('import-text').fire('paste', { clipboardData: { getData: type => type === 'text/html' ? source : 'Fictional title.\nKeep this body. Guide' } });
+    assert.equal($('import-body-preview').value, expected.body); assert.equal($('import-text').value, ''); assert.equal(ui.pending(), true);
+    assert.equal($('apply-import-and-continue').hidden, false); assert.equal($('import-continue-help').hidden, false); assert.equal($('apply-import-and-continue').disabled, true);
+    await $('apply-import-and-continue').fire(); assert.equal(applications.length, 0); assert.deepEqual(continued, []);
+    $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import-and-continue').fire();
+    assert.deepEqual(applications, [expected]); assert.deepEqual(intents, [{ continueToExport: true }]);
+    assert.deepEqual(continued, [{ pending: false, staged: false, text: '', sourceURL: '', status: '', preview: '', applications: [expected] }]);
+    assert.equal($('import-reading-preview').childNodes.length, 0); assert.equal($('apply-import-and-continue').hidden, true); assert.equal($('import-continue-help').hidden, true);
+  }, { continueToExport: () => continued.push(readState()) });
+});
+test('Continuation refuses absent or empty article bodies while Import and edit remains a separate choice', async () => {
+  let continued = 0;
+  await withDOM(async ({ $, ui, parse, applications, intents }) => {
+    assert.equal($('apply-import-and-continue').disabled, true); await $('apply-import-and-continue').fire(); assert.equal(applications.length, 0); assert.equal(continued, 0);
+    ui.openFormatted(); parse(tree(element('h1', ['Fictional title.'])));
+    $('import-text').value = '<h1>Fictional title.</h1>'; await $('preview-import').fire();
+    assert.equal($('import-body-preview').value, ''); assert.equal(ui.staged(), true);
+    $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+    assert.equal($('apply-import').disabled, false); assert.equal($('apply-import-and-continue').disabled, true);
+    await $('apply-import-and-continue').fire(); assert.equal(applications.length, 0); assert.equal(continued, 0); assert.equal(ui.pending(), true);
+    parse(tree(element('h1', ['Fictional title.']), element('p', ['Keep this body.'])));
+    $('import-text').value = '<h1>Fictional title.</h1><p>Keep this body.</p>'; await $('import-text').fire('input'); await $('preview-import').fire();
+    $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+    assert.equal($('apply-import-and-continue').disabled, false); assert.equal($('apply-import').textContent, 'Import and edit');
+    await $('apply-import').fire(); assert.equal(applications.length, 1); assert.equal(applications[0].body, 'Keep this body\\.'); assert.deepEqual(intents, [{ continueToExport: false }]); assert.equal(continued, 0); assert.equal(ui.pending(), false);
+  }, { continueToExport: () => { continued++; } });
+});
 test('Edits, format and header choices invalidate acknowledged candidates; busy or failed apply retains writing', () => withDOM(async ({ $, ui, applications, busy, fail, message }) => {
   ui.openFormatted(); $('import-text').value = 'HTML fixture'; await $('preview-import').fire(); $('import-changes-ok').checked = true;
   busy(true); await $('apply-import').fire(); assert.equal(applications.length, 0); busy(false);
@@ -332,18 +369,28 @@ test('Source examples keep code visible even on copied-writing entry points and 
   await $('cancel-import').fire(); assert.equal(ui.pending(), false); assert.equal($('import-text').value, ''); assert.equal($('import-body-preview').value, '');
 }, { pasteFirst: true }));
 
-test('HTML context edits retain raw source, invalidate acknowledgement, and block stale application without input events', () => withDOM(async ({ $, parse, applications }) => {
-  parse(tree(element('p', [element('a', ['Guide'], { href: '../guide' })])));
-  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p><a href="../guide">Guide</a></p>';
-  $('import-source-url').value = 'https://example.com/folder/page'; await $('import-source-url').fire('input'); await $('preview-import').fire();
-  assert.equal($('import-body-preview').value, '[Guide](https://example.com/guide)');
-  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($('apply-import').disabled, false);
-  $('import-source-url').value = 'https://other.example/notes/'; await $('apply-import').fire(); assert.equal(applications.length, 0);
-  await $('import-source-url').fire('input'); assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false); assert.match($('import-text').value, /href="\.\.\/guide"/);
-  await $('preview-import').fire(); assert.equal($('import-body-preview').value, '[Guide](https://other.example/guide)'); assert.equal($('apply-import').disabled, true);
-  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); await $('apply-import').fire();
-  assert.equal(applications.length, 1); assert.equal($('import-source-url').value, ''); assert.equal(Object.hasOwn(applications[0], 'sourceURL'), false);
-}));
+for (const [action, continueToExport] of [['apply-import', false], ['apply-import-and-continue', true]]) {
+  test('HTML ' + (continueToExport ? 'continuation' : 'editing') + ' rechecks source context and header choices and requires acknowledgement of a fresh preview', async () => {
+    let continued = 0;
+    await withDOM(async ({ $, parse, applications, intents }) => {
+      parse(tree(element('p', [element('a', ['Guide'], { href: '../guide' })])));
+      $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p><a href="../guide">Guide</a></p>';
+      $('import-source-url').value = 'https://example.com/folder/page'; await $('import-source-url').fire('input'); await $('preview-import').fire();
+      assert.equal($('import-body-preview').value, '[Guide](https://example.com/guide)');
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); assert.equal($(action).disabled, false);
+      $('import-source-url').value = 'https://other.example/notes/'; await $(action).fire(); assert.equal(applications.length, 0); assert.equal(continued, 0);
+      await $('import-source-url').fire('input'); assert.equal($('import-preview').hidden, true); assert.equal($('import-changes-ok').checked, false); assert.match($('import-text').value, /href="\.\.\/guide"/);
+      await $('preview-import').fire(); assert.equal($('import-body-preview').value, '[Guide](https://other.example/guide)'); assert.equal($(action).disabled, true);
+      await $(action).fire(); assert.equal(applications.length, 0); assert.equal(continued, 0);
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); $('import-first-row-headers').checked = true;
+      await $(action).fire(); assert.equal(applications.length, 0); assert.equal(continued, 0);
+      $('import-first-row-headers').checked = false; await $(action).fire();
+      assert.equal(applications.length, 1); assert.equal(applications[0].body, '[Guide](https://other.example/guide)');
+      assert.equal($('import-source-url').value, ''); assert.equal(Object.hasOwn(applications[0], 'sourceURL'), false);
+      assert.deepEqual(intents, [{ continueToExport }]); assert.equal(continued, Number(continueToExport));
+    }, { continueToExport: () => { continued++; } });
+  });
+}
 
 test('Copied HTML is retained for context re-preview and bad context cannot apply an older candidate', () => withDOM(async ({ $, ui, parse, applications }) => {
   parse(tree(element('p', [element('a', ['Guide'], { href: '/guide' })])));
@@ -381,11 +428,22 @@ test('Temporary context clears on workspace reset, leaving HTML mode, and accept
   await $('cancel-import').fire(); assert.equal($('import-source-url').value, ''); assert.equal(ui.pending(), false);
 }));
 
-test('Cancelled replacement and checkpoint failure retain the URL and reviewed HTML for retry', () => withDOM(async ({ $, confirm, fail, applications }) => {
-  $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = '<p>Keep this import</p>'; $('import-source-url').value = 'https://example.com/current'; await $('preview-import').fire();
-  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(false); await $('apply-import').fire(); assert.equal(applications.length, 0); assert.equal($('import-source-url').value, 'https://example.com/current'); assert.equal($('import-changes-ok').checked, true);
-  confirm(true); fail(); await $('apply-import').fire(); assert.equal(applications.length, 0); assert.equal($('import-source-url').value, 'https://example.com/current'); assert.equal($('import-preview').hidden, false);
-}));
+for (const [action, continueToExport] of [['apply-import', false], ['apply-import-and-continue', true]]) {
+  test('HTML ' + (continueToExport ? 'continuation' : 'editing') + ' cancellation and checkpoint failure retain the URL and reviewed source without navigation', async () => {
+    let continued = 0;
+    await withDOM(async ({ $, ui, confirm, fail, applications, message }) => {
+      const source = '<p>Keep this import</p>';
+      $('import-format').value = 'html-source'; await $('import-format').fire('change'); $('import-text').value = source; $('import-source-url').value = 'https://example.com/current'; await $('preview-import').fire();
+      const preview = $('import-body-preview').value;
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change'); confirm(false); await $(action).fire();
+      assert.match(message(), /cancelled/); assert.equal(applications.length, 0); assert.equal(continued, 0); assert.equal(ui.pending(), true);
+      assert.equal($('import-source-url').value, 'https://example.com/current'); assert.equal($('import-text').value, source); assert.equal($('import-body-preview').value, preview); assert.equal($('import-changes-ok').checked, true);
+      confirm(true); fail(); await $(action).fire(); assert.match(message(), /Checkpoint refused/);
+      assert.equal(applications.length, 0); assert.equal(continued, 0); assert.equal(ui.pending(), true);
+      assert.equal($('import-source-url').value, 'https://example.com/current'); assert.equal($('import-text').value, source); assert.equal($('import-body-preview').value, preview); assert.equal($('import-preview').hidden, false);
+    }, { continueToExport: () => { continued++; } });
+  });
+}
 
 test('Clearing an import reports already-cleared source and URL to workflow and exit-warning observers', () => {
   const observed = [];

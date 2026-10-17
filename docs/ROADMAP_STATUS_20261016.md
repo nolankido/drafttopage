@@ -10,7 +10,7 @@ Checked October 16, 2026 against main `814bfa5d89ff13f50c4abc3aa80f21632335fab9`
 | 2. Release baseline | PR #70; [manual stable-source gate](RELEASE_BASELINE_20261016.md) | Run on each release; Actions remain off |
 | 3. Application-origin document benchmark | PR #71; [13 inputs, 15 contracts](DOCUMENT_BENCHMARK_20261016.md) | Extend with consented current full-length source-app captures |
 | 4. WordPress round trips | PR #72 plus later additions; [real local save/reopen](WORDPRESS_ROUNDTRIP_20261016.md), extended to [twelve native Visual paste cases and a separate Code editor fallback](WORDPRESS_VISUAL_PASTE_20261016.md) | Actual hosted versions/plugins, physical-device clipboards, and current source-app handoff |
-| 5. Simpler first conversion | PR #73; untitled first-conversion browser journey | Unassisted human completion |
+| 5. Simpler first conversion | PR #73; untitled first-conversion browser journey, followed by [reviewed import continuation to export](REVIEWED_IMPORT_CONTINUATION_20261016.md) with an edit-first alternative | Unassisted human completion |
 | 6. Explicit opt-in recovery | PR #74; opt-in, lock, comparison, deletion and failure fixtures | Actual browser/device recovery sessions |
 | 7. Copy and handoff feedback | PR #75; current/pending/stale/failure fixtures | Actual device permission and destination behavior |
 | 8. Ten-person public alpha | [Kit and task cards](PUBLIC_ALPHA_STUDY_20261016.md) prepared | NOT_RUN. No recruitment, contact or response collection authorized |
