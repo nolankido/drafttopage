@@ -1,0 +1,65 @@
+{
+  "format": "drafttopage-observed-synthetic-validation-summary",
+  "version": 1,
+  "observedDateHST": "2026-10-17",
+  "result": "PASS",
+  "scope": "Synthetic local fixtures; not real-author, hosted WordPress, physical-device, paint or field-INP evidence.",
+  "archiveScope": "This committed file contains the observed acceptance results, mechanism checks and all five paired-case summaries. Individual raw samples and separate CPU profiles remain in the hash-bound original receipt, not duplicated in this summary.",
+  "source": {
+    "baselineCommit": "06a8823b45444741648022944ee6dd5115a7822c",
+    "featureCommit": "9e9829fbe69eb74903d837279a2b6066f3f77465",
+    "featureTree": "57919b6819b9855ecdac2abb7a75663f519cdb85",
+    "diagnosticCommit": "0a5b848af421d8062fa5ef6836457351da696d14",
+    "diagnosticSourceSha256": "db372da450089ff8933301ae6d4ec56a5e8b96e56c61baade7e48fdc2b28a5cc",
+    "rawReceiptURL": "https://8ea165b7-drafttopage.nolankido.workers.dev/_dtp_kit_manifest_probe_20261016.json",
+    "rawReceiptSha256": "955941b8f83f9af80d266d52305bfa197f8e262cc19ab4ddfffb65f107160b87",
+    "rawReceiptBytes": 67623,
+    "readOnlyProjection": "https://validate-manifest-receipt-reader-20261017-drafttopage.nolankido.workers.dev/receipt/index/",
+    "runtimeBlobs": {
+      "export-controls.js": {"before": "b2300ecfc32f625b1fe519a94a12a232522b9632", "after": "3adf372f87fb0f77ebd8d7506977dce9d82a3777"},
+      "wordpress-handoff-controls.js": {"before": "44a20cc4b55af575f4c72150ec0f636857ff521e", "after": "83111ea7cc3af413eb751bb3a803a8043c53b6d9"}
+    }
+  },
+  "release": {
+    "steps": [
+      {"name": "build", "result": "PASS"},
+      {"name": "tests", "result": "PASS"},
+      {"name": "static", "result": "PASS"},
+      {"name": "browser", "result": "PASS"},
+      {"name": "wordpress", "result": "PASS"},
+      {"name": "source snapshot", "result": "PASS"}
+    ],
+    "nodeTests": null,
+    "nodeCountNote": "The full Node suite passed, but the diagnostic count extraction returned null. No total test count is claimed.",
+    "focusedManifestTests": {"result": "PASS", "seconds": 1},
+    "completeGate": {"result": "PASS", "seconds": 456},
+    "independentWordPressReceipt": {"result": "PASS", "seconds": 0},
+    "mechanismProfilesAndTiming": {"result": "PASS", "seconds": 186}
+  },
+  "browser": {"checks": 59, "layoutChecks": 379, "errors": 0, "unexpectedRequests": 0, "documents": {"result": "PASS", "cases": 37, "counts": {"preserved": 19, "disclosed": 9, "rejected": 8, "sampled": 1}}},
+  "wordpress": {"version": "7.1.3", "cases": 13, "passed": 13, "mediaResult": "PASS", "uploads": 2, "placements": 3},
+  "mechanism": [
+    {"version": "before", "result": "PASS", "nativeEdits": 3, "typingCompilerCalls": {"general": 6, "wordpress": 3}, "liveFindingKept": true, "invalidTitleClearsFiles": true, "errors": [], "unexpectedRequests": []},
+    {"version": "after", "result": "PASS", "nativeEdits": 3, "typingCompilerCalls": {"general": 0, "wordpress": 0}, "liveFindingKept": true, "invalidTitleClearsFiles": true, "errors": [], "unexpectedRequests": []}
+  ],
+  "candidateDownloads": {
+    "wordpress": {"exactBytes": true, "sha256": "c4aab7736061389564775a035ae58f16fe22f05f1dcff558192790c2a5640039", "files": ["wordpress-blocks.html", "article-body.md", "reading-page.html", "page-details.json", "REVIEW.txt", "README.txt"], "compilerCalls": {"general": 1, "wordpress": 1}},
+    "general": {"exactBytes": true, "sha256": "8e0dd6ca0822f8f0b08f5e4fffebdf8538b70f38017793f45b145729675780d6", "files": ["article-body.md", "reading-page.html", "page-details.json", "page.md", "README.txt"], "compilerCalls": {"general": 1, "wordpress": 0}}
+  },
+  "timingMethod": {
+    "cases": 5, "runs": 20, "samplesPerRun": 31,
+    "order": ["before", "after", "after", "before"],
+    "profileRunsSeparate": 2,
+    "aggregation": "Median of two run medians, range of the two nearest-rank p95 values, worst maximum. Not pooled or population statistics.",
+    "measurement": "Synchronous input-listener work and next animation-frame callback; excludes event queueing and actual paint.",
+    "controls": "Same built site and harness per pair; only two controller files differ. New helper is unused in baseline. No profiler in the 20 timing runs."
+  },
+  "summaries": [
+    {"case": "rich:wordpress:open", "synchronousInputMs": {"before": {"medianOfMedians": 206.55, "p95Range": [231.8, 277.1], "worst": 296.5}, "after": {"medianOfMedians": 143.95, "p95Range": [168.2, 187.2], "worst": 210.9}}, "inputToFrameMs": {"before": {"medianOfMedians": 226.65, "p95Range": [254.7, 307.5], "worst": 313.8}, "after": {"medianOfMedians": 165.55, "p95Range": [188.9, 215.2], "worst": 236.2}}},
+    {"case": "rich:word:open", "synchronousInputMs": {"before": {"medianOfMedians": 162.2, "p95Range": [183.7, 203.7], "worst": 212.4}, "after": {"medianOfMedians": 147.1, "p95Range": [191.7, 195.1], "worst": 208.6}}, "inputToFrameMs": {"before": {"medianOfMedians": 184.3, "p95Range": [203.9, 223.9], "worst": 235.9}, "after": {"medianOfMedians": 167.75, "p95Range": [214.5, 219.9], "worst": 232.3}}},
+    {"case": "rich:html:open", "synchronousInputMs": {"before": {"medianOfMedians": 160.85, "p95Range": [184.7, 194.9], "worst": 209.6}, "after": {"medianOfMedians": 141.2, "p95Range": [174.7, 183.7], "worst": 241.4}}, "inputToFrameMs": {"before": {"medianOfMedians": 180.8, "p95Range": [208.7, 215.8], "worst": 234.2}, "after": {"medianOfMedians": 162.05, "p95Range": [203.6, 207.1], "worst": 263.1}}},
+    {"case": "rich:wordpress:closed", "synchronousInputMs": {"before": {"medianOfMedians": 27.5, "p95Range": [40.9, 42.2], "worst": 44.6}, "after": {"medianOfMedians": 27.45, "p95Range": [40, 44.2], "worst": 45.9}}, "inputToFrameMs": {"before": {"medianOfMedians": 29.05, "p95Range": [42.5, 43.7], "worst": 46}, "after": {"medianOfMedians": 29.5, "p95Range": [41.4, 45.8], "worst": 47.3}}},
+    {"case": "rich:markdown:closed", "synchronousInputMs": {"before": {"medianOfMedians": 4.1, "p95Range": [6.5, 7.1], "worst": 11.7}, "after": {"medianOfMedians": 3.85, "p95Range": [5.3, 6.8], "worst": 8.1}}, "inputToFrameMs": {"before": {"medianOfMedians": 5.65, "p95Range": [8.4, 8.6], "worst": 14.2}, "after": {"medianOfMedians": 5.45, "p95Range": [7.5, 8.2], "worst": 9.5}}}
+  ],
+  "interpretation": "Open-panel WordPress median synchronous work is 30.31% lower, Word 9.31% lower and HTML 12.22% lower in this diagnostic. Closed-panel WordPress median is effectively unchanged. Word p95 remains mixed; HTML worst synchronous sample worsens from 209.6 to 241.4 ms. Do not claim universal tail-latency, physical-device or field performance improvement."
+}
