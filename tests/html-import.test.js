@@ -84,7 +84,7 @@ test('Fictional combined Google Docs-style article keeps title, list start, tabl
   assert.match(parsed.draft.body, /4\. First checked item/);
   assert.match(parsed.draft.body, /  - Nested note/);
   assert.match(parsed.draft.body, /\| Café \| 日本語 😀 \|/);
-  assert.match(parsed.draft.body, /FIDELITY_FINAL_UNIQUE_20261017$/);
+  assert.match(parsed.draft.body, /FIDELITY\\_FINAL\\_UNIQUE\\_20261017$/);
   const published = createWordPressArticle(parsed.draft).html;
   assert.match(published, /"start":4/);
   assert.match(published, /href="https:\/\/example.com\/report\?q=1"/);
