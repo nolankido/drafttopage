@@ -133,3 +133,12 @@
 #import-body-preview{width:100%;min-width:0;max-width:100%;font:.85rem/1.5 ui-monospace,monospace}
 #import-completion:not([hidden]){border-left:3px solid var(--accent);padding:.65rem .75rem;background:var(--white);overflow-wrap:anywhere}
 @media(max-width:600px){.import-reading-preview{max-height:24rem;scrollbar-gutter:auto}#import-findings{padding-left:.6rem}}
+
+/* Image handling is an explicit pre-apply decision, not a guessed download success. */
+#word-image-decision{border:0;padding:0;min-width:0;margin:.75rem 0}
+#word-image-decision legend{font-weight:650;margin-bottom:.4rem}
+#word-image-decision .check{display:flex;gap:.55rem;margin:.5rem 0;overflow-wrap:anywhere}
+#word-image-decision input[type=radio]{flex:none;margin-top:.25rem}
+#word-image-saved-label{border-left:3px solid var(--accent);padding:.65rem .8rem;margin-top:1rem;background:var(--white);overflow-wrap:anywhere}
+#word-image-counts{font-weight:600;overflow-wrap:anywhere}
+#word-image-decision-status{border-left:3px solid var(--line);padding-left:.65rem;overflow-wrap:anywhere}
