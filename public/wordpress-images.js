@@ -1,4 +1,5 @@
 import { articleStructure } from './draft-review.js';
+import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { inlineTokens, walkInlineTokens, decodeMarkdownEscapes, safeWebLink } from './markdown-inline.js';
 import { previewBlocks } from './preview.js';
 
@@ -19,10 +20,15 @@ export function standaloneWordPressImage(text) {
   return { alt: decodeMarkdownEscapes(image.text), target: image.target, url: safeImageLink(image.target) };
 }
 
-export function analyzeWordPressImages(body) {
+export function analyzeWordPressImages(body, { structure = null } = {}) {
   if (typeof body === 'string' && body.includes('\u0000')) throw new Error('Remove null characters before preparing images.');
+  const validLength = typeof body === 'string' && body.length <= ARTICLE_BODY_LIMIT;
+  // Every recognized Markdown image begins with the literal ![ sequence.
+  // No candidate means no inline or structural scan is needed, but keep the
+  // original invalid-input guard via articleStructure for malformed sources.
+  if (validLength && !body.includes('![')) return [];
   const images = [];
-  for (const section of articleStructure(body)) {
+  for (const section of structure !== null && validLength ? structure : articleStructure(body)) {
     if (section.kind === 'code') continue;
     const standalone = section.kind === 'paragraph' ? standaloneWordPressImage(section.text) : null;
     for (const token of walkInlineTokens(inlineTokens(section.text))) {

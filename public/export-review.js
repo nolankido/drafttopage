@@ -17,13 +17,16 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
   const issues = articleIssues(draft, 'body');
   if (issues.body) throw new Error(issues.body);
   const body = draft.body;
-  const basic = analyzeDraft({ body, title: (wordpress || includeTitle) && typeof draft.title === 'string' && draft.title.length <= 160 ? draft.title : '' }, { imageFindings: false });
+  // Keep one exact current-source structural parse for the advisory draft,
+  // image and source-line scans. Inline, list and table rules remain unchanged.
+  const structure = articleStructure(body);
+  const basic = analyzeDraft({ body, title: (wordpress || includeTitle) && typeof draft.title === 'string' && draft.title.length <= 160 ? draft.title : '' }, { imageFindings: false, structure });
   const findings = basic.findings.map(item => ({ ...item,
     message: item.kind === 'link' ? 'This link stays text. Use a non-empty label and a safe absolute http:// or https:// address, then inspect the destination.' : item.message
   }));
   let totalFindings = basic.totalFindings;
   const add = (kind, message, start, end, line) => { totalFindings++; findings.push({ kind, message, start, end, line }); };
-  for (const image of analyzeWordPressImages(body)) {
+  for (const image of analyzeWordPressImages(body, { structure })) {
     if (!wordpress) { add('image', 'This image remains literal Markdown in the ' + (destination === 'word' ? 'Word document' : 'HTML fragment') + '. Add and inspect the actual image in your destination editor after exporting.', image.start, image.end, image.line); continue; }
     const prepared = includeLinkedImages && image.eligible;
     if (!prepared) add('image', 'This image stays text in copied blocks. ' + (image.reason || 'Open Images for WordPress and select Include supported linked images to prepare this reference, or add it in WordPress.'), image.start, image.end, image.line);
@@ -33,7 +36,7 @@ export function reviewExport(draft, { destination = 'wordpress', includeLinkedIm
   let listIndex = 0;
   for (const list of lists) if (!list.supported) add('list', 'This list group stays text. ' + list.reason + ' Edit its Markdown or rebuild it in ' + target + '.', list.start, list.headerEnd, list.line);
   for (const table of markdownTableRanges(body)) if (!table.supported) add('table', 'This table stays text. ' + table.reason + ' Edit its Markdown or rebuild it in ' + target + '.', table.start, table.headerEnd, table.line);
-  for (const section of articleStructure(body)) {
+  for (const section of structure) {
     if (section.kind === 'code' || section.kind === 'separator') continue;
     if (section.kind === 'heading' && section.level === 1 && destination !== 'word') add('title-level', wordpress ? 'This body H1 becomes H2 in WordPress. Keep the post title in its separate title field.' : 'This body H1 becomes H2 in HTML source. The separate title becomes H1 only when Include the article title is selected.', section.start, section.end, section.line);
     const originals = body.slice(section.start, section.end).split('\n');
