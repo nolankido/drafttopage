@@ -84,3 +84,40 @@ print('6 corrupted output cases rejected')
 `], { cwd: fileURLToPath(root), encoding: 'utf8' });
   assert.equal(result.trim(), '6 corrupted output cases rejected');
 });
+
+test('Authored regression probes are explicit, independent of historical source provenance, and bounded', () => {
+  const authored = JSON.parse(readFileSync(new URL('authored-cases.json', fixtures), 'utf8'));
+  assert.equal(authored.version, 1);
+  assert.equal(authored.origin, 'authored-synthetic');
+  assert.match(authored.scope, /not application-origin captures/i);
+  assert.equal(authored.cases.length, 22);
+  assert.equal(manifest.cases.length + authored.cases.length, 37);
+  const ids = new Set(manifest.cases.map(item => item.id));
+  let rejected = 0, withStructure = 0, withUI = 0;
+  for (const item of authored.cases) {
+    assert.match(item.id, /^authored-[a-z0-9-]+$/);
+    assert.equal(ids.has(item.id), false, 'A pinned corpus ID was reused.');
+    ids.add(item.id);
+    assert.equal(item.kind, 'md');
+    assert.equal(typeof item.source, 'string');
+    assert.ok(item.source.trim());
+    assert.ok(Buffer.byteLength(item.source, 'utf8') <= 512 * 1024);
+    assert.ok(typeof item.reason === 'string' && item.reason.length > 45, 'Explain why this authored probe matters.');
+    assert.deepEqual(Object.keys(item).sort().filter(k => !['id', 'kind', 'source', 'expect', 'reason', 'ui'].includes(k)), []);
+    assert.ok(['preserved', 'disclosed', 'rejected'].includes(item.expect.category));
+    assert.equal(typeof item.ui === 'undefined' || typeof item.ui === 'boolean', true);
+    if (item.ui) withUI++;
+    if (item.expect.category === 'rejected') {
+      rejected++;
+      assert.ok(typeof item.expect.error === 'string' && item.expect.error.length > 8);
+    } else {
+      assert.ok(typeof item.expect.text === 'string' && item.expect.text.length > 0);
+      if (item.expect.category === 'disclosed') assert.ok(Array.isArray(item.expect.warnings) && item.expect.warnings.length);
+      if (['rows', 'listItems', 'listPaths', 'links', 'strikes'].some(key => key in item.expect)) withStructure++;
+    }
+  }
+  assert.ok(withUI >= 4);
+  assert.ok(rejected >= 5);
+  assert.ok(withStructure >= 5, 'Keep meaningful structural assertions instead of text-only probes.');
+  assert.equal(ids.size, 37);
+});
