@@ -39,6 +39,36 @@ test('Document wrappers preserve headings, paragraphs, span emphasis, and line b
   assert.equal(result.markdown, '# A fictional title\n\nOne **important** and *quiet*\\.\nNext line\\.');
   assert.match(output(root), /<strong>important<\/strong> and <em>quiet<\/em>\.<br>Next line\./);
 });
+test('Explicit normal-weight span inside bold text stays normal while surrounding text remains bold', () => {
+  const result = convert(element('p', [element('strong', ['bold ', element('span', ['normal'], { style: 'font-weight:400' }), ' bold again'])]));
+  const out = createHTMLSource({ body: result.markdown });
+  assert.match(out, /<strong>bold<\/strong> normal <strong>bold again<\/strong>/);
+  assert.equal(inlineParts(result.markdown).map(p => p.text).join(''), 'bold normal bold again');
+  assert.doesNotMatch(result.markdown, /unstrong/);
+});
+test('Inherited bold on block container reaches child paragraphs and honors normal-weight reset', () => {
+  const result = convert(element('div', [
+    element('p', ['Inherited ', element('em', ['bold and italic']), '.']),
+    element('p', ['Not bold.'], { style: 'font-weight:normal' }),
+    element('p', ['Bold again.'])
+  ], { style: 'font-weight:700' }));
+  const html = createHTMLSource({ body: result.markdown });
+  assert.match(html, /<strong>Inherited <em>bold and italic<\/em>\.<\/strong>/);
+  assert.match(html, /<p>Not bold\.<\/p>/);
+  assert.match(html, /<strong>Bold again\.<\/strong>/);
+  assert.doesNotMatch(html, /<strong>Not bold/);
+});
+test('Copied formatting transition retains the unique article ending and safe link target', () => {
+  const result = convert(element('article', [
+    element('p', [element('strong', ['A ', element('span', ['regular'], { style: 'font-weight:normal' }), ' note'])]),
+    element('p', [element('a', ['Fictional reference'], { href: 'https://example.com/path?q=1' })]),
+    element('p', ['END_FIDELITY_20261017'])
+  ]));
+  const html = createHTMLSource({ body: result.markdown });
+  assert.match(html, /A<\/strong> regular <strong>note<\/strong>/);
+  assert.match(html, /href="https:\/\/example.com\/path\?q=1"/);
+  assert.match(html, /END_FIDELITY_20261017/);
+});
 test('Literal ASCII punctuation stays literal in preview and both HTML publishing formats', () => {
   const literal = '# A *literal* _word_ [label](https://example.com/) ![image](url) | <script> &lt; 1. + - \\ `code`';
   const { markdown } = convert(element('p', [literal]));
