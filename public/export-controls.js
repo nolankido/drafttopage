@@ -12,7 +12,7 @@ import { installExportReview } from './export-review-controls.js';
 import { installExportPreview } from './export-preview-controls.js';
 import { createCopyActions } from './copy-actions.js';
 
-export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), getCopySnapshot = getDraft, copyChanged = () => {}, openFinding = null, defaultDestination = 'wordpress', compact = false }) {
+export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), getCopySnapshot = getDraft, copyChanged = () => {}, openFinding = null, defaultDestination = 'wordpress', compact = false, prepareWordPressBlocks = createWordPressArticle, prepareGeneralKitFiles = publishingKitFiles }) {
   const $ = id => document.getElementById(id);
   $('publishing-destination').value = defaultDestination;
   $('additional-exports').open = !compact;
@@ -35,10 +35,13 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     }
     for (const id of ['wordpress-actions', 'wordpress-field-actions', 'html-source-actions', 'markdown-actions', 'other-copy-actions']) $(id)?.setAttribute?.('aria-busy', String(copying));
     if ($('export-review-action-status')) $('export-review-action-status').textContent = ['word', 'html'].includes(destination) ? copyState.feedback && copyState.destination === destination ? copyState.feedback : copying ? 'A clipboard request is pending. Wait for confirmation; downloads remain available.' : '' : '';
-    const wordpress = $('publishing-destination').value === 'wordpress';
+    const wordpress = destination === 'wordpress';
     $('wordpress-handoff').hidden = !wordpress;
+    // Editing clears approval. Do not serialize a long article before review.
+    // Real copy/download handlers still rebuild against current source.
+    const bodyIssues = wordpress ? articleIssues(draft, 'body') : null;
     let article = null;
-    try { if (wordpress) article = createWordPressArticle(draft, getWordPressOptions()); } catch { /* Readiness below explains missing article. */ }
+    try { if (wordpress && reviewed) article = prepareWordPressBlocks(draft, getWordPressOptions()); } catch { /* Readiness below explains missing article. */ }
     // A temporary native disabled state blurs the keyboard user's copy button.
     // Keep it focusable while copying; the shared controller rejects every
     // overlapping request. Unavailable or unapproved exports stay natively disabled.
@@ -46,7 +49,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     $('copy-wordpress').setAttribute?.('aria-disabled', String(copying || $('copy-wordpress').disabled));
     $('download-wordpress').disabled = isBusy() || !reviewed || !article || !wordpress;
     $('copy-wordpress-title').disabled = copying || isBusy() || !reviewed || !wordpress || Boolean(articleIssues(draft, 'html').title);
-    $('wordpress-readiness').textContent = !article ? 'Paste an article first. Page metadata is optional.' : article.blockCount + ' top-level blocks prepared locally. ' + (reviewed ? 'Copy or download, then inspect them in WordPress.' : 'Review your reading preview, then check the approval box to copy or download.') + (articleIssues(draft, 'html').title ? ' Add a title separately in WordPress.' : ' Your title stays separate from the body.');
+    $('wordpress-readiness').textContent = !wordpress ? '' : bodyIssues.body ? 'Paste an article first. Page metadata is optional.' : !reviewed ? 'Read the preview and inspect the handoff findings, then check approval to prepare WordPress blocks.' : !article ? 'Could not prepare WordPress blocks. Inspect the current article before copying.' : article.blockCount + ' top-level blocks prepared locally. Copy or download, then inspect them in WordPress.' + (articleIssues(draft, 'html').title ? ' Add a title separately in WordPress.' : ' Your title stays separate from the body.');
     $('wordpress-notices').replaceChildren(...(article?.notices || []).map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
     // Clear hidden or unapproved output immediately after edits, restore, or clear.
     $('wordpress-code-preview').value = !isBusy() && wordpress && reviewed && $('wordpress-code-panel').open ? article?.html || '' : '';
@@ -62,11 +65,14 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     if ($('copy-brief')) $('copy-brief').disabled = copying || isBusy();
     if ($('copy-questions')) $('copy-questions').disabled = copying || isBusy() || !draft.questions?.length;
     let kit = null, error = '';
-    try { if ($('additional-exports').open) kit = publishingKitFiles(draft, options()); }
+    // Preparing a full reading-page ZIP while this panel is collapsed delays
+    // typing with no visible output. The toggle recomputes current files.
+    const kitVisible = $('additional-exports').open && $('publishing-kit-panel').open;
+    try { if (kitVisible) kit = prepareGeneralKitFiles(draft, options()); }
     catch (failure) { error = failure.message; }
-    $('download-kit').disabled = !reviewed || !kit;
-    $('kit-readiness').textContent = !$('additional-exports').open ? '' : kit ? 'Includes ' + kit.files.length + ' files. ' + (kit.notices.join(' ') || 'All page fields are complete.') : 'Add a valid title and article for a publishing kit. ' + error;
-    if ($('additional-exports').open && $('publishing-kit-panel').open) {
+    $('download-kit').disabled = isBusy() || !reviewed || !kit;
+    $('kit-readiness').textContent = !kitVisible ? '' : kit ? 'Includes ' + kit.files.length + ' files. ' + (kit.notices.join(' ') || 'All page fields are complete.') : 'Add a valid title and article for a publishing kit. ' + error;
+    if (kitVisible) {
       const snapshot = JSON.stringify([kit?.filename, kit?.files.map(file => [file.name, file.purpose]), kit?.notices, error]);
       if (snapshot !== kitSnapshot) {
         kitSnapshot = snapshot;
@@ -92,7 +98,7 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     }, success: 'Formatted article copied' + (includeTitle ? ' with its title' : ' without its title') + '. Paste into an editor that accepts formatted text, then check headings, links, and title handling. Nothing was published.', fallback: 'Formatted copy unavailable. Use Copy article body or Download reading page, or select visible preview text manually. Your writing is kept.' });
   });
   $('download-kit').addEventListener('click', () => {
-    if (!$('additional-exports').open || isBusy()) return;
+    if (!$('additional-exports').open || !$('publishing-kit-panel').open || isBusy()) return;
     try {
       approved(); const kit = createPublishingKit(getDraft(), options());
       downloadText(kit.bytes, kit.filename, 'application/zip');

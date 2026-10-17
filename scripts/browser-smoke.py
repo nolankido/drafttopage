@@ -1643,6 +1643,9 @@ with sync_playwright() as p:
     layout(page,'paste-first'); assert state['api']==[]; context.close()
     report['checks'].append('Paste-first sample: same workspace, approved WordPress file, stale-output clearing, sample confirmation, destination reset, mobile layouts')
     page,context,state=open_page('/write/#sample')
+    # The fragment sample loads after async desk initialization. Wait before
+    # replacing it; faster controllers must not make this fixture race startup.
+    expect(page.locator('#desk-status')).to_contain_text('Fictional sample loaded')
     page.fill('#body','A fictional opening.\n\n  - Nested list\n\n![image](https://example.test/image.png)\n\nTODO: inspect.')
     expect(page.locator('#wordpress-review-status')).to_contain_text('item(s) to inspect')
     expect(page.locator('#wordpress-findings li')).to_have_count(3)
