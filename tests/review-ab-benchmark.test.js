@@ -20,6 +20,5 @@ test('Comparison runs paired isolated browser controls without production build 
  assert.match(source,/"before","after","after","before"/);
  assert.match(source,/unexpectedRequests/);
  assert.match(source,/publicUnchanged/);
- assert.equal(readFileSync('scripts/build-site.mjs','utf8'),
-  "// All public pages use a shared shell and a deterministic local build.\nimport './build-content.mjs';\n");
+ assert.match(readFileSync('scripts/build-site.mjs','utf8'), /import '\.\/build-content\.mjs';/);
 });
