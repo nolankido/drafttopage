@@ -1,0 +1,568 @@
+{
+  "evidenceScope": "Synthetic tests only. No user records, hosted WordPress, or physical-device latency.",
+  "evidenceUrl": "https://validate-deferred-export-builds-rerun-20261016-drafttopage.nolankido.workers.dev/_dtp_lazy_export_probe_20261016.json",
+  "featureHead": "df8acf362a6cd930f10e1bc1f08dc5b910fa8599",
+  "diagnosticHead": "c05ed1d7ddba791dceca39a2d7a092eb4fe637b3",
+  "release": {
+    "sourceSha256": "9ec19d70a11dfa141d4ad187f595e6a538e7939f0de2fd122942ad0906dc30f6",
+    "steps": [
+      {
+        "name": "build",
+        "result": "PASS"
+      },
+      {
+        "name": "tests",
+        "result": "PASS"
+      },
+      {
+        "name": "static",
+        "result": "PASS"
+      },
+      {
+        "name": "browser",
+        "result": "PASS"
+      },
+      {
+        "name": "wordpress",
+        "result": "PASS"
+      },
+      {
+        "name": "source snapshot",
+        "result": "PASS"
+      }
+    ]
+  },
+  "stages": [
+    {
+      "name": "Focused controller regression",
+      "result": "PASS",
+      "seconds": 0
+    },
+    {
+      "name": "Python source syntax",
+      "result": "PASS",
+      "seconds": 0
+    },
+    {
+      "name": "Pin disposable WordPress runner",
+      "result": "PASS",
+      "seconds": 16
+    },
+    {
+      "name": "Create isolated Python venv",
+      "result": "PASS",
+      "seconds": 5
+    },
+    {
+      "name": "Pinned Python Playwright",
+      "result": "PASS",
+      "seconds": 3
+    },
+    {
+      "name": "Pinned Chromium",
+      "result": "PASS",
+      "seconds": 11
+    },
+    {
+      "name": "Rootless Chromium dependencies",
+      "result": "PASS",
+      "seconds": 8
+    },
+    {
+      "name": "Complete browser, WordPress and source gate",
+      "result": "PASS",
+      "seconds": 498
+    },
+    {
+      "name": "Independent WordPress receipt",
+      "result": "PASS",
+      "seconds": 0
+    },
+    {
+      "name": "Serial source-bound ABBA typing",
+      "result": "PASS",
+      "seconds": 140
+    }
+  ],
+  "browser": {
+    "checks": 59,
+    "layoutChecks": 379,
+    "errors": 0,
+    "unexpectedRequests": 0
+  },
+  "wordpress": {
+    "version": "7.1.3",
+    "cases": 13,
+    "passed": 13,
+    "mediaResult": "PASS",
+    "uploads": 2,
+    "placements": 3
+  },
+  "benchmark": {
+    "result": "PASS",
+    "scope": "Synthetic near-limit browser only; no real device, user or field INP",
+    "baseCommit": "50b8e04eefd06a032557d5ac1c28c5c079bcdf66",
+    "featureCommit": "c3d0c8b68f87e26d144bbe0fad46e0efa12098e7",
+    "beforeBlob": "5104563466d3e73f42c059f3302b792754416530",
+    "afterBlob": "b2300ecfc32f625b1fe519a94a12a232522b9632",
+    "browser": "143.0.7499.4",
+    "publicBeforeSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+    "publicUnchanged": true,
+    "samples": 31,
+    "cases": [
+      "rich:wordpress:closed",
+      "rich:wordpress:open",
+      "rich:markdown:closed",
+      "rich:html:open"
+    ],
+    "runs": [
+      {
+        "case": "rich:wordpress:closed",
+        "version": "before",
+        "order": 1,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 41.9,
+          "p95": 53.9,
+          "max": 54.9
+        },
+        "inputToFrameMs": {
+          "median": 43.3,
+          "p95": 56.2,
+          "max": 57.4
+        }
+      },
+      {
+        "case": "rich:wordpress:closed",
+        "version": "after",
+        "order": 2,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 29.3,
+          "p95": 41.7,
+          "max": 42.9
+        },
+        "inputToFrameMs": {
+          "median": 31.4,
+          "p95": 44.3,
+          "max": 45.1
+        }
+      },
+      {
+        "case": "rich:wordpress:closed",
+        "version": "after",
+        "order": 3,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 31.4,
+          "p95": 47.7,
+          "max": 53
+        },
+        "inputToFrameMs": {
+          "median": 33.3,
+          "p95": 49.6,
+          "max": 54.7
+        }
+      },
+      {
+        "case": "rich:wordpress:closed",
+        "version": "before",
+        "order": 4,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 47.6,
+          "p95": 79.8,
+          "max": 80.3
+        },
+        "inputToFrameMs": {
+          "median": 49,
+          "p95": 81.9,
+          "max": 83.7
+        }
+      },
+      {
+        "case": "rich:wordpress:open",
+        "version": "before",
+        "order": 1,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 253.3,
+          "p95": 303.7,
+          "max": 327.4
+        },
+        "inputToFrameMs": {
+          "median": 279.2,
+          "p95": 328.1,
+          "max": 358.6
+        }
+      },
+      {
+        "case": "rich:wordpress:open",
+        "version": "after",
+        "order": 2,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 224.9,
+          "p95": 338,
+          "max": 387.6
+        },
+        "inputToFrameMs": {
+          "median": 252.9,
+          "p95": 373.4,
+          "max": 425.3
+        }
+      },
+      {
+        "case": "rich:wordpress:open",
+        "version": "after",
+        "order": 3,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 213.3,
+          "p95": 243.3,
+          "max": 263
+        },
+        "inputToFrameMs": {
+          "median": 236.4,
+          "p95": 269.5,
+          "max": 291
+        }
+      },
+      {
+        "case": "rich:wordpress:open",
+        "version": "before",
+        "order": 4,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 224.3,
+          "p95": 260.2,
+          "max": 269.2
+        },
+        "inputToFrameMs": {
+          "median": 249.9,
+          "p95": 286.2,
+          "max": 294.6
+        }
+      },
+      {
+        "case": "rich:markdown:closed",
+        "version": "before",
+        "order": 1,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 4.2,
+          "p95": 7,
+          "max": 7.4
+        },
+        "inputToFrameMs": {
+          "median": 6.1,
+          "p95": 8.7,
+          "max": 10
+        }
+      },
+      {
+        "case": "rich:markdown:closed",
+        "version": "after",
+        "order": 2,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 4.1,
+          "p95": 7.6,
+          "max": 8.2
+        },
+        "inputToFrameMs": {
+          "median": 6,
+          "p95": 8.8,
+          "max": 9.4
+        }
+      },
+      {
+        "case": "rich:markdown:closed",
+        "version": "after",
+        "order": 3,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 4.8,
+          "p95": 6.9,
+          "max": 9.5
+        },
+        "inputToFrameMs": {
+          "median": 6.9,
+          "p95": 10.3,
+          "max": 11.4
+        }
+      },
+      {
+        "case": "rich:markdown:closed",
+        "version": "before",
+        "order": 4,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 4.9,
+          "p95": 6.7,
+          "max": 6.8
+        },
+        "inputToFrameMs": {
+          "median": 6.5,
+          "p95": 8.2,
+          "max": 8.9
+        }
+      },
+      {
+        "case": "rich:html:open",
+        "version": "before",
+        "order": 1,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 195,
+          "p95": 235.2,
+          "max": 264.7
+        },
+        "inputToFrameMs": {
+          "median": 217.8,
+          "p95": 260.8,
+          "max": 291.8
+        }
+      },
+      {
+        "case": "rich:html:open",
+        "version": "after",
+        "order": 2,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 179.1,
+          "p95": 209.5,
+          "max": 223.9
+        },
+        "inputToFrameMs": {
+          "median": 203.2,
+          "p95": 242.2,
+          "max": 246.3
+        }
+      },
+      {
+        "case": "rich:html:open",
+        "version": "after",
+        "order": 3,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "55ba2a96c2de87e7874bb86fe339eb3b8aadc913c1b578188c01233484420708",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 171.1,
+          "p95": 212.7,
+          "max": 216.8
+        },
+        "inputToFrameMs": {
+          "median": 198.2,
+          "p95": 234.8,
+          "max": 236.7
+        }
+      },
+      {
+        "case": "rich:html:open",
+        "version": "before",
+        "order": 4,
+        "browser": "143.0.7499.4",
+        "sourceSha256": "07f41a43fa8b30349ca4eef2fea8ee6b6c32226949470c5b6defadb2481f7210",
+        "characters": 58833,
+        "synchronousInputMs": {
+          "median": 182.4,
+          "p95": 215.1,
+          "max": 232.4
+        },
+        "inputToFrameMs": {
+          "median": 206.4,
+          "p95": 240.9,
+          "max": 256.5
+        }
+      }
+    ],
+    "summary": [
+      {
+        "case": "rich:wordpress:closed",
+        "synchronousInputMs": {
+          "before": {
+            "medianOfMedians": 44.75,
+            "p95Range": [
+              53.9,
+              79.8
+            ],
+            "worst": 80.3
+          },
+          "after": {
+            "medianOfMedians": 30.35,
+            "p95Range": [
+              41.7,
+              47.7
+            ],
+            "worst": 53
+          }
+        },
+        "inputToFrameMs": {
+          "before": {
+            "medianOfMedians": 46.15,
+            "p95Range": [
+              56.2,
+              81.9
+            ],
+            "worst": 83.7
+          },
+          "after": {
+            "medianOfMedians": 32.35,
+            "p95Range": [
+              44.3,
+              49.6
+            ],
+            "worst": 54.7
+          }
+        }
+      },
+      {
+        "case": "rich:wordpress:open",
+        "synchronousInputMs": {
+          "before": {
+            "medianOfMedians": 238.8,
+            "p95Range": [
+              260.2,
+              303.7
+            ],
+            "worst": 327.4
+          },
+          "after": {
+            "medianOfMedians": 219.1,
+            "p95Range": [
+              243.3,
+              338
+            ],
+            "worst": 387.6
+          }
+        },
+        "inputToFrameMs": {
+          "before": {
+            "medianOfMedians": 264.55,
+            "p95Range": [
+              286.2,
+              328.1
+            ],
+            "worst": 358.6
+          },
+          "after": {
+            "medianOfMedians": 244.65,
+            "p95Range": [
+              269.5,
+              373.4
+            ],
+            "worst": 425.3
+          }
+        }
+      },
+      {
+        "case": "rich:markdown:closed",
+        "synchronousInputMs": {
+          "before": {
+            "medianOfMedians": 4.55,
+            "p95Range": [
+              6.7,
+              7
+            ],
+            "worst": 7.4
+          },
+          "after": {
+            "medianOfMedians": 4.45,
+            "p95Range": [
+              6.9,
+              7.6
+            ],
+            "worst": 9.5
+          }
+        },
+        "inputToFrameMs": {
+          "before": {
+            "medianOfMedians": 6.3,
+            "p95Range": [
+              8.2,
+              8.7
+            ],
+            "worst": 10
+          },
+          "after": {
+            "medianOfMedians": 6.45,
+            "p95Range": [
+              8.8,
+              10.3
+            ],
+            "worst": 11.4
+          }
+        }
+      },
+      {
+        "case": "rich:html:open",
+        "synchronousInputMs": {
+          "before": {
+            "medianOfMedians": 188.7,
+            "p95Range": [
+              215.1,
+              235.2
+            ],
+            "worst": 264.7
+          },
+          "after": {
+            "medianOfMedians": 175.1,
+            "p95Range": [
+              209.5,
+              212.7
+            ],
+            "worst": 223.9
+          }
+        },
+        "inputToFrameMs": {
+          "before": {
+            "medianOfMedians": 212.1,
+            "p95Range": [
+              240.9,
+              260.8
+            ],
+            "worst": 291.8
+          },
+          "after": {
+            "medianOfMedians": 200.7,
+            "p95Range": [
+              234.8,
+              242.2
+            ],
+            "worst": 246.3
+          }
+        }
+      }
+    ],
+    "errors": []
+  }
+}
