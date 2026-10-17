@@ -197,18 +197,15 @@ def main():
                         report['fixtureAssets'].append('fictional linked image')
                         request.fulfill(content_type='image/svg+xml', body='<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>')
                     elif url.startswith('https://wordpress-media.test/'):
-                        original = media_aliases.get(url)
-                        if not original or not original.startswith(ORIGIN + '/'):
+                        recorded = media_aliases.get(url)
+                        if not recorded or not recorded['source_url'].startswith(ORIGIN + '/') or not recorded['bytes']:
                             report['unexpectedRequests'].append('Unregistered local media alias: ' + url)
                             request.abort()
                             return
-                        local = context.request.get(original)
-                        if local.status != 200:
-                            report['unexpectedRequests'].append('Local WordPress media did not load: ' + url)
-                            request.abort()
-                            return
-                        request.fulfill(status=200, body=local.body(),
-                                        content_type=local.headers.get('content-type', 'application/octet-stream'))
+                        # Serve the exact bytes previously retrieved and verified
+                        # from the real local Media Library, without nested
+                        # network operations inside the Playwright route callback.
+                        request.fulfill(status=200, body=recorded['bytes'], content_type=recorded['mime'])
                     elif url == 'https://s.w.org/images/block-editor/welcome-canvas.svg':
                         report['fixtureAssets'].append('WordPress welcome artwork')
                         request.fulfill(content_type='image/svg+xml', body='<svg xmlns="http://www.w3.org/2000/svg"/>')
