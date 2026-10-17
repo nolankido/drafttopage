@@ -234,7 +234,7 @@ export function installBrowserRecovery(options) {
     $('browser-recovery-start').disabled = !$('browser-recovery-consent').checked || actionBusy || !state.supported;
     $('browser-recovery-restore').disabled = !$('browser-recovery-consent').checked || !$('browser-recovery-reviewed').checked || !inspection || actionBusy || !state.valid || !state.supported;
     $('browser-recovery-inspect').hidden = !state.available || state.enabled;
-    $('browser-recovery-inspect').disabled = actionBusy || !state.valid;
+    $('browser-recovery-inspect').disabled = saveBusy || !state.valid;
     $('browser-recovery-reviewed').disabled = actionBusy || !inspection;
     $('browser-recovery-pause').hidden = !state.enabled;
     $('browser-recovery-now').hidden = !state.enabled;
@@ -286,7 +286,8 @@ export function installBrowserRecovery(options) {
   $('browser-recovery-reviewed').addEventListener('change', () => render(controller.state()));
   $('browser-recovery-fields').addEventListener('change', showField);
   $('browser-recovery-inspect').addEventListener('click', () => {
-    if (controller.busy() || options.isBusy?.()) return;
+    // A prepared import blocks replacement, but does not change this comparison.
+    if (controller.busy() || (options.isSaveBlocked || options.isBusy)?.()) return;
     try {
       clearInspection(); inspection = controller.inspect();
       comparison = compareWorkspaces(inspection.record.workspace, options.capture()).map(field => field.id !== 'questions' ? field : {

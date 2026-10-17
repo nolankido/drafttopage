@@ -349,6 +349,86 @@ test('Article save options reveals a usable recovery action without saving, rest
   }
 });
 
+test('Paused-copy inspection stays read-only with staged or raw pending imports and waits for active file reads', async () => {
+  const env = environment(), controls = new Map();
+  const oldDocument = globalThis.document, oldWindow = globalThis.window, oldNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  let workspace = writing(), stagedImport = null, rawImport = '', reading = false, captures = 0, restores = 0, confirmations = 0;
+  workspace.draft.body = 'Saved article\r\n\r\nExact café and 😀 text.\n';
+  const savedWorkspace = structuredClone(workspace);
+  const makeNode = id => ({ id, value: '', checked: false, disabled: false, hidden: false, open: false, parentElement: null,
+    tagName: id === 'browser-recovery-panel' ? 'DETAILS' : 'BUTTON', textContent: '', children: [], events: new Map(),
+    replaceChildren(...children) { this.children = children; },
+    addEventListener(type, listener) { if (!this.events.has(type)) this.events.set(type, []); this.events.get(type).push(listener); },
+    focus() { globalThis.document.activeElement = this; },
+    dispatch(type) { return Promise.all((this.events.get(type) || []).map(listener => listener({ currentTarget: this }))); },
+    // Invoke registered handlers even when disabled to check their own guards.
+    click() { return this.dispatch('click'); }
+  });
+  const $ = id => { if (!controls.has(id)) controls.set(id, makeNode(id)); return controls.get(id); };
+  globalThis.document = { getElementById: $, createElement: makeNode, addEventListener() {}, removeEventListener() {}, activeElement: null };
+  globalThis.window = { localStorage: env.storage, confirm: () => { confirmations++; return true; }, addEventListener() {} };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: env.locks } });
+  let controller;
+  try {
+    controller = installBrowserRecovery({ capture: () => { captures++; return structuredClone(workspace); }, restore: value => { restores++; workspace = value; }, hasWork: () => true,
+      isBusy: () => reading || Boolean(stagedImport || rawImport), isSaveBlocked: () => reading, now: () => stamp });
+    assert.equal(await controller.start(), true); assert.equal(controller.pause(), true);
+    const savedRaw = env.records.get(RECOVERY_KEY), writes = env.writes();
+    workspace.draft.body = 'Current article\r\n\r\nKeep naïve and 🧭 text exactly.\n';
+    workspace.source.notes = 'Current fictional source with a different note.\r\n';
+    workspace.draft.questions = ['A current question with a "quote".', 'Keep this\nline break.'];
+    $('reviewed').checked = true;
+    const original = JSON.stringify(workspace);
+    for (const preparation of ['staged', 'raw']) {
+      stagedImport = preparation === 'staged' ? { body: 'Unapplied staged preparation.' } : null;
+      rawImport = preparation === 'raw' ? '<p>Unapplied raw preparation.</p>' : '';
+      const pendingBefore = JSON.stringify({ stagedImport, rawImport });
+      controller.refresh();
+      assert.equal($('browser-recovery-inspect').hidden, false);
+      assert.equal($('browser-recovery-inspect').disabled, false, preparation + ' preparation allows comparison');
+      await $('browser-recovery-inspect').click();
+      assert.equal($('browser-recovery-preview').hidden, false);
+      assert.equal(document.activeElement, $('browser-recovery-preview-heading'));
+      for (const [field, current, saved] of [
+        ['body', workspace.draft.body, savedWorkspace.draft.body],
+        ['notes', workspace.source.notes, savedWorkspace.source.notes],
+        ['questions', JSON.stringify(workspace.draft.questions, null, 2), JSON.stringify(savedWorkspace.draft.questions, null, 2)]
+      ]) {
+        assert.ok($('browser-recovery-fields').children.some(option => option.value === field));
+        $('browser-recovery-fields').value = field; await $('browser-recovery-fields').dispatch('change');
+        assert.equal($('browser-recovery-current').value, current);
+        assert.equal($('browser-recovery-saved').value, saved);
+      }
+      assert.match($('browser-recovery-comparison').textContent, /Fields to replace:/);
+      $('browser-recovery-consent').checked = true; $('browser-recovery-reviewed').checked = true; controller.refresh();
+      for (const action of ['start', 'restore', 'forget']) {
+        assert.equal($('browser-recovery-' + action).disabled, true);
+        assert.deepEqual(await $('browser-recovery-' + action).click(), [false], action + ' remains guarded');
+      }
+      assert.equal(JSON.stringify(workspace), original); assert.equal($('reviewed').checked, true);
+      assert.equal(JSON.stringify({ stagedImport, rawImport }), pendingBefore);
+      assert.equal(env.records.get(RECOVERY_KEY), savedRaw); assert.equal(env.writes(), writes);
+      assert.equal(controller.state().enabled, false); assert.equal(restores, 0); assert.equal(confirmations, 0);
+    }
+    reading = true;
+    $('browser-recovery-panel').open = false; await $('browser-recovery-panel').dispatch('toggle');
+    assert.equal($('browser-recovery-inspect').disabled, true);
+    const capturesBefore = captures;
+    await $('browser-recovery-inspect').click();
+    assert.equal(captures, capturesBefore); assert.equal($('browser-recovery-preview').hidden, true);
+    assert.equal($('browser-recovery-current').value, ''); assert.equal($('browser-recovery-saved').value, '');
+    reading = false; controller.refresh();
+    assert.equal($('browser-recovery-inspect').disabled, false); await $('browser-recovery-inspect').click();
+    assert.equal($('browser-recovery-current').value, workspace.draft.body);
+    assert.equal($('browser-recovery-saved').value, savedWorkspace.draft.body);
+    assert.equal(JSON.stringify(workspace), original); assert.equal(env.records.get(RECOVERY_KEY), savedRaw);
+    assert.equal(env.writes(), writes); assert.equal(restores, 0); assert.equal(confirmations, 0);
+  } finally {
+    controller?.dispose(); globalThis.document = oldDocument; globalThis.window = oldWindow;
+    if (oldNavigator) Object.defineProperty(globalThis, 'navigator', oldNavigator); else delete globalThis.navigator;
+  }
+});
+
 test('Restoring requires the exact inspected copy and current workspace, including missed storage changes', async () => {
   const x = setup(environment(createBrowserCopy(writing(), stamp)));
   assert.equal(await x.control.resume(), false);
