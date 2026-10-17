@@ -8,6 +8,7 @@ import { downloadText } from './download.js';
 import { installWordComments } from './word-comment-controls.js';
 import { HTML_SOURCE_SAMPLE } from './html-source-sample.js';
 import { wordImageDownloadAllowed } from './word-image-metadata.js';
+import { summarizeWordImageHandoff, wordImageDecisionReady, wordImageDecisionStatus, wordImageAfterApply } from './word-image-handoff.js';
 import { summarizeImportFindings, guidanceForImportWarning } from './import-findings.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
@@ -15,7 +16,8 @@ export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This 
 export function installArticleImport({ hasArticle, apply, applyInsertion, continueToExport, isBusy, busyChanged, report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
   const $ = id => document.getElementById(id);
   const continueButton = $('apply-import-and-continue'), continueHelp = $('import-continue-help');
-  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null, candidateWordKey = null, candidateHTMLKey = null;
+  let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null, candidateWordKey = null, candidateHTMLKey = null, imageDownloadRequested = false;
+  const imageChoice = () => $('word-image-choice-kit').checked ? 'kit' : $('word-image-choice-placeholders').checked ? 'placeholders' : '';
   const htmlOptions = () => ({ firstRowHeaders: $('import-first-row-headers').checked, sourceURL: $('import-source-url')?.value || '' });
   const htmlOptionsKey = () => JSON.stringify(htmlOptions());
   const resetSourceURL = () => { if ($('import-source-url')) $('import-source-url').value = ''; };
@@ -23,8 +25,11 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
   const wordOptionsKey = () => JSON.stringify(wordOptions());
   const revisionLabel = () => candidate?.wordRevisions?.mode === 'previous' ? 'Previous text' : 'Proposed text';
   const hasTextRevisions = () => Boolean(candidate?.wordRevisions && candidate.wordRevisions.insertions + candidate.wordRevisions.deletions);
-  const clearWordImages = () => {
-    wordImageKit = null; $('word-image-private-ok').checked = false; $('word-image-metadata-ok').checked = false;
+  const clearWordImages = (resetChoice = false) => {
+    wordImageKit = null; imageDownloadRequested = false;
+    $('word-image-saved-ok').checked = false; $('word-image-saved-label').hidden = true;
+    if (resetChoice) { $('word-image-choice-kit').checked = false; $('word-image-choice-placeholders').checked = false; $('word-image-counts').textContent = ''; $('word-image-decision-status').textContent = ''; }
+    $('word-image-private-ok').checked = false; $('word-image-metadata-ok').checked = false;
     $('word-image-metadata-review').hidden = true; $('word-image-metadata-files').replaceChildren();
     $('word-image-kit-review').hidden = true; $('download-word-images').disabled = true;
     $('word-image-kit-status').textContent = '';
@@ -39,7 +44,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
   const clearPreview = () => {
     paste.clear();
     commentRecovery?.clear();
-    clearWordImages(); $('word-image-handoff').hidden = true;
+    clearWordImages(true); $('word-image-handoff').hidden = true;
     candidate = null; candidateWordKey = null; candidateHTMLKey = null;
     if ($('word-revision-review')) $('word-revision-review').hidden = true;
     if ($('word-revision-summary')) $('word-revision-summary').textContent = '';
@@ -112,7 +117,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     $('import-unmapped').textContent = candidate.unmapped.map(item => item.key + ': ' + item.value).join('\n');
     $('import-unmapped-section').hidden = candidate.unmapped.length === 0;
     $('word-image-handoff').hidden = !(wordFile && candidate.wordImages?.length);
-    if (!$('word-image-handoff').hidden) $('word-image-kit-status').textContent = candidate.wordImages.length + ' numbered image or object position(s). Prepare files to inspect what can be recovered. Download the package before applying this import.';
+    if (!$('word-image-handoff').hidden) $('word-image-kit-status').textContent = 'Image recovery is optional. Prepare a package if you want to reuse supported PNG/JPEG files. Unresolved positions stay as placeholders.';
     $('import-preview').hidden = false;
     $('import-changes-section').hidden = !candidate.requiresAck;
     updateApply();
@@ -120,7 +125,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     report('Import preview ready. Current writing is unchanged. Inspect the conversion and choose its destination before applying.');
     if (focusPreview) focusImportPreview($('import-preview-heading'));
   }
-  const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && (candidateHTMLKey === null || candidateHTMLKey === htmlOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked);
+  const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && (candidateHTMLKey === null || candidateHTMLKey === htmlOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked) && wordImageDecisionReady(candidate, imageChoice(), wordImageKit, imageDownloadRequested, $('word-image-saved-ok').checked);
   const continuationOffered = () => Boolean(candidate && continueButton && typeof continueToExport === 'function' && insertion.mode() === 'replace');
   function updateApply() {
     insertion.refresh();
@@ -129,6 +134,12 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
       const count = candidate.draft.body.trim() ? candidate.draft.body.trim().split(/\s+/u).length : 0;
       $('import-summary').textContent = candidate.kind + ': ' + (candidate.draft.title || 'Untitled article') + '. ' + count + ' approximate words; ' + (candidate.draft.questions.length + (commentRecovery?.selectedCount() || 0)) + ' review question(s).';
     }
+    const choice = imageChoice();
+    $('word-image-counts').textContent = summarizeWordImageHandoff(candidate, wordImageKit);
+    $('word-image-decision-status').textContent = wordImageDecisionStatus(candidate, choice, wordImageKit, imageDownloadRequested, $('word-image-saved-ok').checked);
+    const receiptVisible = Boolean(candidate?.wordImages?.length && choice === 'kit' && wordImageKit?.bytes && imageDownloadRequested);
+    $('word-image-saved-label').hidden = !receiptVisible;
+    $('word-image-saved-ok').disabled = !receiptVisible || reading || isBusy();
     const ready = allowed(), continuing = continuationOffered();
     $('apply-import').disabled = !ready;
     $('apply-import').className = continuing ? 'secondary' : 'button';
@@ -181,12 +192,29 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
       reading = false; $('import-fields').disabled = false; $('cancel-import').disabled = false; updateApply(); busyChanged();
     }
   });
+  for (const id of ['word-image-choice-kit', 'word-image-choice-placeholders']) $(''+id).addEventListener('change', () => {
+    imageDownloadRequested = false;
+    $('word-image-saved-ok').checked = false;
+    updateApply();
+    workChanged();
+  });
+  $('word-image-saved-ok').addEventListener('change', () => { updateApply(); workChanged(); });
   $('word-image-private-ok').addEventListener('change', updateApply);
   $('word-image-metadata-ok').addEventListener('change', updateApply);
   $('download-word-images').addEventListener('click', () => {
     if (!wordImageDownloadAllowed(wordImageKit, $('word-image-private-ok').checked, $('word-image-metadata-ok').checked, reading || isBusy())) return;
-    try { download(wordImageKit.bytes, wordImageKit.filename, 'application/zip'); report('Word image package download requested. Inspect the saved files, then upload images and replace placeholders in WordPress yourself. Nothing was published.'); }
-    catch (error) { report('The image download could not start. Prepared files and your article preview are kept. ' + error.message); }
+    try {
+      download(wordImageKit.bytes, wordImageKit.filename, 'application/zip');
+      imageDownloadRequested = true;
+      $('word-image-saved-ok').checked = false;
+      updateApply();
+      report('Word image ZIP download requested. Verify the file was actually saved and opens on your device, then confirm the receipt before importing. Nothing was published.');
+    } catch (error) {
+      imageDownloadRequested = false;
+      $('word-image-saved-ok').checked = false;
+      updateApply();
+      report('The image download could not start. The image package and article preview remain here. ' + error.message);
+    }
   });
   $('discard-word-images').addEventListener('click', () => {
     if (reading || isBusy()) return;
@@ -290,9 +318,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
       try {
         const plan = insertion.getPlan();
         if (plan.changed) applyInsertion(plan);
+        const imagesAfter = wordImageAfterApply(candidate, imageChoice(), wordImageKit);
         discardImport();
         $('import-completion').hidden = false;
-        $('import-completion').textContent = plan.changed ? 'Writing inserted locally. Existing page details and private notes were kept. Recheck the article before exporting; approval was cleared.' : 'No changes needed. Existing writing and approval were kept.';
+        $('import-completion').textContent = (plan.changed ? 'Writing inserted locally. Existing page details and private notes were kept. Recheck the article before exporting; approval was cleared.' : 'No changes needed. Existing writing and approval were kept.') + (imagesAfter ? ' ' + imagesAfter : '');
         report(plan.changed ? 'Article insertion applied locally. Previous writing is in Revisions in this tab. Existing title, page fields, source notes, and review notes were kept. Approval and the linked-image choice were cleared.' : 'This insertion already matches. Writing, approval, and history were kept.');
       } catch (error) { report(error.message); updateApply(); }
       return;
@@ -302,9 +331,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     }
     try {
       apply(commentRecovery?.draft(candidate.draft) || candidate.draft, { continueToExport: continueAfterImport });
+      const imagesAfter = wordImageAfterApply(candidate, imageChoice(), wordImageKit);
       discardImport();
       $('import-completion').hidden = false;
-      $('import-completion').textContent = continueAfterImport ? 'Article imported. Export review is next, with approval still required. Nothing has been published.' : 'Article imported locally. Edit or review your article below before exporting. Export approval was cleared.';
+      $('import-completion').textContent = (continueAfterImport ? 'Article imported. Export review is next, with approval still required. Nothing has been published.' : 'Article imported locally. Edit or review your article below before exporting. Export approval was cleared.') + (imagesAfter ? ' ' + imagesAfter : '');
       report('Article imported locally. Source notes were kept and export approval was cleared. Review before exporting. Nothing was uploaded or sent to AI.');
       if (continueAfterImport) continueToExport();
     } catch (error) { report(error.message); }

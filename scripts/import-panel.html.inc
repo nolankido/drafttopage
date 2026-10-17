@@ -53,7 +53,13 @@
 </section>
 <section id="word-image-handoff" class="word-image-handoff" hidden aria-labelledby="word-image-heading">
 <h3 id="word-image-heading">Keep the Word images</h3>
-<p class="small">Recover embedded PNG and JPEG files with numbered placement notes and the alternative text supplied in Word. Images are not displayed here or uploaded. Linked images and other formats stay as placeholders.</p>
+<p class="small">The article contains numbered image/object placeholders. Choose an image route <strong>before</strong> importing. The original Word document and the temporary image package are not saved by this editor when you apply or clear the import.</p>
+<p id="word-image-counts" class="small"></p>
+<fieldset id="word-image-decision" aria-describedby="word-image-decision-status"><legend>Choose how to handle these image positions</legend>
+<label class="check"><input id="word-image-choice-kit" type="radio" name="word-image-choice" value="kit"><span>Prepare and save the image ZIP first, then import the article</span></label>
+<label class="check"><input id="word-image-choice-placeholders" type="radio" name="word-image-choice" value="placeholders"><span>Continue with numbered placeholders and add images manually later</span></label>
+</fieldset>
+<p id="word-image-decision-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
 <button id="prepare-word-images" type="button" class="secondary">Prepare Word image files</button>
 <p id="word-image-kit-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
 <div id="word-image-kit-review" hidden><ul id="word-image-kit-files" class="word-image-kit-files" aria-label="Prepared Word image files"></ul><ul id="word-image-kit-skipped" class="small" aria-label="Images to handle separately"></ul>
@@ -65,7 +71,8 @@
 </section>
 <label id="word-image-private-label" class="check"><input id="word-image-private-ok" type="checkbox"><span>I reviewed this package. It includes article text and original image files, with possible metadata and areas hidden by Word cropping.</span></label>
 <div class="actions"><button id="download-word-images" type="button" class="button" disabled>Download images &amp; placement notes</button><button id="discard-word-images" type="button" class="secondary">Discard prepared image package</button></div></div>
-<p class="small"><strong>Download before importing.</strong> Applying or clearing this import discards the prepared image package. Extract the ZIP, upload the files to your WordPress Media Library, and replace the numbered placeholders yourself. These files are separate from workspace backups and article exports.</p>
+<label id="word-image-saved-label" class="check" hidden><input id="word-image-saved-ok" type="checkbox"><span>I verified that the image ZIP is saved on my device and can be opened. I will inspect the original images, metadata, alt text and unresolved placements before uploading or publishing. A download request alone does not prove that a file was saved.</span></label>
+<p class="small"><strong>If you choose the ZIP route:</strong> Prepare, inspect, request download, verify the saved ZIP, and check the receipt above before importing. Applying or clearing discards temporary image bytes. Extract the ZIP and use image-map.json to match each numbered position, including repeated uses of one file. Upload images to the WordPress Media Library or use the existing Add or edit image tool to map them after import. Unsupported and unrecognised positions require manual attention. If you choose placeholders, keep the Word original and repair each position later. Neither route uploads or publishes images.</p>
 </section>
 <label id="import-changes-section" class="check" hidden><input id="import-changes-ok" type="checkbox"><span id="import-changes-label">I reviewed the converted article and the formatting changes or omissions listed above.</span></label>
 
