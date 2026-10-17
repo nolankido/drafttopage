@@ -317,8 +317,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     if (insertion.mode() !== 'replace') {
       try {
         const plan = insertion.getPlan();
-        if (plan.changed) applyInsertion(plan);
         const imagesAfter = wordImageAfterApply(candidate, imageChoice(), wordImageKit);
+        if (plan.changed) applyInsertion(plan);
         discardImport();
         $('import-completion').hidden = false;
         $('import-completion').textContent = (plan.changed ? 'Writing inserted locally. Existing page details and private notes were kept. Recheck the article before exporting; approval was cleared.' : 'No changes needed. Existing writing and approval were kept.') + (imagesAfter ? ' ' + imagesAfter : '');
@@ -330,8 +330,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
     try {
-      apply(commentRecovery?.draft(candidate.draft) || candidate.draft, { continueToExport: continueAfterImport });
       const imagesAfter = wordImageAfterApply(candidate, imageChoice(), wordImageKit);
+      apply(commentRecovery?.draft(candidate.draft) || candidate.draft, { continueToExport: continueAfterImport });
       discardImport();
       $('import-completion').hidden = false;
       $('import-completion').textContent = (continueAfterImport ? 'Article imported. Export review is next, with approval still required. Nothing has been published.' : 'Article imported locally. Edit or review your article below before exporting. Export approval was cleared.') + (imagesAfter ? ' ' + imagesAfter : '');
