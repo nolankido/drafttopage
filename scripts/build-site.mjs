@@ -12,8 +12,10 @@ if (process.env.DTP_MANUAL_VALIDATION_CHILD !== '1') {
     const run = spawnSync(cmd,args,{encoding:'utf8',timeout,maxBuffer:12_000_000,
       env:{...env,...extraEnv},stdio:['ignore','pipe','pipe']});
     const good = !run.error && run.status === 0;
+    const detail = String(run.stdout||'')+'\\n'+String(run.stderr||'');
+    const safeTail = detail.slice(-1800).replace(/(Bearer|token|password|key)\\s*[:=]\\s*\\S+/gi,'$1=[redacted]');
     statuses.push({label,result:good?'PASS':'FAIL',seconds:Math.round((Date.now()-started)/1000),
-      exit:run.status,errorCode:run.error?.code||null});
+      exit:run.status,errorCode:run.error?.code||null, ...(good?{}:{logTail:safeTail})});
     console.log('Manual isolated acceptance '+label+': '+(good?'PASS':'FAIL'));
     if (!good) {
       const raw = String(run.stdout||'')+'\n'+String(run.stderr||'');
@@ -22,6 +24,7 @@ if (process.env.DTP_MANUAL_VALIDATION_CHILD !== '1') {
     }
     return run;
   };
+  try {
   perform('pin-playground-cli','npm',['install','--no-save','--no-package-lock','--no-audit','--no-fund','@wp-playground/cli@3.1.58'],240000);
   const python='/tmp/dtp-review-acceptance-py/bin/python';
   perform('create-python-venv','python3',['-m','venv','/tmp/dtp-review-acceptance-py'],60000);
@@ -60,4 +63,11 @@ if (process.env.DTP_MANUAL_VALIDATION_CHILD !== '1') {
     stages:statuses.map(({label,result,seconds})=>({label,result,seconds}))
   },null,2));
   console.log('Temporary isolated acceptance PASS; never merge this hook.');
+  } catch (error) {
+    writeFileSync('public/_dtp_review_probe_20261016.json',JSON.stringify({
+      scope:'Temporary fictional manual test only, NEVER production',result:'FAIL',
+      error:String(error.message||error).slice(0,250),stages:statuses
+    },null,2));
+    console.error('Temporary acceptance FAILED; see synthetic report. Never merge this hook.');
+  }
 }
