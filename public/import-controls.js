@@ -125,7 +125,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     report('Import preview ready. Current writing is unchanged. Inspect the conversion and choose its destination before applying.');
     if (focusPreview) focusImportPreview($('import-preview-heading'));
   }
-  const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && (candidateHTMLKey === null || candidateHTMLKey === htmlOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked) && wordImageDecisionReady(candidate, imageChoice(), wordImageKit, imageDownloadRequested, $('word-image-saved-ok').checked);
+  const allowed = () => candidate && (!wordFile || candidateWordKey === wordOptionsKey()) && (candidateHTMLKey === null || candidateHTMLKey === htmlOptionsKey()) && !copiedFailed && !reading && !isBusy() && (insertion.mode() === 'replace' || (typeof applyInsertion === 'function' && insertion.ready())) && (!candidate.unmapped.length || $('import-unmapped-ok').checked) && (!candidate.requiresAck || $('import-changes-ok').checked) && wordImageDecisionReady(candidate, imageChoice(), wordImageKit, imageDownloadRequested, $('word-image-saved-ok').checked) && (imageChoice() !== 'kit' || wordImageDownloadAllowed(wordImageKit, $('word-image-private-ok').checked, $('word-image-metadata-ok').checked));
   const continuationOffered = () => Boolean(candidate && continueButton && typeof continueToExport === 'function' && insertion.mode() === 'replace');
   function updateApply() {
     insertion.refresh();
@@ -140,6 +140,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     const receiptVisible = Boolean(candidate?.wordImages?.length && choice === 'kit' && wordImageKit?.bytes && imageDownloadRequested);
     $('word-image-saved-label').hidden = !receiptVisible;
     $('word-image-saved-ok').disabled = !receiptVisible || reading || isBusy();
+    $('word-image-decision').disabled = reading || isBusy();
     const ready = allowed(), continuing = continuationOffered();
     $('apply-import').disabled = !ready;
     $('apply-import').className = continuing ? 'secondary' : 'button';
@@ -199,8 +200,13 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     workChanged();
   });
   $('word-image-saved-ok').addEventListener('change', () => { updateApply(); workChanged(); });
-  $('word-image-private-ok').addEventListener('change', updateApply);
-  $('word-image-metadata-ok').addEventListener('change', updateApply);
+  for (const id of ['word-image-private-ok', 'word-image-metadata-ok']) $(id).addEventListener('change', () => {
+    if (!$(id).checked) {
+      imageDownloadRequested = false;
+      $('word-image-saved-ok').checked = false;
+    }
+    updateApply();
+  });
   $('download-word-images').addEventListener('click', () => {
     if (!wordImageDownloadAllowed(wordImageKit, $('word-image-private-ok').checked, $('word-image-metadata-ok').checked, reading || isBusy())) return;
     try {
