@@ -150,6 +150,12 @@ Open a plain .docx up to 8 MiB in the shared writer or converter import panel. O
 
 Ordinary referenced Word footnotes and endnotes now become visible labels and appended sections. Up to 100 referenced notes and 1,000 markers are supported, within 200 ordinary definitions, ten paragraphs and 4,000 converted characters per referenced note, and 60,000 characters for the whole article. Labels follow first visible reference order; original numbering and native footnote machinery are not reproduced. Safe links and paragraph formatting remain, unreferenced notes are excluded, and imported note text enters article exports. Complex, missing, ambiguous, or oversized notes block import. See [the Word notes release](docs/WORD_NOTES_RELEASE.md).
 
+## Local Word image to Media Library acceptance
+
+The [optional local Media Library acceptance runner](docs/WORDPRESS_MEDIA_LIBRARY_ACCEPTANCE_20261016.md) extends the existing pinned WordPress Playground validation to two distinct fictional PNG/JPEG uploads and three Image-block placements, with a reused file and contextual alt text, native copy/paste, draft save and reopen. The runner checks real local REST uploads and served original image bytes, not a public WordPress account. It uses a fixture-only HTTPS alias because the disposable WordPress server is HTTP loopback while the product correctly requires HTTPS image links.
+
+Without an explicitly installed pinned WordPress Playground CLI, the Media Library acceptance is **NOT_RUN**. No public upload connection is added.
+
 ## Word to WordPress entry page
 
 `/word-to-wordpress/` is a file-first entry point for existing Word drafts. Its primary button opens the shared native file picker from the author action without clearing writing or a pending preview. The shared import panel appears first and open; pasted-source choices use a native disclosure. A successful conversion focuses its review heading; accepting the import collapses the file panel and focuses the article. All existing checkpoint, acknowledgement, private backup, source exclusion, review, image, and WordPress handoff rules remain. The homepage, navigation, related tools, and import help link to this self-canonical indexed page. This is a discoverability and activation hypothesis, not evidence of search traffic or new users. See [the release note](docs/WORD_TO_WORDPRESS_RELEASE.md).

@@ -41,8 +41,59 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
           item.listPaths && found.listHierarchyVerified !== true ||
           item.formatSelection && found.toolbarVerified !== true;
       })) throw new Error('WordPress evidence is incomplete, contains failures, or targets a different environment.');
+  // The separate media case is not another parser-only block fixture. It must
+  // prove upload to an actual local Media Library, downloaded file identity,
+  // three distinct Image blocks with one reused uploaded file, and save/reopen.
+  const fixture = configuration.mediaLibraryFixture;
+  const media = evidence.mediaLibrary;
+  if (!fixture || !media || media.result !== 'PASS' || media.fixtureId !== fixture.id ||
+      !isDigest(media.sourceDocumentSha256) || media.imagePackageVerified !== true || media.mapV1Verified !== true ||
+      media.wordpressAttachmentCount !== fixture.imageFiles.length ||
+      media.nativeVisualPasteTrusted !== true || media.exportMatchesClipboard !== true ||
+      media.privateFieldsOmitted !== true || media.exportApprovedSeparately !== true ||
+      media.reusedMedia !== true || media.syntheticHttpsAlias !== true ||
+      !Number.isInteger(media.postId) || media.postId <= 0 ||
+      media.postTitle !== fixture.expectedTitle || media.postText !== fixture.expectedText ||
+      media.postStatus !== 'draft' || media.saveResponse !== 200 ||
+      !isDigest(media.savedSha256) || media.validAfterReopen !== true ||
+      media.reopenedSavedSourceExact !== true ||
+      !Array.isArray(media.uploads) || media.uploads.length !== fixture.imageFiles.length ||
+      !Array.isArray(media.placements) || media.placements.length !== fixture.expectedImageBlocks) {
+    throw new Error('WordPress evidence lacks a complete real local Media Library image round trip.');
+  }
+  const mediaIds = new Set(), mediaUrls = new Map();
+  for (let index = 0; index < fixture.imageFiles.length; index++) {
+    const wanted = fixture.imageFiles[index], received = media.uploads[index];
+    if (!received || received.filename !== wanted.filename || received.mime !== wanted.mime ||
+        !Number.isInteger(received.mediaId) || received.mediaId <= 0 ||
+        mediaIds.has(received.mediaId) || received.uploadStatus !== 201 ||
+        received.localLoopback !== true || !isDigest(received.originalSha256) ||
+        received.servedSha256 !== received.originalSha256 ||
+        typeof received.fixtureHttpsAlias !== 'string') {
+      throw new Error('WordPress Media Library attachment evidence is incomplete or damaged.');
+    }
+    let alias;
+    try { alias = new URL(received.fixtureHttpsAlias); } catch { throw new Error('WordPress Media Library URL evidence is malformed.'); }
+    if (alias.origin !== fixture.fixtureHTTPSOrigin || !alias.pathname.startsWith('/wp-content/uploads/') ||
+        alias.search || alias.hash || alias.username || alias.password ||
+        alias.pathname.split('/').some(part => part === '..' || part === '.')) {
+      throw new Error('WordPress media evidence must use only its isolated test HTTPS alias.');
+    }
+    mediaIds.add(received.mediaId);
+    mediaUrls.set(wanted.filename, received.fixtureHttpsAlias);
+  }
+  if (mediaUrls.size !== fixture.imageFiles.length || media.placements.some((item, index) => {
+    const wanted = fixture.imageOrder[index];
+    return !item || item.filename !== wanted.filename || item.alt !== wanted.alt ||
+      item.src !== mediaUrls.get(wanted.filename);
+  }) || media.placements[0].src !== media.placements[2].src ||
+      media.placements[0].alt === media.placements[2].alt) {
+    throw new Error('WordPress saved image placement and per-occurrence alternative-text evidence is invalid.');
+  }
   return { result: 'PASS', version: evidence.environment.wordpress, cases: evidence.cases.length,
-    nativePasteCases: nativeCases.length, codeEditorCases: expected.length - nativeCases.length, role: 'author' };
+    nativePasteCases: nativeCases.length, codeEditorCases: expected.length - nativeCases.length,
+    mediaLibraryUploads: fixture.imageFiles.length, mediaLibraryImageBlocks: fixture.expectedImageBlocks,
+    role: 'author' };
 }
 
 // A deliberately invoked local gate. It never installs tools, starts Actions,
