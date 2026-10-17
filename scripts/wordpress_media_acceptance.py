@@ -116,7 +116,7 @@ def run_wordpress_media_handoff(*, root, origin, config, new_page, open_editor, 
             # routes to its actual uploaded file. This is not a hosted-HTTPS test.
             alias = ALIAS_ORIGIN + parsed.path
             assert alias not in media_aliases, 'A media fixture alias was reused'
-            media_aliases[alias] = media_url
+            media_aliases[alias] = {'source_url': media_url, 'bytes': served_bytes, 'mime': mime}
             uploads.append({
                 'filename': filename, 'mime': mime, 'mediaId': result['id'], 'uploadStatus': status,
                 'originalSha256': sha256(image_bytes[filename]), 'servedSha256': sha256(served_bytes),
