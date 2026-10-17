@@ -56,7 +56,18 @@ export function installImageEditor({ getBody, apply, workChanged, report, isBusy
       revealDetails($('image-editor-panel')); refresh(); workChanged(); $('image-url').focus(); return true;
     } catch (error) { status(error.message); report(error.message); return false; }
   }
-  const imageMap = installWordImageMap({ getTarget: () => target, getBody, isBusy, workChanged, useAlt: alt => {
+  const imageMap = installWordImageMap({ getTarget: () => target, getBody, isBusy, workChanged, pinMatch: match => {
+    if (!match || isBusy() || match.body !== getBody()) return false;
+    const pending = fields();
+    if ((pending.url || pending.alt || pending.decorative) && !confirmAction('Discard pending image URL and alternative text to select the next Word placeholder? Your article and placement map will be kept.')) return false;
+    if (!choose(match.start, match.end, { edit: false })) return false;
+    // A new location must not silently inherit details intended for another image.
+    $('image-url').value = ''; $('image-alt').value = ''; $('image-decorative').checked = false;
+    for (const guard of guards) guard.clear();
+    purgePreview();
+    status('Next Word placeholder pinned. Compare its context and original file, then explicitly review alternative text and enter an uploaded HTTPS image URL.');
+    refresh(); workChanged(); return true;
+  }, useAlt: alt => {
     if (isBusy() || !target || target.body !== getBody()) return false;
     if ((fields().alt && fields().alt !== alt || fields().decorative) && !confirmAction('Replace the pending alternative text with the inspected Word alternative text? The article and URL are kept.')) return false;
     if (isBusy() || !target || target.body !== getBody()) return false;
