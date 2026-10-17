@@ -38,3 +38,7 @@ The release checks perform the build, Node tests, static checks, browser suite a
 ## Limits
 
 This tests two **fictional files**, three placements, one local WordPress version and the manual handoff UI. It is not an image privacy audit, an image optimization or transcoding benchmark, a physical clipboard-device test, real-author article acceptance, an unassisted ten-writer study or production WordPress plugin/theme compatibility. No claim of time saved, repeat usage or monetization follows from the fixture.
+
+## Executed local fixture acceptance
+
+The [October 16 observed local acceptance record](WORDPRESS_MEDIA_ACCEPTANCE_OBSERVED_20261016.md) supersedes the earlier **NOT_RUN** status for **this exact synthetic WordPress 7.1.3 Media Library fixture only**. All 13 retained cases and the separate two-upload, three-placement Media Library case completed with PASS. Real-author, hosted and physical-device checks remain NOT_RUN. To validate a fresh local receipt against the current Git revision, run `npm run verify:wordpress:receipt` after the optional local WordPress test.
