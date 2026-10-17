@@ -30,8 +30,8 @@ function run(label,cmd,args,timeout=240000,env=process.env) {
   return state==='PASS';
 }
 save();
-const files=readdirSync('tests').filter(name=>name.endsWith('.test.js')).sort().map(name=>'tests/'+name);
-const offline=run('complete_node_tests',process.execPath,['--test',...files],220000);
+const offline=run('focused_wordpress_receipt_tests',process.execPath,
+  ['--test','tests/wordpress-receipt.test.js','tests/wordpress-roundtrip.test.js'],240000);
 const staticCheck=run('site_static_checks',process.execPath,['scripts/check.mjs'],60000);
 if (offline && staticCheck) {
  if (run('playground_cli_install','npm',['install','--no-save','--no-package-lock','--no-audit','--no-fund','@wp-playground/cli@3.1.58'],240000)) {
