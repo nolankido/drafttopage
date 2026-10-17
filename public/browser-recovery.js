@@ -1,6 +1,7 @@
 import { createWorkspaceBackup, parseWorkspaceBackup, MAX_BACKUP_BYTES } from './workspace.js';
 import { compareWorkspaces } from './revisions.js';
 import { activateOnEnterRelease } from './keyboard-action.js';
+import { revealDetails } from './disclosure.js';
 
 export const RECOVERY_KEY = 'drafttopage.browser-recovery.v1';
 export const RECOVERY_LOCK = 'drafttopage-browser-recovery-v1';
@@ -22,26 +23,46 @@ export function parseBrowserCopy(content) {
   return { savedAt: date(value.savedAt), workspace: parseWorkspaceBackup(JSON.stringify(value.workspace)) };
 }
 
+// A stored timestamp alone never establishes that the current writing is saved.
+export function recoveryStatusText(state, formatDate = value => new Date(value).toLocaleString()) {
+  if (state.error || state.saveState === 'error') return 'Browser recovery needs attention. Keep this tab open and download a private backup.';
+  if (!state.supported) return 'Browser recovery is unavailable. Download a private backup to keep this writing.';
+  if (state.pending) return 'Preparing browser recovery. Keep this tab open.';
+  if (state.saveState === 'blocked') return 'Saving is waiting for a file operation. Current changes are not saved yet.';
+  if (state.saveState === 'saving') return 'Saving changes in this browser.';
+  if (state.saveState === 'saved') return 'Current writing saved in this browser' + (state.savedAt ? ' at ' + formatDate(state.savedAt) : '') + '.';
+  return state.available ? 'Saving is off. A browser copy is available; current changes may be unsaved.' : 'Saving is off. Keep a private backup before leaving.';
+}
+
 // One opt-in writer holds an origin-scoped Web Lock. Other tabs cannot overwrite it.
 // Storage errors retain the last good copy and stop saving. Nothing is uploaded.
-export function createBrowserRecovery({ storage, locks, capture, restore, hasWork, isBusy = () => false, confirm = () => false, now = () => new Date().toISOString(), changed = () => {}, setTimer = setTimeout, clearTimer = clearTimeout }) {
-  let enabled = false, pending = false, release = null, timer = null, lastRaw = null, signature = '', message = '', saving = false, generation = 0;
+export function createBrowserRecovery({ storage, locks, capture, restore, hasWork, isBusy = () => false, isSaveBlocked = isBusy, confirm = () => false, now = () => new Date().toISOString(), changed = () => {}, setTimer = setTimeout, clearTimer = clearTimeout }) {
+  let enabled = false, pending = false, release = null, timer = null, lastRaw = null, signature = '', message = '', saving = false, saveFailed = false, generation = 0;
   function read() { return storage().getItem(RECOVERY_KEY); }
   function state() {
     let raw = null, record = null, error = '', supported = false;
     try { supported = typeof locks()?.request === 'function'; } catch { /* File recovery remains available. */ }
     try { raw = read(); if (raw !== null) record = parseBrowserCopy(raw); }
     catch { error = 'Browser recovery is unavailable or its saved copy cannot be read. Writing is unchanged. Use a private backup file.'; }
-    return { enabled, pending, saving, available: raw !== null, valid: Boolean(record), savedAt: record?.savedAt ?? '', supported, error, message };
+    if (!error && enabled && raw !== lastRaw) error = 'The browser recovery copy changed outside this tab. Download your current writing as a private backup before continuing.';
+    let saveState = 'off';
+    if (error || saveFailed) saveState = 'error';
+    else if (enabled) {
+      try { saveState = saving ? isSaveBlocked() ? 'blocked' : 'saving' : 'saved'; }
+      catch { saveState = 'error'; }
+    }
+    return { enabled, pending, saving, saveState, available: raw !== null, valid: Boolean(record), savedAt: record?.savedAt ?? '', supported, error, message };
   }
   function notify(text = message) { message = text; changed(state()); }
   function cancelTimer() { if (timer !== null) clearTimer(timer); timer = null; saving = false; }
   function stop() { cancelTimer(); enabled = false; release?.(); release = null; }
-  function fail(error) { stop(); pending = false; notify(error?.message || 'Browser saving failed. The last saved copy was kept. Download a private backup.'); }
+  function fail(error) { saveFailed = true; stop(); pending = false; notify(error?.message || 'Browser saving failed. The last saved copy was kept. Download a private backup.'); }
   function flush() {
     cancelTimer();
     if (!enabled || pending) return false;
-    if (isBusy()) { schedule(); return false; }
+    // Pending import preparation can block replacement without blocking a safe
+    // capture of the current workspace. Existing callers keep their busy guard.
+    if (isSaveBlocked()) { schedule(); return false; }
     try {
       if (read() !== lastRaw) throw new Error('The browser recovery copy changed outside this tab. Saving stopped to protect it. Download your current writing as a private backup.');
       const workspace = capture(), nextSignature = createWorkspaceBackup(workspace.source, workspace.draft);
@@ -51,6 +72,7 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
         if (read() !== content) throw new Error('The browser did not retain this recovery copy. Download a private backup.');
         lastRaw = content; signature = nextSignature;
       }
+      saveFailed = false;
       notify('Recovery copy saved in this browser. Keep a downloaded backup for important work.'); return true;
     } catch (error) { fail(new Error(error.message + ' Saving is off; your open article is unchanged.')); return false; }
   }
@@ -58,7 +80,7 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
     if (!enabled || pending) return;
     try {
       const value = capture(), next = createWorkspaceBackup(value.source, value.draft);
-      if (next === signature) return;
+      if (next === signature) { cancelTimer(); notify('Recovery copy matches the current writing. Keep a downloaded backup for important work.'); return; }
       cancelTimer(); saving = true;
       notify('Changes waiting to be saved in this browser.');
       timer = setTimer(() => { timer = null; flush(); }, 600);
@@ -82,7 +104,13 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
             if (!hold) { pending = false; notify(); resolve(true); return; }
             const held = new Promise(done => { release = done; });
             enabled = true; pending = false;
-            if (!flush()) { resolve(false); return; }
+            // A deferred initial save must not leave an enabled writer after
+            // returning from the lock callback and releasing its ownership.
+            if (!flush()) {
+              stop();
+              notify(saveFailed ? message : 'Saving did not start. Finish the current file operation, then try browser recovery again.');
+              resolve(false); return;
+            }
             resolve(true); await held;
           } catch (error) { fail(error); resolve(false); }
         }).catch(error => { if (requestedGeneration === generation) fail(error); resolve(false); });
@@ -134,7 +162,7 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
     if (read() !== lastRaw) { stop(); throw new Error('The stored copy changed. It was kept. Check browser recovery before clearing this workspace.'); }
     storage().removeItem(RECOVERY_KEY);
     if (read() !== null) throw new Error('The browser did not remove its recovery copy. Current writing was kept.');
-    stop(); lastRaw = null; signature = ''; notify('Browser recovery copy removed. Saving is off.');
+    stop(); lastRaw = null; signature = ''; saveFailed = false; notify('Browser recovery copy removed. Saving is off.');
   }
   async function forget() {
     if (pending || isBusy()) return false;
@@ -145,7 +173,7 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
       if (read() !== expected) throw new Error('The browser copy changed. It was kept; review it before trying again.');
       storage().removeItem(RECOVERY_KEY);
       if (read() !== null) throw new Error('The browser did not remove the saved copy. Use browser site-data settings.');
-      lastRaw = null; signature = ''; message = 'Browser recovery copy removed. Saving is off. Open writing is unchanged.'; return true;
+      lastRaw = null; signature = ''; saveFailed = false; message = 'Browser recovery copy removed. Saving is off. Open writing is unchanged.'; return true;
     };
     if (enabled) {
       try { remove(); stop(); notify(); return true; } catch (error) { fail(error); return false; }
@@ -161,12 +189,12 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
         if (read() !== expected) throw new Error('The stored copy changed. Clearing was cancelled to protect it.');
         storage().removeItem(RECOVERY_KEY);
         if (read() !== null) throw new Error('The browser copy could not be removed. Current writing was kept.');
-        lastRaw = null; signature = ''; message = 'Browser recovery copy removed. Saving is off.'; return true;
+        lastRaw = null; signature = ''; saveFailed = false; message = 'Browser recovery copy removed. Saving is off.'; return true;
       });
     } catch (error) { fail(error); return false; }
   }
   function externalChange() {
-    if (enabled) { stop(); notify('Browser recovery changed in another tab or was removed. Saving stopped. Current writing is unchanged.'); }
+    if (enabled) { saveFailed = true; stop(); notify('Browser recovery changed in another tab or was removed. Saving stopped. Current writing is unchanged.'); }
     else notify();
   }
   return { state, start, inspect, resume, schedule, flush, pause, forget, removeOwned, removeForClear, externalChange, busy: () => pending, dispose: () => { if (enabled) flush(); stop(); pending = false; generation++; }, refresh: () => notify() };
@@ -175,6 +203,7 @@ export function createBrowserRecovery({ storage, locks, capture, restore, hasWor
 export function installBrowserRecovery(options) {
   const $ = id => document.getElementById(id), panel = $('browser-recovery-panel');
   if (!panel) return null;
+  const setText = (id, text) => { const node = $(id); if (node && node.textContent !== text) node.textContent = text; };
   let controller, wasEnabled = false, wasPending = null, inspection = null, comparison = [];
   function clearInspection() {
     inspection = null; comparison = [];
@@ -193,27 +222,43 @@ export function installBrowserRecovery(options) {
     if (inspection && (state.enabled || inspection.currentKey !== JSON.stringify(options.capture()) || !state.available)) clearInspection();
     if (wasEnabled && !state.enabled) $('browser-recovery-consent').checked = false;
     wasEnabled = state.enabled;
-    $('browser-recovery-summary').textContent = state.enabled ? state.saving ? 'Browser recovery: saving changes' : 'Browser recovery: on' : state.available ? 'Browser recovery: saved copy available' : 'Keep work on this browser, optional';
-    $('browser-recovery-status').textContent = state.error || (!state.supported ? 'Safe browser recovery is not supported here. Use a downloaded private backup; browser site-data settings can remove an older copy.' : '') || state.message || (state.available ? 'A recovery copy is stored on this browser. It has not been opened in this workspace.' : 'Saving is off. Without browser recovery or a downloaded backup, refreshing or leaving can lose writing.');
-    $('browser-recovery-date').textContent = state.savedAt ? 'Last saved: ' + new Date(state.savedAt).toLocaleString() + '. Browser storage can be cleared or evicted; this is not a guaranteed backup.' : '';
-    $('browser-recovery-consent').disabled = state.enabled || state.pending || !state.supported;
+    setText('article-save-status', recoveryStatusText(state));
+    setText('browser-recovery-summary', state.saveState === 'error' ? 'Browser recovery: needs attention' : state.saveState === 'blocked' ? 'Browser recovery: waiting for file operation' : state.enabled ? state.saving ? 'Browser recovery: saving changes' : 'Browser recovery: on' : state.available ? 'Browser recovery: saved copy available' : 'Keep work on this browser, optional');
+    setText('browser-recovery-status', state.error || (!state.supported ? 'Safe browser recovery is not supported here. Use a downloaded private backup; browser site-data settings can remove an older copy.' : '') || state.message || (state.available ? 'A recovery copy is stored on this browser. It has not been opened in this workspace.' : 'Saving is off. Without browser recovery or a downloaded backup, refreshing or leaving can lose writing.'));
+    setText('browser-recovery-date', state.savedAt ? 'Last saved: ' + new Date(state.savedAt).toLocaleString() + '. Browser storage can be cleared or evicted; this is not a guaranteed backup.' : '');
+    const actionBusy = state.pending || Boolean(options.isBusy?.());
+    const saveBusy = state.pending || Boolean((options.isSaveBlocked || options.isBusy)?.());
+    $('browser-recovery-consent').disabled = state.enabled || actionBusy || !state.supported;
     $('browser-recovery-start').hidden = state.available || state.enabled;
     $('browser-recovery-restore').hidden = !state.available || state.enabled;
-    $('browser-recovery-start').disabled = !$('browser-recovery-consent').checked || state.pending || !state.supported;
-    $('browser-recovery-restore').disabled = !$('browser-recovery-consent').checked || !$('browser-recovery-reviewed').checked || !inspection || state.pending || !state.valid || !state.supported;
+    $('browser-recovery-start').disabled = !$('browser-recovery-consent').checked || actionBusy || !state.supported;
+    $('browser-recovery-restore').disabled = !$('browser-recovery-consent').checked || !$('browser-recovery-reviewed').checked || !inspection || actionBusy || !state.valid || !state.supported;
     $('browser-recovery-inspect').hidden = !state.available || state.enabled;
-    $('browser-recovery-inspect').disabled = state.pending || !state.valid;
-    $('browser-recovery-reviewed').disabled = state.pending || !inspection;
+    $('browser-recovery-inspect').disabled = saveBusy || !state.valid;
+    $('browser-recovery-reviewed').disabled = actionBusy || !inspection;
     $('browser-recovery-pause').hidden = !state.enabled;
     $('browser-recovery-now').hidden = !state.enabled;
     $('browser-recovery-forget').hidden = !state.available;
-    for (const id of ['browser-recovery-pause', 'browser-recovery-now', 'browser-recovery-forget']) $(id).disabled = state.pending;
+    $('browser-recovery-pause').disabled = state.pending;
+    $('browser-recovery-now').disabled = saveBusy;
+    $('browser-recovery-forget').disabled = actionBusy;
     if (wasPending !== state.pending) {
       wasPending = state.pending;
       options.stateChanged?.(state.pending);
     }
   };
   controller = createBrowserRecovery({ ...options, storage: () => window.localStorage, locks: () => navigator.locks, confirm: text => window.confirm(text), changed: render });
+  const saveOptions = $('article-save-options');
+  if (saveOptions) {
+    activateOnEnterRelease(saveOptions);
+    saveOptions.addEventListener('click', () => {
+      revealDetails(panel);
+      const state = controller.state(); render(state);
+      const preferred = $(state.enabled ? 'browser-recovery-now' : state.available ? 'browser-recovery-inspect' : 'browser-recovery-consent');
+      const target = preferred && !preferred.disabled && !preferred.hidden ? preferred : $('browser-recovery-summary');
+      target.focus();
+    });
+  }
   // Only an explicit action owns this focus handoff. Storage events and autosaves
   // render normally, and movement elsewhere while a lock waits cancels the handoff.
   const keepActionFocus = action => async event => {
@@ -241,7 +286,8 @@ export function installBrowserRecovery(options) {
   $('browser-recovery-reviewed').addEventListener('change', () => render(controller.state()));
   $('browser-recovery-fields').addEventListener('change', showField);
   $('browser-recovery-inspect').addEventListener('click', () => {
-    if (controller.busy() || options.isBusy?.()) return;
+    // A prepared import blocks replacement, but does not change this comparison.
+    if (controller.busy() || (options.isSaveBlocked || options.isBusy)?.()) return;
     try {
       clearInspection(); inspection = controller.inspect();
       comparison = compareWorkspaces(inspection.record.workspace, options.capture()).map(field => field.id !== 'questions' ? field : {
@@ -277,6 +323,7 @@ export function installBrowserRecovery(options) {
   window.addEventListener('pageshow', event => { if (event.persisted) controller.refresh(); });
   render(controller.state());
   if (controller.state().available) panel.open = true;
+  if (saveOptions) saveOptions.disabled = false;
   return controller;
 }
 

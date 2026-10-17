@@ -23,6 +23,7 @@
 <h2 id="article-heading">1. Paste or edit your draft</h2>
 <label for="title">Article title (optional for body exports)</label><input id="title" maxlength="160" autocomplete="off" aria-describedby="title-error"><p id="title-error" class="field-error small" hidden></p>
 <label for="body">Article body, in Markdown</label>
+<p class="article-save-bar small"><span id="article-save-status" aria-live="off">Browser recovery is off. Keep a backup before leaving.</span><button id="article-save-options" type="button" class="secondary" aria-controls="browser-recovery-panel" disabled>Save options</button></p>
 <p id="body-help" class="small">Paste plain text or Markdown, up to 60,000 characters. Oversized pastes are rejected in full. For Word or Google Docs formatting, use Import formatted writing.</p><textarea id="body" rows="16" maxlength="60000" placeholder="Paste your draft here, or try the fictional sample above." aria-describedby="body-help body-count body-error body-paste-status"></textarea><p id="body-count" class="small">0 approximate words; 0 / 60,000 characters</p><p id="body-paste-status" class="field-error small" role="status" aria-live="polite"></p><p id="body-error" class="field-error small" hidden></p>
 <p class="workflow-continue"><button id="review-current-article" type="button" class="secondary" hidden>Review this article</button></p>
 <p class="workflow-continue"><button id="return-to-passage" type="button" class="secondary" hidden>Return to this passage in preview</button></p>
