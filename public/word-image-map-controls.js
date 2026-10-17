@@ -1,8 +1,18 @@
 import { parseWordImageMap, WORD_IMAGE_MAP_LIMIT } from './word-image-map.js';
+import { nextWordImageMatch } from './word-image-match.js';
 
-export function installWordImageMap({ getTarget, getBody, useAlt, isBusy, workChanged, read = file => file.arrayBuffer() }) {
+export function installWordImageMap({ getTarget, getBody, useAlt, isBusy, workChanged, pinMatch = null, read = file => file.arrayBuffer() }) {
   const $ = id => document.getElementById(id);
   let model = null, reading = false, generation = 0, targetKey = '';
+  let queuedBody = null, queuedModel = null, queuedMatch = null;
+  function next() {
+    const body = getBody();
+    if (body !== queuedBody || model !== queuedModel) {
+      queuedBody = body; queuedModel = model;
+      queuedMatch = model ? nextWordImageMatch(body, model.placements) : null;
+    }
+    return queuedMatch;
+  }
   const selected = () => model?.placements.find(item => item.placeholder === $('image-map-entry').value);
   const status = message => { $('image-map-status').textContent = message; };
   function refresh() {
@@ -10,7 +20,11 @@ export function installWordImageMap({ getTarget, getBody, useAlt, isBusy, workCh
     if (key !== targetKey) { targetKey = key; $('image-map-confirm').checked = false; }
     const item = selected(), label = target?.before.replace(/\\([\[\]])/g, '$1');
     const matches = Boolean(item && target?.body === getBody() && label === item.placeholder);
-    const busy = reading || isBusy();
+    const busy = reading || isBusy(), upcoming = next();
+    $('image-map-next').disabled = busy || typeof pinMatch !== 'function' || !upcoming;
+    $('image-map-next-help').textContent = !model ? 'Open the placement map to use this shortcut.' :
+      !upcoming ? 'No single editable matching placeholder remains. Missing files, repeated labels, and protected article sections require the manual picker or work in WordPress.' :
+      'Next in article order: ' + upcoming.placeholder + ' on line ' + upcoming.line + ' (' + upcoming.filename + '). Selection alone does not verify the original document.';
     $('image-map-file').disabled = busy;
     $('image-map-entry').disabled = busy;
     $('image-map-confirm').disabled = busy || !matches;
@@ -52,6 +66,25 @@ export function installWordImageMap({ getTarget, getBody, useAlt, isBusy, workCh
     finally { if (token === generation) { reading = false; $('image-map-file').value = ''; refresh(); workChanged(); } }
   });
   $('image-map-entry').addEventListener('change', inspect);
+  $('image-map-next').addEventListener('click', () => {
+    refresh();
+    if ($('image-map-next').disabled) return;
+    // Recompute under the click to avoid acting on a stale article or a changed map.
+    const body = getBody(), match = nextWordImageMatch(body, model?.placements);
+    if (!match) { refresh(); return; }
+    try {
+      if (!pinMatch({ ...match, body })) {
+        status('The article selection was not changed. Pending image details are kept.');
+        return;
+      }
+      $('image-map-entry').value = match.placeholder;
+      inspect(); // Always clear the old comparison acknowledgement after changing target.
+      status('Pinned ' + match.placeholder + ' on line ' + match.line + '. Compare the original Word document and this file before approving its alternative text. No image URL, alt text, or article change was applied.');
+    } catch (error) {
+      status(error.message || 'The next placeholder could not be selected. The article is unchanged.');
+    }
+    refresh();
+  });
   $('image-map-confirm').addEventListener('change', refresh);
   $('image-map-clear').addEventListener('click', () => { if (!isBusy()) clear(); });
   $('image-map-use-alt').addEventListener('click', () => {
