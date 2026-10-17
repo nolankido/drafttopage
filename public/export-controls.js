@@ -1,6 +1,7 @@
 import { articleIssues } from './authoring.js';
 import { createFormattedArticle } from './html-export.js';
-import { publishingKitFiles, createPublishingKit } from './publishing-kit.js';
+import { createPublishingKit } from './publishing-kit.js';
+import { publishingKitManifest } from './kit-manifests.js';
 import { downloadText } from './download.js';
 import { createWordPressArticle } from './wordpress-export.js';
 import { suggestFilename } from './preview.js';
@@ -12,7 +13,7 @@ import { installExportReview } from './export-review-controls.js';
 import { installExportPreview } from './export-preview-controls.js';
 import { createCopyActions } from './copy-actions.js';
 
-export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), getCopySnapshot = getDraft, copyChanged = () => {}, openFinding = null, defaultDestination = 'wordpress', compact = false, prepareWordPressBlocks = createWordPressArticle, prepareGeneralKitFiles = publishingKitFiles }) {
+export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), getCopySnapshot = getDraft, copyChanged = () => {}, openFinding = null, defaultDestination = 'wordpress', compact = false, prepareWordPressBlocks = createWordPressArticle, prepareGeneralKitFiles = publishingKitManifest }) {
   const $ = id => document.getElementById(id);
   $('publishing-destination').value = defaultDestination;
   $('additional-exports').open = !compact;
@@ -65,8 +66,8 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     if ($('copy-brief')) $('copy-brief').disabled = copying || isBusy();
     if ($('copy-questions')) $('copy-questions').disabled = copying || isBusy() || !draft.questions?.length;
     let kit = null, error = '';
-    // Preparing a full reading-page ZIP while this panel is collapsed delays
-    // typing with no visible output. The toggle recomputes current files.
+    // Open panels need filenames, purposes and notices, not serialized articles.
+    // Full file contents are still rebuilt in the approved download handler.
     const kitVisible = $('additional-exports').open && $('publishing-kit-panel').open;
     try { if (kitVisible) kit = prepareGeneralKitFiles(draft, options()); }
     catch (failure) { error = failure.message; }

@@ -1,6 +1,7 @@
 import { articleIssues, ARTICLE_LIMITS } from './authoring.js';
 import { reviewWordPress } from './wordpress-review.js';
-import { wordPressKitFiles, wordPressKitSummary, createWordPressKit } from './wordpress-kit.js';
+import { wordPressKitSummary, createWordPressKit } from './wordpress-kit.js';
+import { wordPressKitManifest } from './kit-manifests.js';
 import { revealArticleSelection } from './editing.js';
 import { downloadText } from './download.js';
 import { createCopyActions } from './copy-actions.js';
@@ -71,10 +72,12 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
     $('download-wordpress-kit').disabled = isBusy() || !$('reviewed').checked || !kit;
     $('wordpress-kit-status').textContent = kit ? 'Six files for a complete manual WordPress handoff. ' + kit.notices.join(' ') : 'Add a valid title and article for a WordPress kit. ' + error;
     if ($('wordpress-kit-panel').open && kit) {
-      const nextKit = JSON.stringify([draft.title, draft.body, draft.excerpt, draft.slug, draft.description, options]);
+      // The visible list needs descriptions, not full HTML, reviews or ZIP files.
+      // Do not retain article text in a signature for non-interactive file labels.
+      const manifest = wordPressKitManifest(draft, options), nextKit = JSON.stringify(manifest.files);
       if (kitRendered !== nextKit) {
         kitRendered = nextKit;
-        $('wordpress-kit-files').replaceChildren(...wordPressKitFiles(draft, options).files.map(file => { const li = document.createElement('li'); li.textContent = file.name + ': ' + file.purpose; return li; }));
+        $('wordpress-kit-files').replaceChildren(...manifest.files.map(file => { const li = document.createElement('li'); li.textContent = file.name + ': ' + file.purpose; return li; }));
       }
     } else { $('wordpress-kit-files').replaceChildren(); kitRendered = ''; }
   }
