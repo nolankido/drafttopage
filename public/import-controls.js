@@ -8,6 +8,7 @@ import { downloadText } from './download.js';
 import { installWordComments } from './word-comment-controls.js';
 import { HTML_SOURCE_SAMPLE } from './html-source-sample.js';
 import { wordImageDownloadAllowed } from './word-image-metadata.js';
+import { summarizeImportFindings, guidanceForImportWarning } from './import-findings.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
@@ -44,6 +45,9 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     if ($('word-revision-summary')) $('word-revision-summary').textContent = '';
     if ($('import-changes-label')) $('import-changes-label').textContent = 'I reviewed the converted article and the formatting changes or omissions listed above.';
     insertion.clear();
+    $('import-reading-details').open = true; $('import-source-details').open = false;
+    $('import-completion').hidden = true; $('import-completion').textContent = '';
+    $('import-findings-status').textContent = '';
     $('import-preview').hidden = true; $('apply-import').disabled = true;
     if (continueButton) { continueButton.hidden = true; continueButton.disabled = true; }
     if (continueHelp) continueHelp.hidden = true;
@@ -98,8 +102,12 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
       metadata.append(term, value);
     }
     $('import-page-details').replaceChildren(metadata);
+    $('import-findings-status').textContent = summarizeImportFindings(candidate);
     $('import-warnings').replaceChildren(...candidate.warnings.map(text => {
-      const li = document.createElement('li'); li.textContent = text; return li;
+      const li = document.createElement('li'); li.textContent = text;
+      const guidance = document.createElement('p'); guidance.className = 'small';
+      guidance.textContent = guidanceForImportWarning(text); li.append(guidance);
+      return li;
     }));
     $('import-unmapped').textContent = candidate.unmapped.map(item => item.key + ': ' + item.value).join('\n');
     $('import-unmapped-section').hidden = candidate.unmapped.length === 0;
@@ -283,6 +291,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
         const plan = insertion.getPlan();
         if (plan.changed) applyInsertion(plan);
         discardImport();
+        $('import-completion').hidden = false;
+        $('import-completion').textContent = plan.changed ? 'Writing inserted locally. Existing page details and private notes were kept. Recheck the article before exporting; approval was cleared.' : 'No changes needed. Existing writing and approval were kept.';
         report(plan.changed ? 'Article insertion applied locally. Previous writing is in Revisions in this tab. Existing title, page fields, source notes, and review notes were kept. Approval and the linked-image choice were cleared.' : 'This insertion already matches. Writing, approval, and history were kept.');
       } catch (error) { report(error.message); updateApply(); }
       return;
@@ -293,6 +303,8 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     try {
       apply(commentRecovery?.draft(candidate.draft) || candidate.draft, { continueToExport: continueAfterImport });
       discardImport();
+      $('import-completion').hidden = false;
+      $('import-completion').textContent = continueAfterImport ? 'Article imported. Export review is next, with approval still required. Nothing has been published.' : 'Article imported locally. Edit or review your article below before exporting. Export approval was cleared.';
       report('Article imported locally. Source notes were kept and export approval was cleared. Review before exporting. Nothing was uploaded or sent to AI.');
       if (continueAfterImport) continueToExport();
     } catch (error) { report(error.message); }
