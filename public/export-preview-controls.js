@@ -1,12 +1,14 @@
 import { prepareExportPreview, renderExportPreview } from './export-preview.js';
+import { createExportPreviewRenderer } from './export-preview-reuse.js';
 
 export function installExportPreview({ getDraft, getWordPressOptions = () => ({}), isBusy = () => false }) {
   const $ = id => document.getElementById(id), panel = $('export-content-panel');
   if (!panel) return { update() {}, reset() {} };
   const labels = { wordpress: 'WordPress blocks', word: 'Word document', html: 'HTML fragment', markdown: 'Markdown file' };
+  const preview = createExportPreviewRenderer($('export-content-preview'), renderExportPreview);
   let signature = '';
   function clear() {
-    signature = ''; $('export-content-preview').replaceChildren();
+    signature = ''; preview.clear();
     $('export-content-title').textContent = ''; $('export-content-limit').textContent = ''; $('export-content-status').textContent = '';
   }
   function update() {
@@ -22,7 +24,7 @@ export function installExportPreview({ getDraft, getWordPressOptions = () => ({}
       const key = JSON.stringify([draft.title, draft.body, options]);
       if (key === signature) return;
       const model = prepareExportPreview(draft, options);
-      renderExportPreview($('export-content-preview'), model);
+      preview.render(model);
       $('export-content-preview').setAttribute('aria-label', model.label);
       $('export-content-title').textContent = model.titleHandling; $('export-content-limit').textContent = model.limit;
       $('export-content-status').textContent = model.kind === 'source' ? 'Markdown source preview. Nothing is copied or downloaded by opening it.' : model.blocks.length + ' content block(s)' + (model.imageCount ? ', including ' + model.imageCount + ' linked image placeholder(s)' : '') + '. Previewing keeps your writing and export approval.';

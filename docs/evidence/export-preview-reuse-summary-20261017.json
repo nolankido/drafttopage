@@ -1,0 +1,59 @@
+{
+  "format": "drafttopage-observed-synthetic-validation-summary",
+  "version": 1,
+  "observedDateHST": "2026-10-17",
+  "result": "PASS",
+  "scope": "Synthetic offline Chromium; not initial preview opening, whole-article paste latency, actual paint, physical-device, real-user, hosted WordPress or field-INP evidence.",
+  "archiveScope": "This summary retains observed acceptance and all paired-case aggregates. Individual raw samples remain in the hash-bound original receipt, not duplicated here.",
+  "source": {
+    "baselineCommit": "3f3c0f9f0318c35b2858b6f24603d0b9a5d631a5",
+    "featureCommit": "2f1dba61ef781f0b4e7444d2fa07a1b98788df1f",
+    "diagnosticCommit": "8a1d73b4b87f1313588207917af60ed55b428a7b",
+    "diagnosticSourceSha256": "0e22a3154100b756b00be90e2966ff8019ebf00dc142a974450d45a4535b29be",
+    "rawReceiptURL": "https://ab51bd20-drafttopage.nolankido.workers.dev/_dtp_preview_reuse_20261017.json",
+    "rawReceiptBytes": 57349,
+    "rawReceiptSha256": "0e4bfdf25f2b7626aa24c29bf1410e2d094dc141d6747e80e5e3325e4d69cf51",
+    "controllerBeforeBlob": "a933b50c2dd93547ffb45909c8d840fc4de5ff98",
+    "controllerAfterBlob": "f6b0f9a564708d2c2ea33cec9efa35bbf6a037b1",
+    "helperBlob": "ef8bb1ff7b5896045c4b844e61502a1923e345c0"
+  },
+  "release": {
+    "steps": [
+      {"name": "build", "result": "PASS"},
+      {"name": "tests", "result": "PASS"},
+      {"name": "static", "result": "PASS"},
+      {"name": "browser", "result": "PASS"},
+      {"name": "wordpress", "result": "PASS"},
+      {"name": "source snapshot", "result": "PASS"}
+    ],
+    "independentWordPressReceipt": "PASS",
+    "focusedNodeTests": 9,
+    "overallNodeTestCount": null
+  },
+  "browser": {"checks": 59, "layoutChecks": 379, "errors": 0, "unexpectedRequests": 0, "documents": {"result": "PASS", "cases": 37, "counts": {"preserved": 19, "disclosed": 9, "rejected": 8, "sampled": 1}}},
+  "wordpress": {"version": "7.1.3", "cases": 13, "passed": 13, "mediaResult": "PASS", "uploads": 2, "placements": 3},
+  "focused": {
+    "parity": {"result": "PASS", "comparisons": 358, "focusedLinkPreserved": true, "nearLimitBlocks": 1150, "characters": 57538, "appendRenderedBlocks": 1, "clearPurgesEntries": true, "externalRootReplacement": true},
+    "nativeInput": {"result": "PASS", "blocks": 900, "unchangedNodesKept": 899, "changedNodes": 1, "exactMarkup": true, "approvalCleared": true},
+    "publicUnchanged": true,
+    "errors": [],
+    "unexpectedRequests": [],
+    "closedReopenAndInvalidClear": true,
+    "layoutOverflow": {"320": false, "390": false, "1440": false}
+  },
+  "timingMethod": {
+    "result": "PASS", "runs": 20, "samplesPerRun": 31, "uniqueBlocks": true,
+    "order": ["before", "after", "after", "before"],
+    "profilerEnabled": false, "publicUnchanged": true, "errors": [],
+    "aggregation": "Median of two run medians, range of their nearest-rank p95 values, maximum of their maxima. Not pooled population statistics.",
+    "comparability": "Unique-block corpus and current host differ from the preceding turn's repeated-block benchmark. Compare before/after only within this experiment."
+  },
+  "summaries": [
+    {"case": "rich:wordpress:open", "synchronousInputMs": {"before": {"medianOfMedians": 115.1, "p95Range": [132.4, 144], "worst": 145.5}, "after": {"medianOfMedians": 77.3, "p95Range": [90.4, 97.2], "worst": 115.2}}, "inputToFrameMs": {"before": {"medianOfMedians": 131.2, "p95Range": [148.9, 163], "worst": 164.1}, "after": {"medianOfMedians": 87.65, "p95Range": [102.5, 110.9], "worst": 128.1}}},
+    {"case": "rich:word:open", "synchronousInputMs": {"before": {"medianOfMedians": 112.35, "p95Range": [133, 141.9], "worst": 149}, "after": {"medianOfMedians": 78.6, "p95Range": [89.9, 93.1], "worst": 95.7}}, "inputToFrameMs": {"before": {"medianOfMedians": 130.8, "p95Range": [152.5, 155.5], "worst": 164.7}, "after": {"medianOfMedians": 89.4, "p95Range": [101.2, 104.7], "worst": 108.2}}},
+    {"case": "rich:html:open", "synchronousInputMs": {"before": {"medianOfMedians": 115.7, "p95Range": [132, 132.8], "worst": 148.7}, "after": {"medianOfMedians": 74.9, "p95Range": [87.2, 89.7], "worst": 107.4}}, "inputToFrameMs": {"before": {"medianOfMedians": 131.9, "p95Range": [147.7, 149.6], "worst": 166.6}, "after": {"medianOfMedians": 86.05, "p95Range": [99.1, 102.3], "worst": 120.7}}},
+    {"case": "rich:wordpress:closed", "synchronousInputMs": {"before": {"medianOfMedians": 26.45, "p95Range": [35.8, 36.5], "worst": 38.3}, "after": {"medianOfMedians": 26.95, "p95Range": [37.3, 39.3], "worst": 42.8}}, "inputToFrameMs": {"before": {"medianOfMedians": 27.8, "p95Range": [37.9, 38.2], "worst": 39.6}, "after": {"medianOfMedians": 28.55, "p95Range": [39.4, 41.2], "worst": 43.9}}},
+    {"case": "rich:markdown:closed", "synchronousInputMs": {"before": {"medianOfMedians": 6.25, "p95Range": [10.7, 11.4], "worst": 14.3}, "after": {"medianOfMedians": 5.8, "p95Range": [9.9, 10.9], "worst": 12.4}}, "inputToFrameMs": {"before": {"medianOfMedians": 7.85, "p95Range": [11.9, 13.3], "worst": 15.5}, "after": {"medianOfMedians": 7.4, "p95Range": [11.1, 12.2], "worst": 13.6}}}
+  ],
+  "interpretation": "Targeted open-panel medians, p95 ranges and worst samples improved in this controlled experiment. Open-panel median reductions were 32.84% WordPress, 30.04% Word and 35.26% HTML. The closed WordPress control was slightly slower, including a worse maximum; preserve that adverse result. No claim of universally improved or real-device latency."
+}
