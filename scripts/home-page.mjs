@@ -5,7 +5,7 @@ import { escapeHTML } from './site-shell.mjs';
 // The illustration uses the public converter, not a separately authored result.
 export const HOME_EXAMPLE = QUICK_SAMPLE.body.slice(0, QUICK_SAMPLE.body.indexOf('\n\n## Make the next step clear'));
 const exampleHTML = createFormattedArticle({ body: HOME_EXAMPLE }).html;
-const starts = [
+export const WORDPRESS_STARTS = [
   ['01', 'Word document', 'Choose a .docx and inspect what converts.', '/word-to-wordpress/', 'Open a Word draft'],
   ['02', 'Google Docs', 'Paste a copied selection with its formatting.', '/google-docs-to-wordpress/', 'Paste from Google Docs'],
   ['03', 'Text or Markdown', 'Paste an article and see the reading preview.', '/markdown-to-wordpress/#draft', 'Paste text or Markdown']
@@ -25,7 +25,7 @@ export const HOME_PAGE = `
   <aside class="home-start" id="start" aria-labelledby="start-heading">
     <p class="eyebrow">Start with what you have</p>
     <h2 id="start-heading">Where is your draft?</h2>
-    <div class="draft-starts">${starts.map(([number, title, description, href, action]) => `<a href="${href}" class="draft-start"><span class="draft-start-number" aria-hidden="true">${number}</span><span><strong>${title}</strong><span>${description}</span><span class="draft-start-action">${action} <span aria-hidden="true">→</span></span></span></a>`).join('')}</div>
+    <div class="draft-starts">${WORDPRESS_STARTS.map(([number, title, description, href, action]) => `<a href="${href}" class="draft-start"><span class="draft-start-number" aria-hidden="true">${number}</span><span><strong>${title}</strong><span>${description}</span><span class="draft-start-action">${action} <span aria-hidden="true">→</span></span></span></a>`).join('')}</div>
     <p class="small">Word imports can recover embedded PNG and JPEG files with placement notes. Upload them in WordPress. Pasted Google Docs images remain placeholders.</p>
   </aside>
 </section>
