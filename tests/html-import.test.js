@@ -69,6 +69,28 @@ test('Copied formatting transition retains the unique article ending and safe li
   assert.match(html, /href="https:\/\/example.com\/path\?q=1"/);
   assert.match(html, /END_FIDELITY_20261017/);
 });
+test('Fictional combined Google Docs-style article keeps title, list start, table values and unique ending', () => {
+  const root = tree(
+    element('h1', ['Fictional editorial report']),
+    element('h2', ['Scope']),
+    element('p', ['A ', element('strong', ['bold ', element('span', ['normal'], { style: 'font-weight:400' }), ' phrase']), ' and a ', element('a', ['source'], { href: 'https://example.com/report?q=1' }), '.']),
+    element('ol', [element('li', ['First checked item', element('ul', [element('li', ['Nested note'])])]), element('li', ['Second checked item'])], { start: '4' }),
+    element('table', [element('thead', [element('tr', [element('th', ['Column']), element('th', ['Value'])])]), element('tbody', [element('tr', [element('td', ['Café']), element('td', ['日本語 😀'])])])]),
+    element('p', ['FIDELITY_FINAL_UNIQUE_20261017'])
+  );
+  const result = htmlTreeToMarkdown(root);
+  const parsed = parseArticleImport(result.markdown);
+  assert.equal(parsed.draft.title, 'Fictional editorial report');
+  assert.match(parsed.draft.body, /4\. First checked item/);
+  assert.match(parsed.draft.body, /  - Nested note/);
+  assert.match(parsed.draft.body, /\| Café \| 日本語 😀 \|/);
+  assert.match(parsed.draft.body, /FIDELITY_FINAL_UNIQUE_20261017$/);
+  const published = createWordPressArticle(parsed.draft).html;
+  assert.match(published, /"start":4/);
+  assert.match(published, /href="https:\/\/example.com\/report\?q=1"/);
+  assert.match(published, /Café/);
+  assert.match(published, /FIDELITY_FINAL_UNIQUE_20261017/);
+});
 test('Literal ASCII punctuation stays literal in preview and both HTML publishing formats', () => {
   const literal = '# A *literal* _word_ [label](https://example.com/) ![image](url) | <script> &lt; 1. + - \\ `code`';
   const { markdown } = convert(element('p', [literal]));

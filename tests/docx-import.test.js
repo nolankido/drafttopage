@@ -98,7 +98,7 @@ test('Word style bold and italic toggles cancel inherited formatting, direct run
     + para('formatted', '<w:pStyle w:val="ToggleBack"/>')
     + '<w:p><w:pPr><w:pStyle w:val="BoldBase"/></w:pPr>' + run('normal', '<w:rStyle w:val="RunOn"/>') + run(' explicit bold', '<w:b/>') + '</w:p>';
   const result = convert(fixture(body, { 'word/styles.xml': styles }));
-  assert.equal(result.markdown, 'plain ***bold*** direct\\n\\n***formatted***\\n\\nnormal ***explicit bold***');
+  assert.equal(result.markdown, 'plain ***bold*** direct\n\n***formatted***\n\nnormal ***explicit bold***');
 });
 test('Word document defaults are absolute and a second inherited bold style cancels the first', () => {
   const styles = word('styles',
@@ -108,7 +108,7 @@ test('Word document defaults are absolute and a second inherited bold style canc
   const result = convert(fixture(
     para('not bold', '<w:pStyle w:val="Cancel"/>') + para('bold again', '<w:pStyle w:val="Restore"/>'),
     { 'word/styles.xml': styles }));
-  assert.equal(result.markdown, 'not bold\\n\\n***bold again***');
+  assert.equal(result.markdown, 'not bold\n\n***bold again***');
 });
 test('External web links survive while unsafe/internal links retain only labels', () => {
   const rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + [['safe', 'https://example.com/a?x=1&amp;y=2'], ['unsafe', 'javascript:alert(1)']].map(([id, url]) => '<Relationship Id="' + id + '" Type="' + R + '/hyperlink" TargetMode="External" Target="' + url + '"/>').join('') + '</Relationships>';

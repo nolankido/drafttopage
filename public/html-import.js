@@ -94,7 +94,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   }
   // Carry explicit normal-weight overrides through the enclosing bold style
   // before serializing; a simple nested span cannot cancel a parent <strong>.
-  const resolveWeight = value => value === 'bold' || /^(?:[6-9]00|1000)$/.test(value);
+  const resolveWeight = value => value === 'bold' || Number(value) >= 600;
   function reconcileWeightOverrides(nodes) {
     const hasOverride = parts => parts.some(p => p.type === 'unstrong' || p.children && hasOverride(p.children));
     if (!hasOverride(nodes)) return nodes;
