@@ -1,4 +1,4 @@
-// Temporary read-only projection of immutable synthetic evidence. NEVER MERGE.
+// Temporary read-only projection and independent live asset reads. NEVER MERGE.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
@@ -31,3 +31,24 @@ try{
  mkdirSync('public/receipt',{recursive:true});writeFileSync('public/receipt/original.json',raw);
  console.log('Receipt projection '+report.result+' '+sha256+' '+chunks.length+' parts.');
 }catch(error){page('index',{result:'PROJECTION_FAILED',error:String(error.message||error)});console.error(error.message);}
+
+// Separate post-deployment observation. Do not infer bytes from a GitHub check.
+const live=[];
+const expected={
+ 'export-controls.js':'3adf372f87fb0f77ebd8d7506977dce9d82a3777',
+ 'wordpress-handoff-controls.js':'83111ea7cc3af413eb751bb3a803a8043c53b6d9',
+ 'kit-manifests.js':'2240ab3446a848ce46a7eb4dd3bff09a07074355'
+};
+for(const [name,wanted] of Object.entries(expected)){
+ let record;
+ try{
+  const url='https://drafttopage.com/'+name;
+  const response=await fetch(url,{signal:AbortSignal.timeout(20000),redirect:'error',headers:{'Cache-Control':'no-cache'}});
+  const bytes=Buffer.from(await response.arrayBuffer());
+  if(bytes.length>200000)throw Error('Unexpected asset size');
+  const sha=createHash('sha1').update(Buffer.from('blob '+bytes.length+'\0')).update(bytes).digest('hex');
+  record={url,status:response.status,bytes:bytes.length,gitBlob:sha,expectedGitBlob:wanted,result:response.ok&&sha===wanted?'PASS':'FAIL'};
+ }catch(error){record={name,result:'FAIL',error:String(error.message||error)};}
+ live.push(record);page('live-'+name.replace('.js',''),record);
+}
+page('live',{result:live.every(r=>r.result==='PASS')?'PASS':'FAIL',observedAt:new Date().toISOString(),expectedMerge:'3f3c0f9f0318c35b2858b6f24603d0b9a5d631a5',checkedAssets:live.length,scope:'Independent public HTTPS reads from a separate diagnostic builder; not browser interaction or field latency'});
