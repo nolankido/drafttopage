@@ -39,7 +39,11 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     $('wordpress-handoff').hidden = !wordpress;
     let article = null;
     try { if (wordpress) article = createWordPressArticle(draft, getWordPressOptions()); } catch { /* Readiness below explains missing article. */ }
-    $('copy-wordpress').disabled = copying || isBusy() || !reviewed || !article || !wordpress;
+    // A temporary native disabled state blurs the keyboard user's copy button.
+    // Keep it focusable while copying; the shared controller rejects every
+    // overlapping request. Unavailable or unapproved exports stay natively disabled.
+    $('copy-wordpress').disabled = isBusy() || !reviewed || !article || !wordpress;
+    $('copy-wordpress').setAttribute?.('aria-disabled', String(copying || $('copy-wordpress').disabled));
     $('download-wordpress').disabled = isBusy() || !reviewed || !article || !wordpress;
     $('copy-wordpress-title').disabled = copying || isBusy() || !reviewed || !wordpress || Boolean(articleIssues(draft, 'html').title);
     $('wordpress-readiness').textContent = !article ? 'Paste an article first. Page metadata is optional.' : article.blockCount + ' top-level blocks prepared locally. ' + (reviewed ? 'Copy or download, then inspect them in WordPress.' : 'Review your reading preview, then check the approval box to copy or download.') + (articleIssues(draft, 'html').title ? ' Add a title separately in WordPress.' : ' Your title stays separate from the body.');

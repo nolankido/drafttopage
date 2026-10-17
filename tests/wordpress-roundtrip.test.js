@@ -14,6 +14,7 @@ const savedDigest = item => typeof item.expectedSavedSource === 'string'
   ? createHash('sha256').update(item.expectedSavedSource).digest('hex') : digest;
 const mediaFixture = configuration.mediaLibraryFixture;
 const mediaAlias = filename => mediaFixture.fixtureHTTPSOrigin + '/wp-content/uploads/2026/10/' + filename;
+const mediaDigest = filename => createHash('sha256').update('Fictional image bytes: ' + filename).digest('hex');
 const complete = () => ({ result: 'PASS', scope: 'local WordPress native clipboard, Visual paste, save/reopen, Code editor fallback, and Media Library image handoff', playground: configuration.playground,
   sourceSha256: digest, sourceUnchanged: true,
   environment: { wordpress: configuration.wordpress, php: configuration.php + '.33', marker: 'drafttopage-local-acceptance',
@@ -42,7 +43,7 @@ const complete = () => ({ result: 'PASS', scope: 'local WordPress native clipboa
     validAfterReopen: true, reopenedSavedSourceExact: true,
     uploads: mediaFixture.imageFiles.map((file, index) => ({
       filename: file.filename, mime: file.mime, mediaId: index + 101, uploadStatus: 201,
-      originalSha256: digest, servedSha256: digest, localLoopback: true,
+      originalSha256: mediaDigest(file.filename), servedSha256: mediaDigest(file.filename), localLoopback: true,
       fixtureHttpsAlias: mediaAlias(file.filename)
     })),
     placements: mediaFixture.imageOrder.map(item => ({
@@ -201,6 +202,10 @@ test('Multi-image Media Library handoff demands actual attachment bytes, native 
     ['second upload denied', report => report.mediaLibrary.uploads[1].uploadStatus = 403],
     ['missing Media Library ID', report => delete report.mediaLibrary.uploads[0].mediaId],
     ['same media ID for distinct images', report => report.mediaLibrary.uploads[1].mediaId = report.mediaLibrary.uploads[0].mediaId],
+    ['same original bytes uploaded under two distinct IDs', report => {
+      report.mediaLibrary.uploads[1].originalSha256 = report.mediaLibrary.uploads[0].originalSha256;
+      report.mediaLibrary.uploads[1].servedSha256 = report.mediaLibrary.uploads[0].servedSha256;
+    }],
     ['download differs from uploaded bytes', report => report.mediaLibrary.uploads[0].servedSha256 = copiedDigest],
     ['wrong MIME', report => report.mediaLibrary.uploads[0].mime = 'image/svg+xml'],
     ['non-loopback remote upload', report => report.mediaLibrary.uploads[0].localLoopback = false],
@@ -225,6 +230,24 @@ test('Multi-image Media Library handoff demands actual attachment bytes, native 
     corruption(fake);
     assert.throws(() => validateWordPressEvidence(fake, configuration, digest),
       /WordPress (evidence|Media Library|media evidence|saved image)/i, description);
+  }
+});
+
+test('Distinct uploaded image bytes and attachment IDs also require distinct canonical Media Library URLs', () => {
+  for (const withDefaultPort of [false, true]) {
+    const evidence = complete(), [first, second] = evidence.mediaLibrary.uploads;
+    assert.notEqual(first.mediaId, second.mediaId);
+    assert.notEqual(first.originalSha256, second.originalSha256);
+    second.fixtureHttpsAlias = withDefaultPort
+      ? first.fixtureHttpsAlias.replace('wordpress-media.test/', 'wordpress-media.test:443/')
+      : first.fixtureHttpsAlias;
+    // Keep placements consistent with the damaged upload entries so that only
+    // the duplicate canonical URL, not an unrelated placement mismatch, fails.
+    for (const placement of evidence.mediaLibrary.placements) {
+      if (placement.filename === second.filename) placement.src = second.fixtureHttpsAlias;
+    }
+    assert.throws(() => validateWordPressEvidence(evidence, configuration, digest),
+      /distinct fixture HTTPS URLs/);
   }
 });
 

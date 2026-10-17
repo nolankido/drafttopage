@@ -49,6 +49,13 @@ test('Download feedback does not cancel or unlock the pending browser write', as
 
 class Control {
   constructor() { this.value = ''; this.checked = false; this.open = false; this.hidden = false; this.disabled = false; this.textContent = ''; this.attributes = {}; this.events = new Map(); this.children = []; }
+  get disabled() { return this._disabled; }
+  set disabled(value) {
+    this._disabled = value;
+    // Match the native browser behavior that exposed the keyboard focus bug.
+    if (value && globalThis.document?.activeElement === this) globalThis.document.activeElement = globalThis.document.body;
+  }
+  focus() { if (!this.disabled) globalThis.document.activeElement = this; }
   addEventListener(type, action) { this.events.set(type, action); }
   fire(type = 'click') { return this.events.get(type)?.(); }
   setAttribute(name, value) { this.attributes[name] = value; }
@@ -61,7 +68,8 @@ async function withUI(run) {
   const nodes = new Map(), $ = id => { if (!nodes.has(id)) nodes.set(id, new Control()); return nodes.get(id); };
   let draft = { ...QUICK_SAMPLE, questions: ['PRIVATE_REVIEW_SENTINEL'] }, busy = false;
   const writes = [], messages = [];
-  globalThis.document = { getElementById: $, createElement: () => new Control(), createTextNode: text => ({ textContent: text }) };
+  const body = new Control();
+  globalThis.document = { body, activeElement: body, getElementById: $, createElement: () => new Control(), createTextNode: text => ({ textContent: text }) };
   Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { clipboard: { writeText: async text => { writes.push(text); } } } });
   try {
     const ui = installPublishingExports({ getDraft: () => draft, getCopySnapshot: () => ({ draft, source: 'PRIVATE_SOURCE_SENTINEL' }), approved: () => { if (!$('reviewed').checked) throw new Error('Review first'); }, changed: () => { $('reviewed').checked = false; ui.update(); }, report: text => messages.push(text), isBusy: () => busy });
@@ -77,7 +85,9 @@ for (const id of ['copy-wordpress', 'copy-wordpress-title', 'copy-wordpress-exce
     let finish; navigator.clipboard.writeText = text => { writes.push(text); return new Promise(resolve => { finish = resolve; }); };
     const first = $(id).fire(); assert.equal(writes.length, 1);
     assert.equal($('wordpress-instructions').open, false);
-    for (const button of copyButtons) assert.equal($(button).disabled, true, button);
+    for (const button of copyButtons) {
+      assert.equal($(button).disabled || $(button).attributes['aria-disabled'] === 'true', true, button);
+    }
     for (const button of ['copy-wordpress', 'copy-wordpress-title', 'copy-wordpress-excerpt']) await $(button).fire();
     assert.equal(writes.length, 1); assert.equal($('download-wordpress').disabled, false); assert.equal($('download-wordpress-kit').disabled, false);
     assert.equal($('wordpress-actions').attributes['aria-busy'], 'true'); assert.equal($('wordpress-field-actions').attributes['aria-busy'], 'true');
@@ -96,6 +106,42 @@ for (const id of ['copy-wordpress', 'copy-wordpress-title', 'copy-wordpress-exce
     ui.update(); assert.equal($('wordpress-action-status').textContent, messages.at(-1));
   }));
 }
+test('A pending WordPress copy retains keyboard focus while locked, then announces success or failure without moving focus', async () => {
+  for (const fails of [false, true]) await withUI(async ({ $, writes }) => {
+    let finish, reject;
+    navigator.clipboard.writeText = text => { writes.push(text); return new Promise((resolve, fail) => { finish = resolve; reject = fail; }); };
+    const button = $('copy-wordpress'); button.focus();
+    const pending = button.fire();
+    assert.equal(document.activeElement, button);
+    assert.equal(button.disabled, false);
+    assert.equal(button.attributes['aria-disabled'], 'true');
+    await button.fire(); await button.fire();
+    assert.equal(writes.length, 1);
+    assert.equal($('wordpress-instructions').open, false);
+    if (fails) reject(new Error('Permission denied')); else finish();
+    await pending;
+    assert.equal(document.activeElement, button);
+    assert.equal(button.attributes['aria-disabled'], 'false');
+    assert.equal($('wordpress-instructions').open, !fails);
+    assert.match($('wordpress-action-status').textContent, fails ? /Download the blocks/ : /WordPress blocks copied/);
+  });
+});
+test('Completing a WordPress copy preserves later user focus and keeps changed writing unapproved', async () => {
+  for (const edits of [false, true]) await withUI(async ({ $, ui, edit }) => {
+    let finish;
+    navigator.clipboard.writeText = () => new Promise(resolve => { finish = resolve; });
+    const button = $('copy-wordpress'); button.focus();
+    const pending = button.fire();
+    const next = $(edits ? 'body' : 'download-wordpress'); next.focus();
+    if (edits) { edit({ body: 'Changed while clipboard permission was pending.' }); $('reviewed').checked = false; ui.update(); }
+    finish(); await pending;
+    assert.equal(document.activeElement, next);
+    assert.equal(button.disabled, edits);
+    assert.equal(button.attributes['aria-disabled'], String(edits));
+    assert.equal($('reviewed').checked, !edits);
+    assert.equal($('wordpress-instructions').open, !edits);
+  });
+});
 test('A WordPress request cannot overlap a later HTML or Markdown copy, and stale feedback stays out of the new destination', () => withUI(async ({ $, ui, writes, messages }) => {
   let finish; navigator.clipboard.writeText = text => { writes.push(text); return new Promise(resolve => { finish = resolve; }); };
   const first = $('copy-wordpress').fire();

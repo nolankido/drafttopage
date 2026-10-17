@@ -869,8 +869,42 @@ with sync_playwright() as p:
     with page.expect_download() as info:page.click('#download-wordpress')
     assert Path(info.value.path()).read_text()==copied_blocks
     assert page.evaluate('navigator.clipboard.readText()')==copied_blocks
+    # A pending clipboard permission must not blur the initiating keyboard
+    # button or pull focus back after the user moves to another action/editor.
+    page.evaluate("""()=>{
+      const native=navigator.clipboard.writeText.bind(navigator.clipboard);
+      window.focusClipboard={calls:[]};
+      navigator.clipboard.writeText=text=>new Promise((resolve,reject)=>{
+        window.focusClipboard.calls.push(text);
+        window.focusClipboard.finish=()=>native(text).then(resolve,reject);
+        window.focusClipboard.reject=()=>reject(new DOMException('Permission denied','NotAllowedError'));
+      });
+    }""")
+    for index,focus_action in enumerate(['stay','tab','deny','edit']):
+        if instructions.evaluate('el=>el.open'):instructions.locator(':scope > summary').click()
+        copy_button.focus();page.keyboard.press('Enter')
+        expect(copy_button).to_be_focused()
+        assert copy_button.get_attribute('aria-disabled')=='true' and not copy_button.evaluate('el=>el.disabled')
+        expect(page.locator('#wordpress-action-status')).to_contain_text('Wait for confirmation')
+        page.keyboard.press('Enter')
+        assert page.evaluate('window.focusClipboard.calls.length')==index+1
+        if focus_action=='tab':
+            page.keyboard.press('Tab');expect(page.locator('#download-wordpress')).to_be_focused()
+        if focus_action=='edit':
+            page.fill('#body','Changed while fictional clipboard permission was pending.')
+            assert not page.locator('#reviewed').is_checked()
+        if focus_action=='deny':page.evaluate('window.focusClipboard.reject()')
+        else:page.evaluate('window.focusClipboard.finish()')
+        expect(page.locator('#wordpress-action-status')).to_contain_text('Download the blocks' if focus_action=='deny' else 'earlier export' if focus_action=='edit' else 'WordPress blocks copied')
+        if focus_action=='tab':expect(page.locator('#download-wordpress')).to_be_focused()
+        elif focus_action=='edit':expect(page.locator('#body')).to_be_focused()
+        else:expect(copy_button).to_be_focused()
+        assert instructions.evaluate('el=>el.open')==(focus_action in ['stay','tab'])
+        assert copy_button.evaluate('el=>el.disabled')==(focus_action=='edit')
+        if focus_action!='edit':assert copy_button.get_attribute('aria-disabled')=='false'
+        if focus_action!='deny':assert page.evaluate('navigator.clipboard.readText()')==copied_blocks
     layout(page,'wordpress-visual-paste');assert state['api']==[];context.close()
-    report['checks'].append('Direct WordPress handoff UI: native keyboard copy and clipboard bytes, success opens Visual-paste steps below stationary section controls, retained focus, keyboard Code-editor fallback, exact downloaded source, private-field exclusions, preserved writing/approval, and narrow layouts')
+    report['checks'].append('Direct WordPress handoff UI: native keyboard copy and clipboard bytes, success opens Visual-paste steps below stationary section controls, pending/success/denial focus retention, duplicate-key exclusion, later Tab/editor focus preserved, stale edits unapproved, keyboard Code-editor fallback, exact downloaded source, private-field exclusions, and narrow layouts')
     # A complete held Enter must finish before restore can hand focus to writing.
     for recovery_route in ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']:
         page,context,state=open_page('/'+recovery_route+'/')

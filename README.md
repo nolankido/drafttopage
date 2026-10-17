@@ -152,6 +152,10 @@ Ordinary referenced Word footnotes and endnotes now become visible labels and ap
 
 ## Local Word image to Media Library acceptance
 
+**Observed local acceptance passed on October 16, 2026 HST.** The pinned fictional WordPress 7.1.3 test completed its 13 existing draft round trips and the separate two-upload, three-image Media Library handoff. See the [observed local evidence and explicit limits](docs/WORDPRESS_MEDIA_ACCEPTANCE_OBSERVED_20261016.md). This is not evidence of hosted WordPress, current source-app, physical-device or unassisted writer compatibility.
+
+Use the [pinned local WordPress reproduction instructions](docs/WORDPRESS_PLAYGROUND_REPRODUCE_20261016.md) when installing test tools on Linux without a preconfigured browser. Run `npm run build` to generate the site's public pages, then run the explicit, separately installed local WordPress Playground test with `npm run verify:wordpress`. Verify its saved receipt using `npm run verify:wordpress:receipt`. This fails when the report is absent, stale, incomplete, or not bound to the current Git source snapshot.
+
 The [optional local Media Library acceptance runner](docs/WORDPRESS_MEDIA_LIBRARY_ACCEPTANCE_20261016.md) extends the existing pinned WordPress Playground validation to two distinct fictional PNG/JPEG uploads and three Image-block placements, with a reused file and contextual alt text, native copy/paste, draft save and reopen. The runner checks real local REST uploads and served original image bytes, not a public WordPress account. It uses a fixture-only HTTPS alias because the disposable WordPress server is HTTP loopback while the product correctly requires HTTPS image links.
 
 Without an explicitly installed pinned WordPress Playground CLI, the Media Library acceptance is **NOT_RUN**. No public upload connection is added.

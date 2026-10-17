@@ -13,6 +13,7 @@
     "test:contracts": "node --test tests/release-contracts.test.js",
     "benchmark:documents": "python3 scripts/browser-smoke.py --documents-only",
     "verify:wordpress": "python3 scripts/wordpress_roundtrip.py",
+    "verify:wordpress:receipt": "node scripts/verify-wordpress-receipt.mjs",
     "verify:release": "node scripts/verify-release.mjs",
     "precheck": "npm run build",
     "check": "node scripts/check.mjs",
