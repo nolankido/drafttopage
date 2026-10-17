@@ -8,7 +8,7 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
   const expected = configuration.cases;
   const isDigest = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
   const nativeCases = expected.filter(item => item.inputMode === 'native-visual-paste');
-  if (evidence.result !== 'PASS' || evidence.scope !== 'local WordPress native clipboard, Visual paste, save/reopen, and Code editor fallback' ||
+  if (evidence.result !== 'PASS' || evidence.scope !== 'local WordPress native clipboard, Visual paste, save/reopen, Code editor fallback, and Media Library image handoff' ||
       evidence.environment?.wordpress !== configuration.wordpress || evidence.environment?.unfilteredHTMLDisabled !== true ||
       evidence.playground !== configuration.playground || !evidence.environment?.php?.startsWith(configuration.php + '.') ||
       evidence.environment?.marker !== 'drafttopage-local-acceptance' || evidence.environment?.databaseClass !== 'WP_SQLite_DB' ||
