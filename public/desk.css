@@ -121,3 +121,15 @@
 .article-preview hr,.export-content-preview hr{border:0;border-top:1px solid var(--line);margin:1.5rem 0}
 .wordpress-findings button,#export-format-findings button{margin-block:.2rem;margin-inline-end:.35rem;max-width:calc(100% - .35rem);min-height:2.75rem;white-space:normal}
 .table-choice-context{overflow-wrap:anywhere}
+
+/* Import decisions precede long source; preview remains keyboard scrollable. */
+#import-findings{border-left:3px solid var(--accent);padding:.35rem 0 .4rem .85rem;margin:1.1rem 0;overflow-wrap:anywhere}
+#import-findings h3{margin-top:.1rem}.import-findings-list{padding-left:1.25rem;overflow-wrap:anywhere}
+.import-findings-list li{margin:.65rem 0}.import-findings-list li>.small{margin:.3rem 0;color:var(--muted)}
+#import-reading-details,#import-source-details{margin:1rem 0;min-width:0;overflow-wrap:anywhere}
+#import-reading-details>summary,#import-source-details>summary{cursor:pointer;font-weight:650}
+.import-reading-preview{max-height:30rem;overflow:auto;scrollbar-gutter:stable;padding-right:.4rem}
+.import-reading-preview:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+#import-body-preview{width:100%;min-width:0;max-width:100%;font:.85rem/1.5 ui-monospace,monospace}
+#import-completion:not([hidden]){border-left:3px solid var(--accent);padding:.65rem .75rem;background:var(--white);overflow-wrap:anywhere}
+@media(max-width:600px){.import-reading-preview{max-height:24rem;scrollbar-gutter:auto}#import-findings{padding-left:.6rem}}

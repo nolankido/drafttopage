@@ -26,10 +26,16 @@
 <p id="import-insertion-status" class="small" role="status" aria-live="polite" aria-atomic="true"></p>
 <div id="import-insertion-preview" hidden><p id="import-insertion-summary" class="small"></p><label for="import-insertion-before">Selected article source to replace</label><textarea id="import-insertion-before" rows="3" readonly></textarea><label for="import-insertion-after">Exact Markdown to insert, including paragraph separation</label><textarea id="import-insertion-after" rows="5" readonly></textarea></div>
 </section>
-<section aria-labelledby="import-reading-heading"><h3 id="import-reading-heading">Reading preview of the conversion</h3><div id="import-reading-preview" class="article-preview"></div></section>
-<label for="import-body-preview">Article body to import</label><textarea id="import-body-preview" rows="6" readonly></textarea>
+<section id="import-findings" aria-labelledby="import-findings-heading"><h3 id="import-findings-heading">Conversion findings to check</h3>
+<p id="import-findings-status" class="small"></p><ul id="import-warnings" class="import-findings-list"></ul></section>
+<section id="import-unmapped-section" hidden><h3>Unmapped front matter</h3><pre id="import-unmapped" class="code-sample"></pre><p class="small">These fields will not be imported. Keep any values your destination needs in your original file or private notes.</p><label class="check"><input id="import-unmapped-ok" type="checkbox"><span>I will handle these unmapped fields separately.</span></label></section>
+<details id="import-reading-details" open><summary>Reading preview of the conversion</summary>
+<p class="small">Compare this with your original, especially headings, tables, images and links. Scroll inside the preview for longer articles. Reading the Markdown source is optional.</p>
+<div id="import-reading-preview" class="article-preview import-reading-preview" tabindex="0" role="region" aria-label="Converted article reading preview, scroll to inspect"></div></details>
+<details id="import-source-details"><summary>Exact converted Markdown, optional</summary>
+<p class="small">Open this only if you want to inspect or copy exact source. Viewing it does not change your import acknowledgements or the article.</p>
+<label for="import-body-preview">Article body to import, read-only</label><textarea id="import-body-preview" rows="6" readonly></textarea></details>
 <details><summary>Page details to import</summary><dl id="import-page-details"></dl></details>
-<ul id="import-warnings"></ul>
 <section id="word-comment-handoff" class="word-comment-handoff" hidden aria-labelledby="word-comment-heading">
 <h3 id="word-comment-heading">Keep Word editorial comments private</h3>
 <p class="small">Comments stay out of the converted article. Recover their text separately before applying the import. The original document stays in this tab until you apply or clear it. <a href="/help/article-import/#word-comments" target="_blank" rel="noopener">Comment recovery limits (new tab)</a></p>
@@ -62,10 +68,11 @@
 <p class="small"><strong>Download before importing.</strong> Applying or clearing this import discards the prepared image package. Extract the ZIP, upload the files to your WordPress Media Library, and replace the numbered placeholders yourself. These files are separate from workspace backups and article exports.</p>
 </section>
 <label id="import-changes-section" class="check" hidden><input id="import-changes-ok" type="checkbox"><span id="import-changes-label">I reviewed the converted article and the formatting changes or omissions listed above.</span></label>
-<section id="import-unmapped-section" hidden><h3>Unmapped front matter</h3><pre id="import-unmapped" class="code-sample"></pre><p class="small">These fields will not be imported. Keep any values your destination needs in your original file or private notes.</p><label class="check"><input id="import-unmapped-ok" type="checkbox"><span>I will handle these unmapped fields separately.</span></label></section>
+
 <p id="import-continue-help" class="small" hidden>Continue opens your chosen export with approval unchecked. Choose Import and edit if you want to change the article first.</p>
 <div class="actions"><button id="apply-import-and-continue" type="button" class="button" aria-describedby="import-continue-help" hidden disabled>Import and continue to export</button><button id="apply-import" type="button" class="button" disabled>Import into editor</button></div>
 </section>
+<p id="import-completion" class="small" role="status" aria-live="polite" aria-atomic="true" hidden></p>
 <div class="actions"><button id="cancel-import" type="button" class="secondary">Clear selected file or import preview</button></div>
 <p class="small">An import preview is temporary and is not included in workspace backups. Apply the import to keep its article and questions. <a href="/help/article-import/" target="_blank" rel="noopener">Supported formats, insertion steps, and examples (new tab)</a></p>
 </details>
