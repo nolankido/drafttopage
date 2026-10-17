@@ -13,7 +13,7 @@ if (process.env.DTP_MANUAL_VALIDATION_CHILD !== '1') {
       env:{...env,...extraEnv},stdio:['ignore','pipe','pipe']});
     const good = !run.error && run.status === 0;
     const detail = String(run.stdout||'')+'\\n'+String(run.stderr||'');
-    const safeTail = detail.slice(-1800).replace(/(Bearer|token|password|key)\\s*[:=]\\s*\\S+/gi,'$1=[redacted]');
+    const safeTail = detail.slice(-1800).replace(/(Bearer|token|password|key)\s*[:=]\s*\S+/gi,'$1=[redacted]');
     statuses.push({label,result:good?'PASS':'FAIL',seconds:Math.round((Date.now()-started)/1000),
       exit:run.status,errorCode:run.error?.code||null, ...(good?{}:{logTail:safeTail})});
     console.log('Manual isolated acceptance '+label+': '+(good?'PASS':'FAIL'));
