@@ -1,2 +1,5 @@
-// All public pages use a shared shell and a deterministic local build.
+// TEMPORARY preview-only validation hook. NEVER MERGE.
 import './build-content.mjs';
+if (process.env.DTP_LAZY_VALIDATION_CHILD !== '1') {
+  await import('./temporary-lazy-validation.mjs');
+}
