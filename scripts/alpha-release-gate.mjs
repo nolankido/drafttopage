@@ -6,7 +6,7 @@ import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { sourceDigest } from './source-snapshot.mjs';
 
-export const ALPHA_REQUIRED_STEPS = Object.freeze(['build', 'tests', 'static', 'browser', 'source snapshot']);
+export const ALPHA_REQUIRED_STEPS = Object.freeze(['build', 'tests', 'static', 'browser', 'wordpress', 'wordpress receipt', 'source snapshot']);
 export const ALPHA_REAL_WORLD_GATES = Object.freeze([
   'word_source', 'google_docs_source', 'hosted_wordpress', 'keyboard_device',
   'mobile_device', 'screen_reader', 'latency', 'private_support'

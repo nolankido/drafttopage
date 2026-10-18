@@ -104,7 +104,7 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
 
 // A deliberately invoked local gate. It never installs tools, starts Actions,
 // deploys, activates the pilot, or retries a failed check.
-export function verifyRelease({ root = process.cwd(), run = spawnSync, env = process.env } = {}) {
+export function verifyRelease({ root = process.cwd(), run = spawnSync, env = process.env, requireWordPress = false } = {}) {
   root = resolve(root);
   if (JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).name !== 'drafttopage') throw new Error('Run from the Draft to Page repository.');
   const out = resolve(root, 'test-results');
@@ -115,6 +115,7 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
   rmSync(wordpressFile, { force: true });
   const report = { result: 'RUNNING', startedAt: new Date().toISOString(), scope: 'local models, static checks, and routed browser fixtures', steps: [] };
   if (env.DRAFTTOPAGE_WORDPRESS_CLI) report.scope += ', plus local WordPress save/reopen';
+  if (requireWordPress) report.scope += ', required independent WordPress receipt';
   if (!env.DRAFTTOPAGE_WORDPRESS_CLI) report.wordpress = { result: 'NOT_RUN', reason: 'Set DRAFTTOPAGE_WORDPRESS_CLI to run the separate local WordPress save/reopen gate.' };
   const git = args => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
   const sourceDigest = () => {
@@ -132,7 +133,14 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
     ['browser', env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['scripts/browser-smoke.py']]
   ];
   if (env.DRAFTTOPAGE_WORDPRESS_CLI) steps.push(['wordpress', env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['scripts/wordpress_roundtrip.py']]);
+  // Any successful WordPress-qualified release, including the older command
+  // with an explicitly set CLI, must carry independent source-bound receipt proof.
+  // A normal release command without a CLI still records WordPress NOT_RUN.
+  if (env.DRAFTTOPAGE_WORDPRESS_CLI)
+    steps.push(['wordpress receipt', process.execPath, ['scripts/verify-wordpress-receipt.mjs']]);
   try {
+    if (requireWordPress && !env.DRAFTTOPAGE_WORDPRESS_CLI)
+      throw new Error('Complete release qualification requires DRAFTTOPAGE_WORDPRESS_CLI. No checks ran; local WordPress is NOT_RUN.');
     // A green browser suite without a Git-bound source cannot be a release
     // receipt. The earlier optional source check could silently certify it.
     if (!/^[a-f0-9]{40}$/.test(report.head || '') || !/^[a-f0-9]{64}$/.test(report.sourceSha256 || ''))
@@ -176,7 +184,7 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const report = verifyRelease();
+  const report = verifyRelease({ requireWordPress: process.argv.includes('--require-wordpress') });
   console.log('Local release validation: ' + report.result + '. See test-results/release-results.json.');
   if (report.result !== 'PASS') { console.error(report.error); process.exitCode = 1; }
 }

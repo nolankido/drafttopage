@@ -153,8 +153,13 @@ test('The manual gate removes stale WordPress proof, records an explicit skip, a
         return { status: 0 };
       } });
       assert.equal(result.result, requested && !fresh ? 'FAIL' : 'PASS');
-      assert.equal(calls.length, requested ? 5 : 4);
-      if (requested && fresh) assert.equal(result.wordpress.result, 'PASS');
+      assert.equal(calls.length, requested ? fresh ? 6 : 5 : 4);
+      if (requested && fresh) {
+        assert.equal(result.wordpress.result, 'PASS');
+        assert.deepEqual(calls[5], ['scripts/verify-wordpress-receipt.mjs'],
+          'The explicitly configured WordPress release must separately check the source-bound receipt');
+        assert.equal(result.steps.find(step=>step.name==='wordpress receipt')?.result,'PASS');
+      }
       if (!requested) assert.equal(result.wordpress.result, 'NOT_RUN');
     } finally { rmSync(root, { recursive: true, force: true }); }
   }
