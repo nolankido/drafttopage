@@ -66,7 +66,9 @@ function completeReceipt(head, sourceSha256) {
       savedSha256: digest(item.expectedSavedSource ?? 'Fictional saved article'),
       expectedSavedSha256: digest(item.expectedSavedSource ?? 'Fictional saved article'),
       savedSourceExact: true, validAfterReopen: true, inputMode: item.inputMode,
-      source: 'Fictional receipt unit-test source', sourceTransport: 'copy-wordpress-button', privateFieldsPopulated: true,
+      source: item.sourceFixture ? item.sourceLabel : 'Fictional receipt unit-test source',
+      ...(item.sourceFixture ? { sourceOrigin: 'authored-synthetic', sourceInputSha256: digest(item.sourceFixture) } : {}),
+      sourceTransport: 'copy-wordpress-button', privateFieldsPopulated: true,
       exportSha256: copiedDigest, clipboardSha256: copiedDigest,
       paste: { trusted: true, textSha256: copiedDigest, htmlEmpty: true, types: ['text/plain'],
         targetKind: item.inputMode === 'native-visual-paste' ? 'visual-paragraph' : 'code-textarea',
@@ -154,12 +156,12 @@ test('A complete source-bound synthetic receipt passes the API and CLI, while ch
   const path = join(root, 'test-results/wordpress-results.json');
   writeFileSync(path, JSON.stringify(evidence));
   assert.deepEqual(verifyWordPressReceipt({ root }), {
-    result: 'PASS', version: configuration.wordpress, cases: 14, nativePasteCases: 13, codeEditorCases: 1,
+    result: 'PASS', version: configuration.wordpress, cases: 16, nativePasteCases: 15, codeEditorCases: 1,
     mediaLibraryUploads: 2, mediaLibraryImageBlocks: 3, role: 'author', head, sourceSha256
   });
   const cli = spawnSync(process.execPath, [receiptScript], { cwd: root, encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr);
-  assert.match(cli.stdout, /14 saved\/reopened cases; 2 Media Library uploads; 3 image blocks/);
+  assert.match(cli.stdout, /16 saved\/reopened cases; 2 Media Library uploads; 3 image blocks/);
   assert.ok(cli.stdout.includes(head));
 
   const incomplete = structuredClone(evidence);
