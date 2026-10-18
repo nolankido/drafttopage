@@ -16,6 +16,7 @@ import { installRevisions } from './revision-controls.js';
 import { QUICK_SAMPLE } from './quick-sample.js';
 import { ARTICLE_BODY_LIMIT } from './writing-limits.js';
 import { installPasteGuard } from './paste-guard.js';
+import { routeFormattedPaste } from './formatted-paste.js';
 import { revealDetails } from './disclosure.js';
 import { installWorkflowNavigation, focusWorkflowTarget } from './workflow-navigation.js';
 import { installWorkspaceLayout } from './workspace-layout.js';
@@ -49,10 +50,23 @@ function openFormattingFinding(item) {
   }
   return false;
 }
-const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article', report: message => {
+const reportBodyPaste = (message, result = 'error') => {
   $('body-paste-status').textContent = message;
+  $('body-paste-status').className = result === 'ready' ? 'small' : 'field-error small';
   if (message) report(message);
-} });
+};
+const bodyPaste = installPasteGuard({ element: $('body'), limit: ARTICLE_BODY_LIMIT, label: 'The article',
+  skipPaste: event => routeFormattedPaste(event, {
+    canPreview: () => importer?.canPreviewFormatted() === true,
+    preview: source => {
+      const staged = importer.previewFormatted(source);
+      if (staged) reportBodyPaste('Copied formatting opened in Import for review. Apply it there when ready, or use Paste without formatting to paste directly into the article.', 'ready');
+      return staged;
+    },
+    report: reportBodyPaste
+  }),
+  report: reportBodyPaste
+});
 const warn = event => { event.preventDefault(); event.returnValue = ''; };
 const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
@@ -300,6 +314,7 @@ $('add-question').addEventListener('click', () => {
 });
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
+  reportPaste: reportBodyPaste,
   focusPreview: true, pasteFirst: copiedPasteTool,
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
   continueToExport: wordImportTool || copiedPasteTool || htmlMarkdownTool ? () => workflow?.handoff() : undefined,

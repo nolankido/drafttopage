@@ -157,7 +157,8 @@ async function withUI(run, options = {}) {
   const prior = { document: globalThis.document, DOMParser: globalThis.DOMParser, confirm: globalThis.confirm };
   const nodes = new Map(); let approved = false, busy = false, fail = false, message = ''; const applied = [], intents = [];
   function control(name = 'div') {
-    const node = Object.assign(create(name), { value: '', checked: false, disabled: false, hidden: false, textContent: '', events: new Map(), selectionStart: 0, selectionEnd: 0 });
+    const node = Object.assign(create(name), { tagName: name.toUpperCase(), parentElement: null, value: '', checked: false, disabled: false, hidden: false, textContent: '', events: new Map(), selectionStart: 0, selectionEnd: 0 });
+    if (name === 'details') node.open = false;
     node.addEventListener = (type, fn) => { if (!node.events.has(type)) node.events.set(type, []); node.events.get(type).push(fn); };
     node.fire = async (type = 'click') => { for (const fn of node.events.get(type) || []) await fn({ type }); };
     node.replaceChildren = (...children) => { node.childNodes = []; node.append(...children); };
@@ -165,7 +166,28 @@ async function withUI(run, options = {}) {
     node.click = () => { node.clicked = (node.clicked || 0) + 1; if (node.failClick) throw new Error('Picker blocked'); };
     return node;
   }
-  const $ = id => { if (!nodes.has(id)) nodes.set(id, control()); return nodes.get(id); };
+  const tags = {
+    'import-panel': 'details', 'import-fields': 'fieldset', 'import-file': 'input', 'import-file-status': 'p',
+    'word-import-alternatives': 'details', 'import-text': 'textarea', 'import-format': 'select',
+    'import-advanced-options': 'details', 'import-first-row-headers': 'input',
+    'import-word-options': 'section', 'import-word-revisions': 'select',
+    'import-preview': 'section', 'import-preview-heading': 'h2', 'import-reading-details': 'details',
+    'import-reading-preview': 'div'
+  };
+  const $ = id => { if (!nodes.has(id)) nodes.set(id, control(tags[id] || 'div')); return nodes.get(id); };
+  // The Word route puts its file control directly in the import fieldset and
+  // copied-writing controls inside an additional disclosure. Shortcuts must
+  // open these real ancestor paths before focusing or clicking the control.
+  for (const [id, parentId] of [
+    ['import-fields', 'import-panel'], ['import-file', 'import-fields'], ['import-file-status', 'import-fields'],
+    ['word-import-alternatives', 'import-fields'], ['import-text', 'word-import-alternatives'], ['import-format', 'word-import-alternatives'],
+    ['import-advanced-options', 'import-fields'], ['import-first-row-headers', 'import-advanced-options'],
+    ['import-word-options', 'import-fields'], ['import-word-revisions', 'import-word-options'],
+    ['import-preview', 'import-panel'], ['import-preview-heading', 'import-preview'],
+    ['import-reading-details', 'import-preview'], ['import-reading-preview', 'import-reading-details']
+  ]) {
+    $(id).parentElement = $(parentId); $(parentId).append($(id));
+  }
   globalThis.document = { getElementById: $, createElement: control, createDocumentFragment: () => control(), createTextNode: nodeValue => ({ nodeType: 3, nodeValue, childNodes: [] }) };
   globalThis.DOMParser = class { parseFromString(source) { return { documentElement: trees({ x: source }).get('x'), getElementsByTagName: () => [] }; } };
   globalThis.confirm = () => approved;
@@ -300,8 +322,12 @@ test('Word insertion uses retained conversion and exact append preview while kee
 });
 test('An unmarked Word table can be previewed again from retained bytes; changes clear acknowledgement', () => withUI(async ({ $, ui, applied, file, confirm, message }) => {
   await file(zip(fixture(table(false)))); assert.match(message(), /no explicit header/); assert.equal(ui.pending(), true); assert.equal(applied.length, 0);
+  assert.match($('import-file-status').textContent, /no explicit header/);
+  assert.equal($('import-file-status').textContent, message()); assert.equal($('import-advanced-options').open, true);
   $('import-first-row-headers').checked = true; await $('import-first-row-headers').fire('change'); await $('preview-import').fire();
   assert.equal($('import-preview').hidden, false); assert.equal($('apply-import').disabled, true);
+  assert.doesNotMatch($('import-file-status').textContent, /no explicit header/);
+  assert.match($('import-file-status').textContent, /Preview ready for fictional\.docx/);
   $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
   $('import-first-row-headers').checked = false; await $('import-first-row-headers').fire('change');
   assert.equal($('import-changes-ok').checked, false); assert.equal($('import-preview').hidden, true);
@@ -313,12 +339,14 @@ test('Busy and oversized Word reads cannot replace writing; changing text purges
   busy(false); let read = false;
   $('import-file').files = [{ name: 'large.docx', size: MAX_DOCX_BYTES + 1, arrayBuffer: async () => { read = true; } }];
   await $('import-file').fire('change'); assert.equal(read, false); assert.equal(ui.pending(), false);
+  assert.match($('import-file-status').textContent, /no larger than 8 MiB/);
   await file(zip()); $('import-text').value = 'Other article'; await $('import-text').fire('input');
   assert.equal($('import-file-status').textContent, ''); await $('preview-import').fire(); assert.match($('import-summary').textContent, /Markdown article/);
 }));
 test('Rejected Word bytes can be explicitly cleared without applying or replacing writing', () => withUI(async ({ $, ui, applied, file, message }) => {
   await file(zip(fixture('<w:ins>' + para('Unresolved change') + '</w:ins>')));
   assert.match(message(), /tracked changes/); assert.equal(ui.pending(), true); assert.equal($('import-preview').hidden, true);
+  assert.match($('import-file-status').textContent, /tracked changes/); assert.equal($('import-file-status').textContent, message());
   assert.equal($('cancel-import').disabled, false); await $('cancel-import').fire();
   assert.equal(ui.pending(), false); assert.equal($('import-file-status').textContent, ''); assert.equal(applied.length, 0);
 }));

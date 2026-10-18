@@ -1,6 +1,6 @@
 import { articleInsertionTarget, planArticleInsertion } from './import-insertion.js';
 
-export function installImportInsertion({ getBody, getSelection, isBusy, report, changed }) {
+export function installImportInsertion({ getBody, getSelection, hasArticle = () => Boolean(getBody().trim()), isBusy, report, changed }) {
   const $ = id => document.getElementById(id);
   let draft = null, prepared = null;
   if (!$('import-destination').value) $('import-destination').value = 'replace';
@@ -11,12 +11,16 @@ export function installImportInsertion({ getBody, getSelection, isBusy, report, 
     $('import-insertion-before').value = ''; $('import-insertion-after').value = ''; $('import-insertion-summary').textContent = '';
   }
   function refresh() {
+    const existing = Boolean(hasArticle());
+    if (!existing && mode() !== 'replace') { $('import-destination').value = 'replace'; purge(); }
+    if ($('import-join-options')) $('import-join-options').hidden = !existing;
+    if ($('import-new-article-help')) $('import-new-article-help').hidden = existing;
     const inserting = mode() !== 'replace';
     if (prepared && (prepared.target.body !== getBody() || prepared.signature !== signature())) {
       purge(); $('import-insertion-status').textContent = 'The article or insertion choices changed. The converted import is kept. Preview the current location again; repeated text is never guessed.';
     }
     $('import-insertion-controls').hidden = !inserting;
-    $('import-destination').disabled = isBusy();
+    $('import-destination').disabled = !existing || isBusy();
     $('import-include-title').disabled = isBusy() || !draft?.title.trim();
     $('preview-insertion').disabled = isBusy() || !draft || !['selection', 'append'].includes(mode());
     $('preview-insertion').textContent = mode() === 'append' ? 'Preview insertion at article end' : 'Preview at article cursor or selection';
@@ -30,7 +34,7 @@ export function installImportInsertion({ getBody, getSelection, isBusy, report, 
     return planArticleInsertion(prepared.target, getBody(), draft, { includeTitle: $('import-include-title').checked });
   }
   function chooseMode(value) {
-    if (!['replace', 'selection', 'append'].includes(value) || isBusy()) return;
+    if (!['replace', 'selection', 'append'].includes(value) || isBusy() || value !== 'replace' && !hasArticle()) return;
     $('import-destination').value = value;
     purge(); $('import-insertion-status').textContent = 'Insertion choices changed. Preview its location before applying.'; refresh(); changed();
   }

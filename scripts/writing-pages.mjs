@@ -59,23 +59,41 @@ const htmlBody = readFileSync(new URL('./html-tool-intro.html.inc', import.meta.
   compactBody + HTML_TOOL_GUIDE;
 const wordBody = readFileSync(new URL('./word-tool-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('word')) +
   compactBody + WORD_TOOL_GUIDE;
-// Keep one shared importer. Only this entry page puts its file flow first and
-// folds the pasted-source choices into a native disclosure.
+// Keep the shared importer and its controls, with the file input ahead of
+// explanations, table options, and alternative sources on Word entry pages.
 const alternativeStart = importPanel.indexOf('<label for="import-format">');
 const headerStart = importPanel.indexOf('<label class="check"><input id="import-first-row-headers"');
 const headerEnd = importPanel.indexOf('</label>', headerStart) + '</label>'.length;
 const alternativeEnd = importPanel.indexOf('<button id="preview-import"');
 if (alternativeStart < 0 || headerStart < alternativeStart || headerEnd <= headerStart || alternativeEnd <= headerEnd) throw new Error('The Word-first import panel needs its shared import controls.');
-const wordFirstPanel = (importPanel.slice(0, alternativeStart) + importPanel.slice(headerStart, headerEnd) +
+const importIntro = importPanel.match(/<p class="small">[\s\S]*?<\/p>/)?.[0];
+const importFileHelp = importPanel.match(/<p id="import-file-help"[\s\S]*?<\/p>/)?.[0];
+if (!importIntro || !importFileHelp) throw new Error('The Word entry page needs the shared import explanation and file limits.');
+const wordFileControls = importPanel.slice(0, alternativeStart)
+  .replace(importIntro, '')
+  .replace(importFileHelp, '<p id="import-entry-help" class="small">Plain .docx up to 8 MiB. Converted locally, with a preview before import.</p>')
+  .replace('aria-describedby="import-file-help import-file-status"', 'aria-describedby="import-entry-help import-file-status"');
+const wordFirstPanel = (wordFileControls +
+  '<details id="import-file-details" class="import-entry-details"><summary>File limits and image handling</summary>' + importIntro + importFileHelp + '</details>' +
+  '<details id="import-advanced-options" class="import-advanced-options"><summary>Table header options</summary>' + importPanel.slice(headerStart, headerEnd) + '</details>' +
   '<details id="word-import-alternatives"><summary>Paste a formatted selection, Markdown, or article JSON instead</summary>' +
   importPanel.slice(alternativeStart, headerStart) + importPanel.slice(headerEnd, alternativeEnd) + '</details>' + importPanel.slice(alternativeEnd))
   .replace('<details id="import-panel" class="import-panel">', '<details id="import-panel" class="import-panel" open>')
   .replace('id="import-preview-heading"', 'id="import-preview-heading" tabindex="-1"')
   .replace('<summary>Import an article or drafting result</summary>', '<summary>1. Open your Word document</summary>');
-const wordToWordPressBody = readFileSync(new URL('./word-to-wordpress-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('word-import')) +
-  wordFirstPanel + compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>') + readFileSync(new URL('./word-to-wordpress-guide.html.inc', import.meta.url), 'utf8').replace('<!--WORD_NOTES_HELP-->', wordNotesHelp);
-const wordToMarkdownBody = readFileSync(new URL('./word-to-markdown-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('word-markdown')) +
-  wordFirstPanel + compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>').replace('<details id="markdown-source-panel">', '<details id="markdown-source-panel" open>') + WORD_MARKDOWN_GUIDE;
+function wordEntryIntro(file, kind) {
+  const navigation = workflowNavigation(kind);
+  const layoutStart = navigation.indexOf('<details id="workspace-layout-options"');
+  const intro = readFileSync(new URL(file, import.meta.url), 'utf8');
+  if (layoutStart < 0 || !intro.includes('<!--ENTRY_IMPORT-->') || !intro.includes('<!--ENTRY_LAYOUT-->')) throw new Error('The Word entry page needs its input and layout slots.');
+  return intro.replace('<!--WORKFLOW_NAVIGATION-->', navigation.slice(0, layoutStart))
+    .replace('<!--ENTRY_IMPORT-->', wordFirstPanel)
+    .replace('<!--ENTRY_LAYOUT-->', navigation.slice(layoutStart));
+}
+const wordToWordPressBody = wordEntryIntro('./word-to-wordpress-intro.html.inc', 'word-import') +
+  compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>') + readFileSync(new URL('./word-to-wordpress-guide.html.inc', import.meta.url), 'utf8').replace('<!--WORD_NOTES_HELP-->', wordNotesHelp);
+const wordToMarkdownBody = wordEntryIntro('./word-to-markdown-intro.html.inc', 'word-markdown') +
+  compactBody.replace(importPanel, '').replace('<h2 id="article-heading">1. Paste or edit your draft</h2>', '<h2 id="article-heading">Edit your imported article</h2>').replace('<details id="markdown-source-panel">', '<details id="markdown-source-panel" open>') + WORD_MARKDOWN_GUIDE;
 export const writingPages = [
   { route: '/write/', title: 'Writing workspace', description: 'Paste a draft, review it, and take editable WordPress blocks or other article exports. Free public workspace with no account needed.', body: deskBody.replace(workspaceMarker, ''), script: '/desk.js', wide: true, desk: true },
   { route: '/markdown-to-wordpress/', title: 'Free Markdown to WordPress Converter', description: 'Convert simple Markdown, tables, lists, and selected linked images to editable WordPress blocks. Free local preparation, with no account needed.', body: wordpressBody, script: '/desk.js', wide: true, desk: true, converter: true },
