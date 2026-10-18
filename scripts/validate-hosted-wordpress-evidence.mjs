@@ -16,7 +16,7 @@ const optional = new Map([
 const ready = value => typeof value === 'string' && value.trim().length > 0;
 const validObservationTime = value => {
   if (typeof value !== 'string') return false;
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$/.exec(value);
+    const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d+)?(Z|[+-]\d{2}:\d{2})$/.exec(value);
   if (!match) return false;
   const [, y, m, d, h, min, sec, zone] = match;
   const year = Number(y), month = Number(m), day = Number(d);
