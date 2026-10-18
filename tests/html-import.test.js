@@ -966,7 +966,9 @@ test('Visible break-only or empty blocks still separate neighboring article text
   const blocks = [
     element('div', [element('br')]),
     element('div'),
+    element('div', [' ']),
     element('p'),
+    element('p', ['\u00a0']),
     element('section', [element('p')])
   ];
   for (const gap of blocks) {

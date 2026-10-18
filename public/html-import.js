@@ -478,7 +478,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   // real source boundaries without giving hidden content a visible effect.
   function visibleEmptyBoundary(node) {
     if (ignoredReason(node)) return false;
-    if (node.nodeType === 3) return /\S/.test(node.nodeValue);
+    if (node.nodeType === 3) return node.nodeValue.length > 0;
     const nested = children(node);
     if (!nested.length) return blocks.has(tag(node)) || tag(node) === 'br';
     return nested.some(visibleEmptyBoundary);

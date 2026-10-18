@@ -43,3 +43,5 @@ These are scoped source-fidelity fixes, not evidence of successful conversion of
 ## Additional post-review controls
 
 Break-only and explicit empty visible blocks still separate adjacent visible prose. An omitted-only wrapper does not. Caption definition lists whose term and description entries are all hidden are omitted with the existing warning rather than rejected; any visible term, definition, or other definition-list material still fails closed before import. Fictional regression tests cover both distinctions. These focused fixes do not imply broad HTML fidelity or a completed human/browser/WordPress release gate.
+
+Whitespace-only text inside an otherwise empty visible HTML block, including a nonbreaking space, still creates a source paragraph boundary. Only fully omitted descendant trees are ignored when joining surrounding visible runs. This closes the additional P2 edge case from the final review.
