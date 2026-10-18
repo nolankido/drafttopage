@@ -132,6 +132,75 @@ test('Measured sticky offsets and nested disclosures make explicit targets reach
   assert.equal(focusWorkflowTarget(null),false);measureWorkflow(null);
 }));
 
+
+test('Approved article offers a destination-specific shortcut that focuses the real export button without activating it',()=>withUI(({$,ui,moves})=>{
+  $('body').value='Keep this current article.';ui.update();
+  assert.equal($('approved-export-shortcut').hidden,false);
+  assert.equal($('jump-to-primary-export').disabled,true);
+  $('reviewed').checked=true;ui.update();
+  const before=[$('body').value,$('reviewed').checked,$('title').value];
+  for(const [choice,id,label] of [
+    ['wordpress','copy-wordpress','Copy WordPress blocks'],
+    ['markdown','copy-article-markdown','Copy article Markdown'],
+    ['html','copy-html-source','Copy HTML source'],
+    ['word','download-word','Download Word'],
+    ['other','copy-body','Copy article body']
+  ]){
+    $('publishing-destination').value=choice;ui.update();
+    const jump=$('jump-to-primary-export');
+    assert.equal(jump.disabled,false);
+    assert.equal(jump.attrs['aria-controls'],id);
+    assert.equal(jump.textContent,'Go to '+label);
+    const beforeMoves=moves.length;
+    jump.fire();
+    assert.equal(moves.length,beforeMoves+1);
+    assert.deepEqual(moves.at(-1),[id,id]);
+    assert.deepEqual([$('body').value,$('reviewed').checked,$('title').value],before);
+    assert.match($('workflow-status').textContent,/Export review is checked/);
+  }
+}));
+
+test('Export shortcut honors approvals, pending imports, file busy state, and a disabled destination, even for programmatic clicks',()=>withUI(({$,ui,moves,setPending,setBusy})=>{
+  $('body').value='Keep the current writing.';ui.update();
+  const jump=$('jump-to-primary-export');
+  jump.fire();assert.equal(moves.length,0);
+  $('reviewed').checked=true;ui.update();assert.equal(jump.disabled,false);
+  $('copy-wordpress').disabled=true;ui.update();assert.equal(jump.disabled,true);
+  jump.fire();assert.equal(moves.length,0);
+  $('copy-wordpress').disabled=false;setPending({pending:true,staged:true});ui.update();
+  assert.equal($('approved-export-shortcut').hidden,true);
+  jump.fire();assert.equal(moves.length,0);
+  setPending({});setBusy(true);ui.update();assert.equal(jump.disabled,true);
+  jump.fire();assert.equal(moves.length,0);
+  setBusy(false);ui.update();assert.equal(jump.disabled,false);
+  $('reviewed').checked=false;ui.update();jump.fire();assert.equal(moves.length,0);
+  assert.equal($('body').value,'Keep the current writing.');
+}));
+
+test('The shortcut opens collapsed export options before focusing its real action',()=>withUI(({$,ui,moves})=>{
+  $('body').value='An approved article.';$('reviewed').checked=true;
+  $('additional-exports').tagName='DETAILS';$('copy-body').parentElement=$('additional-exports');
+  $('publishing-destination').value='other';ui.update();
+  assert.equal($('additional-exports').open,false);
+  $('jump-to-primary-export').fire();
+  assert.equal($('additional-exports').open,true);
+  assert.deepEqual(moves.at(-1),['copy-body','copy-body']);
+  assert.equal($('reviewed').checked,true);
+}));
+
+test('Back-to-editing labels reflect whether the editor or a pending import is the actual destination',()=>withUI(({$,ui,moves,setPending})=>{
+  $('body').value='Current reviewed writing.';$('reviewed').checked=true;ui.update();
+  assert.equal($('edit-from-export').textContent,'Back to article editor');
+  ui.handoff();ui.edit();
+  assert.match($('workflow-status').textContent,/Editing the current article/);
+  assert.equal($('workflow-edit').textContent,'Edit current article');
+  assert.equal($('reviewed').checked,true);
+  setPending({pending:true,staged:true});ui.update();
+  for(const id of ['workflow-edit','edit-from-preview','edit-from-export'])assert.equal($(id).textContent,'Review pending import');
+  $('edit-from-export').fire();assert.deepEqual(moves.at(-1),['import-preview-heading','import-preview-heading']);
+  assert.equal($('body').value,'Current reviewed writing.');
+}));
+
 test('Every workspace has a single compact step bar and reachable continuation controls in reading order',async()=>{
   const routes=['write','word-to-wordpress', 'word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
   const pages=Object.fromEntries(await Promise.all(routes.map(async route=>[route,await readFile('public/'+route+'/index.html','utf8')])));
@@ -162,6 +231,11 @@ for route,html in json.load(sys.stdin).items():
   assert 'editing-tools' not in p.ids[key]['parents']
   assert 'hidden' in p.ids[key]['attrs']
  assert p.order.index('article-preview')<p.order.index('continue-to-export')<p.order.index('exports')
+ assert p.order.index('reviewed')<p.order.index('approved-export-shortcut')<p.order.index('wordpress-actions')
+ assert 'exports' in p.ids['approved-export-shortcut']['parents']
+ assert p.ids['jump-to-primary-export']['attrs']['aria-controls']=='copy-wordpress'
+ assert 'disabled' in p.ids['jump-to-primary-export']['attrs']
+ assert 'hidden' in p.ids['approved-export-shortcut']['attrs']
  assert p.ids['workflow-steps']['attrs']['aria-describedby']=='workflow-status'
  assert 'aria-live' not in p.ids['workflow-status']['attrs']
  out.append(route)
