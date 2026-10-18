@@ -293,7 +293,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   function visibleDefinitionMaterial(node) {
     if (ignoredReason(node)) return false;
     if (node.nodeType === 3) return /\S/.test(node.nodeValue);
-    if (['dt', 'dd', 'br', 'img'].includes(tag(node))) return true;
+    if (['dt', 'dd', 'br', 'hr', 'wbr', 'img'].includes(tag(node))) return true;
     return children(node).some(visibleDefinitionMaterial);
   }
   function captionParagraphs(node) {
