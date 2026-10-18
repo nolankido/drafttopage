@@ -8,7 +8,11 @@ const headers = type => ({
 });
 const body=(path,label=LABEL)=>path.endsWith('.json')?JSON.stringify({release:label,publicPages:26}):
   path.endsWith('.js')?path.endsWith('preview-render-queue.js')?'export function createPreviewRenderQueue(){}':'export function installPreviewNavigation(){}':
-  '<!doctype html><html><main data-release="'+label+'"><h1>Fictional article</h1>'+
+  '<!doctype html><html><main data-release="'+label+'">'+
+  (path==='/word-to-wordpress/'?'<header class="desk-intro" data-workspace="word-to-wordpress"></header><input id="import-file"><textarea id="body"></textarea>':
+   path==='/google-docs-to-wordpress/'?'<header class="desk-intro" data-workspace="google-docs"></header><textarea id="import-text"></textarea><textarea id="body"></textarea>':
+   path==='/markdown-to-wordpress/'?'<header class="desk-intro" data-workspace="wordpress"></header><textarea id="body"></textarea>':'')+
+  '<h1>Fictional article</h1>'+
   (path==='/help/alpha-support/'?'<select id="alpha-diagnostic-converter"></select>':'')+'</main></html>';
 function mock({override,throws}={}){
   const requests=[];
@@ -59,4 +63,65 @@ test('Malformed or absent release labels fail before making any HTTP request',as
     await assert.rejects(inspectProduction({expectedRelease:label,fetcher:()=>{count++;}}),/release label/);
     assert.equal(count,0);
   }
+});
+
+test('Broken preview-navigation export or unsupported JavaScript MIME cannot pass',async()=>{
+  const mutations=[
+    (path,res)=>path==='/preview-navigation.js'?{...res,text:async()=>''}:res,
+    (path,res)=>path==='/preview-navigation.js'?{...res,text:async()=> '// installPreviewNavigation is mentioned, but not exported'}:res,
+    (path,res)=>path==='/preview-navigation.js'?{...res,headers:headers('application/notjavascript')}:res,
+    (path,res)=>path==='/preview-render-queue.js'?{...res,headers:headers('text/other-javascript')}:res
+  ];
+  for(const override of mutations){
+    const result=await inspectProduction({expectedRelease:LABEL,fetcher:mock({override}).fetcher});
+    assert.equal(result.result,'FAIL');
+    assert.ok(result.routes.some(x=>x.path.endsWith('.js')&&x.result==='FAIL'));
+  }
+});
+test('Unsafe earlier duplicate CSP directives invalidate nominally safe response',async()=>{
+  for(const value of [
+    "default-src 'self'; connect-src *; connect-src 'none'; script-src 'self'; object-src 'none'; frame-ancestors 'none'",
+    "script-src https:; script-src 'self'; connect-src 'none'; object-src 'none'; frame-ancestors 'none'",
+    "default-src 'self'; object-src data:; connect-src 'none'; script-src 'self'; object-src 'none'; frame-ancestors 'none'"
+  ]){
+    const out=await inspectProduction({expectedRelease:LABEL,fetcher:mock({override:(path,res)=>path==='/word-to-wordpress/'?{
+      ...res,headers:{get:key=>key.toLowerCase()==='content-security-policy'?value:res.headers.get(key)}
+    }:res}).fetcher});
+    assert.equal(out.result,'FAIL');
+    assert.equal(out.routes.find(x=>x.path==='/word-to-wordpress/').result,'FAIL');
+  }
+});
+test('Wrong converter served under another route, even with valid main and label, is rejected',async()=>{
+  for(const route of ['/word-to-wordpress/','/google-docs-to-wordpress/','/markdown-to-wordpress/']){
+    const out=await inspectProduction({expectedRelease:LABEL,fetcher:mock({override:(path,res)=>path===route?{
+      ...res,text:async()=>body('/markdown-to-wordpress/')}:res}).fetcher});
+    if(route==='/markdown-to-wordpress/'){
+      // A Word tool substituted for Markdown also fails with a correct release marker.
+      const replaced=await inspectProduction({expectedRelease:LABEL,fetcher:mock({override:(path,res)=>path===route?{
+        ...res,text:async()=>body('/word-to-wordpress/')}:res}).fetcher});
+      assert.equal(replaced.result,'FAIL');continue;
+    }
+    assert.equal(out.result,'FAIL',route);
+    assert.equal(out.routes.find(x=>x.path===route).result,'FAIL');
+  }
+});
+test('Preflight error overwrites stale PASS receipt with explicit FAIL and cannot make network calls',async()=>{
+  const {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync}=await import('node:fs');
+  const {tmpdir}=await import('node:os');
+  const {join,resolve}=await import('node:path');
+  const {spawnSync}=await import('node:child_process');
+  const {fileURLToPath}=await import('node:url');
+  const root=mkdtempSync(join(tmpdir(),'drafttopage-prod-smoke-'));
+  try{
+    mkdirSync(join(root,'test-results'));
+    writeFileSync(join(root,'test-results','production-smoke.json'),JSON.stringify({result:'PASS',source:'STALE'}));
+    const script=fileURLToPath(new URL('../scripts/production-smoke.mjs',import.meta.url));
+    // Missing public/release.json is a preflight failure before network requests.
+    const run=spawnSync(process.execPath,[script],{cwd:root,encoding:'utf8'});
+    assert.equal(run.status,1);
+    const receipt=JSON.parse(readFileSync(join(root,'test-results','production-smoke.json'),'utf8'));
+    assert.equal(receipt.result,'FAIL');
+    assert.equal(receipt.routes.length,0);
+    assert.doesNotMatch(JSON.stringify(receipt)+run.stderr+run.stdout,/STALE|SECRET_TOKEN/);
+  }finally{rmSync(root,{recursive:true,force:true});}
 });
