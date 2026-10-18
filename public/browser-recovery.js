@@ -228,6 +228,9 @@ export function installBrowserRecovery(options) {
     setText('browser-recovery-date', state.savedAt ? 'Last saved: ' + new Date(state.savedAt).toLocaleString() + '. Browser storage can be cleared or evicted; this is not a guaranteed backup.' : '');
     const actionBusy = state.pending || Boolean(options.isBusy?.());
     const saveBusy = state.pending || Boolean((options.isSaveBlocked || options.isBusy)?.());
+    const resume = $('workspace-resume'), resumeReview = $('workspace-resume-review');
+    if (resume) resume.hidden = !state.available || !state.valid || state.enabled || Boolean(options.hasWork?.());
+    if (resumeReview) resumeReview.disabled = actionBusy;
     $('browser-recovery-consent').disabled = state.enabled || actionBusy || !state.supported;
     $('browser-recovery-start').hidden = state.available || state.enabled;
     $('browser-recovery-restore').hidden = !state.available || state.enabled;
@@ -308,6 +311,16 @@ export function installBrowserRecovery(options) {
       $('browser-recovery-status').textContent = 'The saved copy could not be compared. Current writing and stored data were kept. Download a private backup.';
     }
   });
+  const resumeReview = $('workspace-resume-review');
+  if (resumeReview) {
+    activateOnEnterRelease(resumeReview);
+    resumeReview.addEventListener('click', () => {
+      const state = controller.state(); render(state);
+      if (!state.available || !state.valid || state.enabled || options.hasWork?.() || state.pending || options.isBusy?.()) return;
+      revealDetails(panel);
+      $('browser-recovery-inspect').click();
+    });
+  }
   $('browser-recovery-start').addEventListener('click', keepActionFocus(() => { if ($('browser-recovery-consent').checked) return controller.start(); }));
   activateOnEnterRelease($('browser-recovery-restore'));
   $('browser-recovery-restore').addEventListener('click', keepActionFocus(() => {

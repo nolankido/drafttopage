@@ -20,6 +20,7 @@ import { routeFormattedPaste } from './formatted-paste.js';
 import { revealDetails } from './disclosure.js';
 import { installWorkflowNavigation, focusWorkflowTarget } from './workflow-navigation.js';
 import { installWorkspaceLayout } from './workspace-layout.js';
+import { installWorkspaceNavigation } from './workspace-navigation.js';
 const htmlMarkdownTool = document.querySelector('.desk-intro')?.dataset.workspace === 'html-to-markdown';
 const wordMarkdownTool = document.querySelector('.desk-intro')?.dataset.workspace === 'word-to-markdown';
 const markdownTool = wordMarkdownTool || htmlMarkdownTool;
@@ -31,7 +32,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], recovery = null, workflow = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null, browserRecovery = null;
+let questions = [], recovery = null, workflow = null, workspaceNavigation = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null, browserRecovery = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 function openFormattingFinding(item) {
@@ -72,11 +73,14 @@ const capture = () => ({
   source: Object.fromEntries(sourceFields.map(id => [id, $(id).value])),
   draft: { ...Object.fromEntries(DRAFT_FIELDS.map(id => [id, $(id).value])), questions: [...questions] }
 });
-const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || questions.length > 0 || Boolean(importer?.pending()) || Boolean(recovery?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork()) || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork());
+const hasWork = () => [...DRAFT_FIELDS, 'notes', 'audience', 'purpose'].some(id => $(id).value.length) || $('profile').value !== 'personal' || questions.length > 0 || Boolean(importer?.pending()) || Boolean(recovery?.pending()) || Boolean(revisions?.hasWriting()) || Boolean(publishingProfiles?.hasWork()) || Boolean(draftCollection?.hasWork()) || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork());
+const workspaceBusy = () => Boolean(recovery?.reading()) || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()) || Boolean(publishingExports?.copyActions.state().pending);
 function updateExitWarning() {
   window.removeEventListener('beforeunload', warn);
-  if (hasWork()) window.addEventListener('beforeunload', warn);
+  if (hasWork() || workspaceBusy()) window.addEventListener('beforeunload', warn);
+  workspaceNavigation?.update();
 }
+function workChanged() { updateExitWarning(); browserRecovery?.refresh(); }
 const filename = () => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test($('slug').value) && $('slug').value.length <= 80 ? $('slug').value : suggestFilename($('title').value);
 const countArticleWords = createArticleWordCounter();
 function update() {
@@ -130,6 +134,7 @@ function update() {
   importer?.updateBusy();
   workflow?.update();
   browserRecovery?.refresh();
+  workspaceNavigation?.update();
 }
 function changed(event) {
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
@@ -159,7 +164,7 @@ function fill(value) {
   publishingProfiles?.reset();
   changed(); $('body').focus();
 }
-recovery = installRecovery({ capture, restore: value => { if (!revisions) throw new Error('Revision recovery is unavailable. Current writing is unchanged.'); const result = revisions.captureBefore('Before workspace restore'); fill(value); return { checkpointed: Boolean(result.id), evicted: result.evicted }; }, hasWork, hasPendingImport: () => Boolean(importer?.pending()), workChanged: updateExitWarning, isBusy: () => Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), busyChanged: () => { importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); browserRecovery?.refresh(); }, report });
+recovery = installRecovery({ capture, restore: value => { if (!revisions) throw new Error('Revision recovery is unavailable. Current writing is unchanged.'); const result = revisions.captureBefore('Before workspace restore'); fill(value); return { checkpointed: Boolean(result.id), evicted: result.evicted }; }, hasWork, hasPendingImport: () => Boolean(importer?.pending()), workChanged, isBusy: () => Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), busyChanged: () => { updateExitWarning(); importer?.updateBusy(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); browserRecovery?.refresh(); }, report });
 previewNavigation = installPreviewNavigation({ getDraft: () => capture().draft, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), hasPendingImport: () => Boolean(importer?.pending()), report, selectReview: () => workflow?.select('review') });
 for (const id of [...sourceFields, ...DRAFT_FIELDS]) $(id).addEventListener('input', changed);
 for (const id of DRAFT_FIELDS) $(id).addEventListener('blur', () => { touched.add(id); update(); });
@@ -320,7 +325,7 @@ importer = installArticleImport({
   continueToExport: wordImportTool || copiedPasteTool || htmlMarkdownTool ? () => workflow?.handoff() : undefined,
   workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); browserRecovery?.refresh(); },
   hasArticle: () => DRAFT_FIELDS.some(id => $(id).value.length) || questions.length > 0 || Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()),
-  isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()), busyChanged: () => { recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); browserRecovery?.refresh(); }, report,
+  isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()), busyChanged: () => { updateExitWarning(); recovery.update(); revisions?.update(); articleSearch?.refresh(); draftReview?.refresh(); publishingProfiles?.update(); draftCollection?.update(); sourceReview?.refresh(); imageEditor?.refresh(); linkEditor?.refresh(); tableEditor?.refresh(); wordPressImages?.refresh(); publishingExports?.update(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); browserRecovery?.refresh(); }, report,
   applyInsertion: plan => {
     revisions.captureBefore('Before article insertion');
     $('body').value = plan.body; touched.add('body'); changed();
@@ -361,7 +366,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, getCopySnapshot: capture, copyChanged: () => draftReview?.refresh(), openFinding: openFormattingFinding, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getCopySnapshot: capture, copyChanged: () => { draftReview?.refresh(); updateExitWarning(); }, openFinding: openFormattingFinding, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
 loadEditingTool(() => import('./reference-link-controls.js'), ({ installReferenceLinks }) => {
   referenceLinks = installReferenceLinks({ getBody: () => $('body').value, getTitle: () => $('title').value, apply: (body, label) => {
     revisions.captureBefore(label);
@@ -377,16 +382,16 @@ loadEditingTool(() => import('./wordpress-image-controls.js'), ({ installWordPre
   $('wordpress-image-status').textContent = 'Image preparation could not load. Images remain literal text in WordPress blocks. Your writing and other exports are kept.';
 });
 loadEditingTool(() => import('./publishing-profile-controls.js'), ({ installPublishingProfiles }) => {
-  publishingProfiles = installPublishingProfiles({ getWorkspace: capture, resetLinkedImages: () => wordPressImages?.reset(), changed, workChanged: updateExitWarning, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), report });
+  publishingProfiles = installPublishingProfiles({ getWorkspace: capture, resetLinkedImages: () => wordPressImages?.reset(), changed, workChanged, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), report });
 }, () => {
   $('publishing-profile-status').textContent = 'Publishing profiles could not load in this browser. Continue using the destination and title choices directly. Your writing is kept.';
 });
-revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report, comparisonChanged: () => revisionDiff?.refresh() });
+revisions = installRevisions({ capture, restore: fill, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged, report, comparisonChanged: () => revisionDiff?.refresh() });
 loadEditingTool(() => import('./table-editor-controls.js'), ({ installTableEditor }) => {
   tableEditor = installTableEditor({ getBody: () => $('body').value, apply: (plan, label) => {
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
-  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged, report });
 }, () => {
   $('table-editor-status').textContent = 'Table editor could not load. Edit table Markdown directly in the article. Your writing and exports are kept.';
 });
@@ -394,7 +399,7 @@ loadEditingTool(() => import('./link-editor-controls.js'), ({ installLinkEditor 
   linkEditor = installLinkEditor({ getBody: () => $('body').value, apply: (plan, label) => {
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
-  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged, report });
 }, () => {
   $('link-editor-status').textContent = 'Link editor could not load. Edit link Markdown directly in the article. Your writing and exports are kept.';
 });
@@ -402,19 +407,19 @@ loadEditingTool(() => import('./image-editor-controls.js'), ({ installImageEdito
   imageEditor = installImageEditor({ getBody: () => $('body').value, apply: (plan, label) => {
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
-  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged, report });
 }, () => {
   $('image-editor-status').textContent = 'Image editor could not load. Edit image Markdown directly in the article. Your writing and exports are kept.';
 });
 loadEditingTool(() => import('./source-review-controls.js'), ({ installSourceReview }) => {
-  sourceReview = installSourceReview({ getWorkspace: capture, applyNotes: (notes, label) => { revisions.captureBefore(label); questions = [...notes]; renderQuestions(); changed(); }, showSource: () => { setFocus(false); $('notes-panel').open = true; $('notes').focus(); }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  sourceReview = installSourceReview({ getWorkspace: capture, applyNotes: (notes, label) => { revisions.captureBefore(label); questions = [...notes]; renderQuestions(); changed(); }, showSource: () => { setFocus(false); $('notes-panel').open = true; $('notes').focus(); }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged, report });
   $('start-source-review').disabled = false;
   $('start-source-review').addEventListener('click', () => { revealDetails($('source-review-panel')); $('pin-review-passage').click(); });
 }, () => {
   $('source-review-status').textContent = 'Passage review could not load. Use ordinary private review notes under Source notes & review. Your writing is kept.';
 });
 loadEditingTool(() => import('./draft-collection-controls.js'), ({ installDraftCollection }) => {
-  draftCollection = installDraftCollection({ capture, hasUnsavedPreparation: () => Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()), openWorkspace: value => { revisions.captureBefore('Before opening a saved article'); fill(value); }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged: updateExitWarning, report });
+  draftCollection = installDraftCollection({ capture, hasUnsavedPreparation: () => Boolean(sourceReview?.hasWork()) || Boolean(imageEditor?.hasWork()) || Boolean(linkEditor?.hasWork()) || Boolean(tableEditor?.hasWork()), openWorkspace: value => { revisions.captureBefore('Before opening a saved article'); fill(value); }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged, report });
 }, () => {
   $('draft-collection-status').textContent = 'Draft collections could not load in this browser. Use single-workspace backups to keep writing. Your current work is unchanged.';
 });
@@ -446,6 +451,26 @@ workflow = installWorkflowNavigation({
   getDraft: () => capture().draft,
   getImportState: () => ({ pending: Boolean(importer?.pending()), staged: Boolean(importer?.staged()) }),
   isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), refreshPreview: update, report
+});
+workspaceNavigation = installWorkspaceNavigation({
+  hasWork, isBusy: workspaceBusy,
+  getImportState: () => ({ pending: Boolean(importer?.pending()), staged: Boolean(importer?.staged()) }),
+  chooseDestination: destination => {
+    const choice = $('publishing-destination');
+    if (choice.value !== destination) {
+      choice.value = destination;
+      choice.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    workflow.handoff();
+  },
+  editCurrent: () => workflow.edit(),
+  saveCurrent: () => $('article-save-options').click(),
+  reviewImport: () => {
+    workflow.select('bring');
+    focusWorkflowTarget(importer.staged() ? $('import-preview-heading') : $('import-panel').querySelector('summary'), { bar: $('workflow-steps') });
+    report(importer.staged() ? 'Review the pending import, then apply or clear it before continuing with this draft. Your article is kept.' : 'Preview or clear the unfinished import before continuing. Your source text and current article are kept.');
+  },
+  report
 });
 await loadEditingTool(() => import('./browser-recovery.js'), ({ installBrowserRecovery }) => {
   browserRecovery = installBrowserRecovery({ capture, hasWork,

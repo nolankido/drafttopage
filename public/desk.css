@@ -178,3 +178,26 @@
 }
 
 #wordpress-code-preview:focus-visible{outline:3px solid var(--accent);outline-offset:3px}
+
+/* Current-draft actions retain the workspace; source links remain real links. */
+.site-header .workspace-navigation{gap:.55rem 1rem;max-width:100%;min-width:0}
+.site-header .workspace-navigation .nav-tools-menu{width:min(21rem,calc(100vw - 2rem));max-height:calc(100vh - 10rem);max-height:min(38rem,calc(100dvh - 10rem));overflow-y:auto;overscroll-behavior:contain}
+.site-header .nav-tools-heading{font:650 .85rem/1.4 var(--sans);letter-spacing:0;max-width:none;margin:.45rem .8rem .25rem;color:var(--muted)}
+#workspace-current-tools{padding-bottom:.65rem;margin-bottom:.45rem;border-bottom:1px solid var(--line)}
+.site-header .workspace-destination{display:block;width:100%;min-height:2.75rem;margin:0;padding:.65rem .8rem;border:0;border-radius:3px;background:transparent;color:var(--ink);font:inherit;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.site-header .workspace-nav-action{min-height:2.75rem;max-width:100%;margin:0;padding:.4rem .2rem;border:0;border-radius:3px;background:transparent;color:var(--ink);font:inherit;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.site-header .workspace-destination:hover,.site-header .workspace-nav-action:hover{background:var(--soft)}
+.site-header .workspace-destination:focus-visible,.site-header .workspace-nav-action:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.site-header .workspace-destination:disabled,.site-header .workspace-nav-action:disabled{cursor:not-allowed;opacity:.5}
+.brand .nav-tab-cue{font-size:.7rem;font-weight:400;letter-spacing:0;color:var(--muted)}
+.workspace-resume{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem 1rem;margin:.65rem 0;padding:.65rem .85rem;border:1px solid var(--line);border-radius:5px;background:var(--soft);min-width:0}
+.workspace-resume p{margin:0;max-width:65ch;font-size:.9rem;overflow-wrap:anywhere}
+.workspace-resume button{margin:0;min-height:2.75rem;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+@media(max-width:850px){
+  .site-header:has(.workspace-navigation){flex-wrap:wrap;gap:.6rem 1rem}
+  .site-header .workspace-navigation .nav-tools-menu{right:auto;left:0}
+}
+@media(max-width:600px){
+  .site-header .workspace-navigation{gap:.35rem .85rem}
+  .site-header .workspace-navigation>a{min-height:2.75rem;align-content:center}
+}

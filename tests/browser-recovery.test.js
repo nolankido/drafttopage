@@ -439,3 +439,125 @@ test('Restoring requires the exact inspected copy and current workspace, includi
   assert.equal(await x.control.resume(next), false); assert.equal(x.restores(), 0);
   assert.equal(x.capture().draft.body, 'Changed after inspection');
 });
+
+const emptyWorkspace = () => ({ source: { profile: 'personal', audience: '', purpose: '', notes: '' }, draft: { title: '', excerpt: '', description: '', slug: '', body: '', questions: [] } });
+async function withReturnShortcut(run, { raw = createBrowserCopy(writing(), stamp), current = emptyWorkspace(), preparation = false, locks } = {}) {
+  const previous = { document: globalThis.document, window: globalThis.window, navigator: Object.getOwnPropertyDescriptor(globalThis, 'navigator') };
+  const env = environment(raw), controls = new Map();
+  let workspace = structuredClone(current), busy = false, captures = 0, restores = 0, confirmations = 0, controller;
+  const makeNode = id => ({ id, value: '', checked: false, disabled: false, hidden: ['workspace-resume', 'browser-recovery-preview'].includes(id), open: false,
+    tagName: id === 'browser-recovery-panel' ? 'DETAILS' : 'BUTTON', parentElement: null, isConnected: true, textContent: '', children: [], events: new Map(),
+    replaceChildren(...children) { this.children = children; },
+    addEventListener(type, listener) { if (!this.events.has(type)) this.events.set(type, []); this.events.get(type).push(listener); },
+    focus() { document.activeElement = this; },
+    contains(node) { for (let item = node; item; item = item.parentElement) if (item === this) return true; return false; },
+    closest(selector) { for (let item = this; item; item = item.parentElement) if (selector === '[hidden]' && item.hidden) return item; return null; },
+    matches(selector) { return selector === ':disabled' && this.disabled; },
+    dispatch(type) { return Promise.all((this.events.get(type) || []).map(listener => listener({ currentTarget: this, target: this }))); },
+    // Deliberately invoke disabled handlers to verify their own busy guards.
+    click() { return this.dispatch('click'); }
+  });
+  const $ = id => { if (!controls.has(id)) controls.set(id, makeNode(id)); return controls.get(id); };
+  globalThis.document = { getElementById: $, createElement: makeNode, addEventListener() {}, removeEventListener() {}, activeElement: null, body: makeNode('body') };
+  globalThis.window = { localStorage: env.storage, confirm: () => { confirmations++; return true; }, addEventListener() {}, removeEventListener() {} };
+  Object.defineProperty(globalThis, 'navigator', { configurable: true, value: { locks: locks || env.locks } });
+  const outer = { tagName: 'DETAILS', open: false, parentElement: null };
+  $('browser-recovery-panel').parentElement = outer;
+  $('workspace-resume-review').parentElement = $('workspace-resume');
+  $('reviewed').checked = true;
+  const hasWork = () => preparation || ['audience', 'purpose', 'notes'].some(id => workspace.source[id].length) || ['title', 'excerpt', 'description', 'slug', 'body'].some(id => workspace.draft?.[id].length) || Boolean(workspace.draft?.questions.length);
+  try {
+    controller = installBrowserRecovery({ capture: () => { captures++; return structuredClone(workspace); }, restore: value => { restores++; workspace = structuredClone(value); },
+      hasWork, isBusy: () => busy, isSaveBlocked: () => busy, now: () => stamp });
+    await run({ $, env, controller, outer, capture: () => structuredClone(workspace), captures: () => captures, restores: () => restores, confirmations: () => confirmations,
+      setBusy: value => { busy = value; }, setCurrent: value => { workspace = structuredClone(value); }, setPreparation: value => { preparation = value; } });
+  } finally {
+    controller?.dispose(); globalThis.document = previous.document; globalThis.window = previous.window;
+    if (previous.navigator) Object.defineProperty(globalThis, 'navigator', previous.navigator); else delete globalThis.navigator;
+  }
+}
+
+test('Saved-draft return opens the existing comparison without enabling recovery or changing current writing', () => withReturnShortcut(async ({ $, env, controller, outer, capture, restores, confirmations }) => {
+  const current = capture(), saved = env.records.get(RECOVERY_KEY);
+  controller.state(); controller.refresh(); controller.schedule(); controller.flush();
+  assert.equal($('workspace-resume').hidden, false); assert.equal($('workspace-resume-review').disabled, false);
+  assert.equal(env.writes(), 0); assert.equal(restores(), 0); assert.equal(controller.state().enabled, false);
+  assert.deepEqual(capture(), current); assert.equal(env.records.get(RECOVERY_KEY), saved);
+  $('browser-recovery-panel').open = false; await $('browser-recovery-panel').dispatch('toggle'); outer.open = false;
+  await $('workspace-resume-review').click();
+  assert.equal(outer.open, true); assert.equal($('browser-recovery-panel').open, true);
+  assert.equal($('browser-recovery-preview').hidden, false); assert.equal(document.activeElement, $('browser-recovery-preview-heading'));
+  for (const [field, value] of [['body', writing().draft.body], ['notes', writing().source.notes], ['questions', JSON.stringify(writing().draft.questions, null, 2)]]) {
+    $('browser-recovery-fields').value = field; await $('browser-recovery-fields').dispatch('change');
+    assert.equal($('browser-recovery-saved').value, value);
+    assert.equal($('browser-recovery-current').value, field === 'questions' ? '[]' : '');
+  }
+  assert.match($('browser-recovery-comparison').textContent, /Fields to replace:/);
+  assert.equal($('browser-recovery-consent').checked, false); assert.equal($('browser-recovery-reviewed').checked, false);
+  assert.equal($('browser-recovery-restore').disabled, true); assert.equal($('reviewed').checked, true);
+  assert.deepEqual(capture(), current); assert.equal(env.records.get(RECOVERY_KEY), saved);
+  assert.equal(env.writes(), 0); assert.equal(restores(), 0); assert.equal(confirmations(), 0); assert.equal(controller.state().enabled, false);
+}));
+
+test('Saved-draft return stays hidden without a valid copy, with current writing or preparation, and during enabled saving', async () => {
+  for (const raw of [null, '{broken']) await withReturnShortcut(({ $, env, controller, restores }) => {
+    assert.equal($('workspace-resume').hidden, true); assert.equal(env.writes(), 0); assert.equal(restores(), 0); assert.equal(controller.state().enabled, false);
+  }, { raw });
+  await withReturnShortcut(({ $, controller, setCurrent, setPreparation }) => {
+    const current = emptyWorkspace(); current.source.notes = 'Unsaved source notes without an article.'; setCurrent(current); controller.refresh();
+    assert.equal($('workspace-resume').hidden, true);
+    setCurrent(emptyWorkspace()); setPreparation(true); controller.refresh(); assert.equal($('workspace-resume').hidden, true);
+    setPreparation(false); controller.refresh(); assert.equal($('workspace-resume').hidden, false);
+  });
+  await withReturnShortcut(async ({ $, controller, restores }) => {
+    $('browser-recovery-consent').checked = true; await $('browser-recovery-start').click();
+    assert.equal(controller.state().enabled, true); assert.equal($('workspace-resume').hidden, true); assert.equal(restores(), 0);
+    controller.pause(); assert.equal($('workspace-resume').hidden, false);
+  }, { raw: null });
+});
+
+test('Saved-draft return ignores busy clicks, including work that starts after its last render', () => withReturnShortcut(async ({ $, env, controller, captures, restores, setBusy }) => {
+  $('browser-recovery-panel').open = false; await $('browser-recovery-panel').dispatch('toggle');
+  for (const refresh of [true, false]) {
+    setBusy(false); controller.refresh(); assert.equal($('workspace-resume-review').disabled, false);
+    setBusy(true); if (refresh) controller.refresh();
+    if (refresh) assert.equal($('workspace-resume-review').disabled, true);
+    const before = captures(); await $('workspace-resume-review').click();
+    assert.equal(captures(), before); assert.equal($('browser-recovery-preview').hidden, true); assert.equal($('browser-recovery-panel').open, false);
+    assert.equal(env.writes(), 0); assert.equal(restores(), 0); assert.equal(controller.state().enabled, false);
+  }
+}));
+
+test('Saved-draft return remains disabled while a browser lock request is pending', async () => {
+  let release; const waiting = new Promise(resolve => { release = resolve; });
+  const locks = { request: async (name, options, action) => { await waiting; return action({ name }); } };
+  await withReturnShortcut(async ({ $, env, controller, captures, restores }) => {
+    $('browser-recovery-panel').open = false; await $('browser-recovery-panel').dispatch('toggle');
+    const pending = controller.start();
+    try {
+      assert.equal(controller.state().pending, true); assert.equal($('workspace-resume-review').disabled, true);
+      const before = captures(); await $('workspace-resume-review').click();
+      assert.equal(captures(), before); assert.equal($('browser-recovery-preview').hidden, true); assert.equal($('browser-recovery-panel').open, false);
+      assert.equal(env.writes(), 0); assert.equal(restores(), 0);
+    } finally { controller.dispose(); release(); await pending; }
+  }, { locks });
+});
+
+test('The return shortcut retains separate consent and current-comparison approval before restore', () => withReturnShortcut(async ({ $, env, controller, capture, restores, setCurrent }) => {
+  const original = capture(), saved = env.records.get(RECOVERY_KEY);
+  await $('workspace-resume-review').click();
+  for (const [consent, reviewed] of [[false, false], [false, true], [true, false]]) {
+    $('browser-recovery-consent').checked = consent; $('browser-recovery-reviewed').checked = reviewed; controller.refresh();
+    assert.equal($('browser-recovery-restore').disabled, true); await $('browser-recovery-restore').click();
+    assert.deepEqual(capture(), original); assert.equal(restores(), 0); assert.equal(env.writes(), 0); assert.equal(controller.state().enabled, false);
+  }
+  $('browser-recovery-reviewed').checked = true; controller.refresh(); assert.equal($('browser-recovery-restore').disabled, false);
+  const edited = emptyWorkspace(); edited.source.notes = 'New notes after comparison.'; setCurrent(edited); controller.refresh();
+  assert.equal($('workspace-resume').hidden, true); assert.equal($('browser-recovery-reviewed').checked, false); assert.equal($('browser-recovery-restore').disabled, true);
+  await $('browser-recovery-restore').click(); assert.equal(restores(), 0); assert.deepEqual(capture(), edited); assert.equal(env.records.get(RECOVERY_KEY), saved);
+  setCurrent(original); controller.refresh(); await $('workspace-resume-review').click();
+  assert.equal($('browser-recovery-reviewed').checked, false); assert.equal($('browser-recovery-restore').disabled, true);
+  $('browser-recovery-reviewed').checked = true; controller.refresh(); await $('browser-recovery-restore').click();
+  assert.equal(restores(), 1); assert.deepEqual(capture().source, writing().source); assert.deepEqual(capture().draft, writing().draft);
+  assert.equal(controller.state().enabled, true); assert.equal($('workspace-resume').hidden, true);
+}));
