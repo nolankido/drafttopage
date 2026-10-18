@@ -87,7 +87,10 @@
       "status": "NOT_RUN",
       "elapsed_seconds": null,
       "procedural_hints": null
-    }
+    },
+    "baseline_method": null,
+    "usual_saved_reopened": null,
+    "drafttopage_saved_reopened": null
   },
   "issue_categories": [],
   "unintended_persistence": null,
