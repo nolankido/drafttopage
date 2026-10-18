@@ -101,7 +101,8 @@ test('Paired comparisons exclude failed, assisted, missing and mismatched work w
   const result = summarizeSessions(records).releases[0].paired_comparison;
   assert.equal(result.accepted_unaided_pairs.length, 2); assert.equal(result.excluded_scope, 2);
   assert.equal(result.excluded_assisted_or_failed, 2); assert.equal(result.excluded_incomplete, 1);
-  assert.equal(result.median_saved_seconds, -300); assert.equal(result.median_saved_percent, -50);
+  assert.equal(result.aggregate_time_status, 'INSUFFICIENT_PAIRS');
+  assert.equal(result.median_saved_seconds, null); assert.equal(result.median_saved_percent, null);
   assert.equal(result.accepted_unaided_pairs[1].saved_percent, null);
 });
 
@@ -183,6 +184,9 @@ test('Native WordPress benchmark requires explicit baseline and verified saved/r
   assert.equal(good.native_wordpress.verified_unaided_pairs, 1);
   assert.equal(good.native_wordpress.evidence_status, 'INSUFFICIENT_PAIRS');
   assert.equal(good.native_wordpress.median_saved_seconds, null);
+  assert.equal(good.aggregate_time_status, 'INSUFFICIENT_PAIRS');
+  assert.equal(good.median_saved_seconds, null);
+  assert.equal(good.median_saved_percent, null);
   const old = observed();
   delete old.paired_comparison.baseline_method;
   delete old.paired_comparison.usual_saved_reopened;
@@ -195,7 +199,7 @@ test('Native WordPress benchmark requires explicit baseline and verified saved/r
   old.paired_comparison.baseline_method = 'NATIVE_WORDPRESS_PASTE';
   assert.equal(summarizeSessions([old]).releases[0].paired_comparison.excluded_delivery_unverified, 1);
   old.paired_comparison.usual_saved_reopened = true;
-  old.paired_comparison.drafttopage_saved_reopened = false;
+  old.paired_comparison.drafttopage_saved_reopened = null;
   assert.equal(summarizeSessions([old]).releases[0].paired_comparison.accepted_unaided_pairs.length, 0);
   old.paired_comparison.drafttopage_saved_reopened = true;
   assert.equal(summarizeSessions([old]).releases[0].paired_comparison.accepted_unaided_pairs.length, 1);
@@ -207,6 +211,9 @@ test('Methods and observed destination proof are validated without accepting inv
     record => { record.paired_comparison.usual_saved_reopened = 'yes'; },
     record => { record.paired_comparison.drafttopage_saved_reopened = 1; },
     record => { record.paired_comparison.usual_workflow = task('NOT_RUN',null,null); record.paired_comparison.usual_saved_reopened = true; },
+    record => { record.paired_comparison.usual_workflow = task('NOT_RUN',null,null); record.paired_comparison.usual_saved_reopened = false; },
+    record => { record.paired_comparison.usual_saved_reopened = false; },
+    record => { record.paired_comparison.drafttopage_saved_reopened = false; },
     record => { record.paired_comparison.drafttopage = task('FAIL',100,0); record.paired_comparison.drafttopage_saved_reopened = true; }
   ];
   for(const mutate of cases){const r=observed();mutate(r);assert.throws(()=>validateSession(r));}
@@ -239,13 +246,25 @@ test('Named native WordPress comparison reports negative results, balanced order
   assert.equal(result.native_wordpress.slower,1);
   assert.equal(result.native_wordpress.tied,1);
   assert.equal(result.native_wordpress.median_saved_seconds,300);
-  assert.equal(result.native_wordpress.median_saved_percent,50);
+  assert.equal(result.native_wordpress.median_saved_percent,null, 'one zero baseline leaves only four computable percentages');
+  assert.equal(result.aggregate_time_status,'MIXED_BASELINES');
+  assert.equal(result.median_saved_seconds,null);
   assert.equal(result.accepted_unaided_pairs[2].saved_percent,null);
+  const fiveComputable=structuredClone(records);
+  fiveComputable[2].paired_comparison.usual_workflow.elapsed_seconds=600;
+  fiveComputable[2].paired_comparison.drafttopage.elapsed_seconds=300;
+  assert.equal(summarizeSessions(fiveComputable).releases[0].paired_comparison.native_wordpress.median_saved_percent,50);
   records[4].destination_type='HTML'; // not a WordPress destination
   const invalid=summarizeSessions(records).releases[0].paired_comparison;
   assert.equal(invalid.native_wordpress.verified_unaided_pairs,4);
   assert.equal(invalid.native_wordpress.median_saved_seconds,null);
   assert.equal(invalid.excluded_scope,1);
+  const deceptive=observed(9);
+  deceptive.destination_type='non-WordPress CMS';
+  assert.equal(summarizeSessions([deceptive]).releases[0].paired_comparison.excluded_scope,1);
+  const misleading=observed(10);
+  misleading.destination_type='Not WordPress';
+  assert.equal(summarizeSessions([misleading]).releases[0].paired_comparison.native_wordpress.verified_unaided_pairs,0);
 });
 
 test('Synthetic paired comparisons cannot produce human baseline results',()=>{
@@ -254,4 +273,30 @@ test('Synthetic paired comparisons cannot produce human baseline results',()=>{
   assert.equal(result.study_status,'NOT_RUN');
   assert.equal(result.qualified_human_observations,0);
   assert.deepEqual(result.releases,[]);
+});
+
+test('False saved and reopened observations are reserved for confirmed failed methods', () => {
+  const failed = observed();
+  failed.paired_comparison.usual_workflow = task('FAIL',100,0);
+  failed.paired_comparison.usual_saved_reopened = false;
+  assert.doesNotThrow(() => validateSession(failed));
+  const notAttempted = observed();
+  notAttempted.paired_comparison.usual_workflow = task('DECLINED',null,null);
+  notAttempted.paired_comparison.usual_saved_reopened = false;
+  assert.throws(() => validateSession(notAttempted), /paired destination observation/);
+});
+
+test('Five native pairs with only one computable percentage withhold both ordinary and native percentage medians', () => {
+  const records = Array.from({length:5},(_,i)=>observed(i+1));
+  for(const r of records.slice(0,4)){
+    r.paired_comparison.usual_workflow.elapsed_seconds=0;
+    r.paired_comparison.drafttopage.elapsed_seconds=0;
+  }
+  const comparison=summarizeSessions(records).releases[0].paired_comparison;
+  assert.equal(comparison.accepted_unaided_pairs.length,5);
+  assert.equal(comparison.aggregate_time_status,'DESCRIPTIVE_PILOT_ONLY');
+  assert.equal(comparison.median_saved_seconds,0);
+  assert.equal(comparison.median_saved_percent,null);
+  assert.equal(comparison.native_wordpress.median_saved_seconds,0);
+  assert.equal(comparison.native_wordpress.median_saved_percent,null);
 });
