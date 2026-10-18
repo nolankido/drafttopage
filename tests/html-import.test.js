@@ -6,6 +6,7 @@ import { parseArticleImport } from '../public/article-import.js';
 import { inlineTokens, decodeMarkdownEscapes } from '../public/markdown-inline.js';
 import { inlineParts, previewBlocks } from '../public/preview.js';
 import { createHTMLSource } from '../public/html-export.js';
+import { wordDocumentParts } from '../public/word-export.js';
 import { createWordPressArticle } from '../public/wordpress-export.js';
 import { installArticleImport } from '../public/import-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from '../public/copied-writing.js';
@@ -775,7 +776,7 @@ test('Definition lists keep terms, descriptions, inline formatting, links, and e
   const result = convert(root), article = parseArticleImport(result.markdown);
   assert.equal(JSON.stringify(root), original, 'original detached HTML tree must not change');
   assert.match(result.markdown, /\*\*Term:\*\* Start time/);
-  assert.match(result.markdown, /\*\*Definition:\*\* Check\\-in at \*\*10:00\*\*/);
+  assert.match(result.markdown, /\*\*Definition:\*\* Check\\-in at \*\*10\\:00\*\*/);
   assert.match(result.markdown, /\*\*Term:\*\* Parking/);
   assert.match(result.markdown, /\[north lot\]\(https:\/\/example.com\/north\?entry=1\)/);
   assert.ok(result.warnings.some(text => text.includes('Definition lists became labeled')));
@@ -787,6 +788,16 @@ test('Definition lists keep terms, descriptions, inline formatting, links, and e
     assert.match(output, /href="https:\/\/example.com\/north\?entry=1"/);
     assert.doesNotMatch(output, /<dl|<dt|<dd|<script|<iframe/);
   }
+  const word = wordDocumentParts(article.draft);
+  const xml = word.find(part => part.name === 'word/document.xml').content;
+  const relationships = word.find(part => part.name === 'word/_rels/document.xml.rels').content;
+  for (const value of ['Start time','Check-in at','10:00','Parking','north lot','KEEP_DEFINITION_ENDING_20261018'])
+    assert.ok(xml.includes(value), 'Word export retained ' + value);
+  assert.ok(xml.indexOf('Start time') < xml.indexOf('Check-in at'));
+  assert.ok(xml.indexOf('Check-in at') < xml.indexOf('Parking'));
+  assert.ok(xml.indexOf('Parking') < xml.indexOf('north lot'));
+  assert.ok(xml.indexOf('north lot') < xml.indexOf('KEEP_DEFINITION_ENDING_20261018'));
+  assert.match(relationships, /https:\/\/example\.com\/north\?entry=1/);
 });
 
 test('Definition entries with ordinary paragraph wrappers keep boundaries without joining adjacent text', () => {
