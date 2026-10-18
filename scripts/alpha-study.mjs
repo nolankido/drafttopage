@@ -13,6 +13,13 @@ export const ALPHA_SOURCE_COHORTS = Object.freeze(['WORD','GOOGLE_DOCS','MARKDOW
 // not a recommendation, endorsement or paid product comparison.
 export const ALPHA_BASELINE_METHODS = Object.freeze(['NATIVE_WORDPRESS_PASTE','OTHER_FREE_TOOL','OTHER_MANUAL_WORKFLOW']);
 const pairedField = (pair, name) => pair[name] === undefined ? null : pair[name];
+// Use exact destination categories, never a substring match on free-form text.
+const WORDPRESS_DESTINATIONS = new Set([
+  'wordpress', 'wordpress block editor', 'wordpress gutenberg',
+  'wordpress.com', 'wordpress self-hosted'
+]);
+const isWordPressDestination = value =>
+  typeof value === 'string' && WORDPRESS_DESTINATIONS.has(value.trim().toLowerCase());
 export const ALPHA_ADDITIONAL_SAFETY_FLAGS = Object.freeze([
   'unintended_persistence','unintended_publication','unexpected_external_request'
 ]);
@@ -116,9 +123,11 @@ export function validateSession(record) {
         ![null,...ALPHA_BASELINE_METHODS].includes(pairedField(pair,'baseline_method')) ||
         !nullableBoolean(pairedField(pair,'usual_saved_reopened')) ||
         !nullableBoolean(pairedField(pair,'drafttopage_saved_reopened'))) invalid('Invalid paired workflow comparison.');
-    if (pairedField(pair,'usual_saved_reopened') === true && !completed(pair.usual_workflow) ||
-        pairedField(pair,'drafttopage_saved_reopened') === true && !completed(pair.drafttopage))
-      invalid('A verified saved/reopened destination requires a completed method.');
+    for (const [field,task] of [['usual_saved_reopened',pair.usual_workflow],['drafttopage_saved_reopened',pair.drafttopage]]) {
+      const result = pairedField(pair,field);
+      if (result === true && !completed(task) || result === false && task.status !== 'FAIL')
+        invalid('A paired destination observation must agree with the method result; use null when unobserved.');
+    }
     if (record.actual_second_article_observed !== true &&
         (record.second_article_voluntary !== null || record.second_article_is_distinct_real_work !== null)) invalid('Repeat-use qualification requires an observed second article.');
   }
@@ -178,7 +187,7 @@ function summarizeRelease(records) {
     comparison.baseline_method_counts[method ?? 'NOT_RECORDED']++;
     if (['NOT_RUN', 'DECLINED'].includes(pair.usual_workflow.status) || ['NOT_RUN', 'DECLINED'].includes(pair.drafttopage.status)) comparison.excluded_incomplete++;
     else if (pair.same_source_and_destination !== true || pair.includes_image_and_cleanup_work !== true || pair.order === null ||
-        method === 'NATIVE_WORDPRESS_PASTE' && !/wordpress/i.test(record.destination_type || '')) comparison.excluded_scope++;
+        method === 'NATIVE_WORDPRESS_PASTE' && !isWordPressDestination(record.destination_type)) comparison.excluded_scope++;
     else if (pair.usual_workflow.status !== 'PASS_UNAIDED' || pair.drafttopage.status !== 'PASS_UNAIDED') comparison.excluded_assisted_or_failed++;
     else if (method === null) comparison.excluded_baseline_unrecorded++;
     else if (pairedField(pair,'usual_saved_reopened') !== true || pairedField(pair,'drafttopage_saved_reopened') !== true)
@@ -189,18 +198,25 @@ function summarizeRelease(records) {
         saved_seconds: usual - drafttopage, saved_percent: usual === 0 ? null : (usual - drafttopage) / usual * 100 });
     }
   }
-  comparison.median_saved_seconds = median(comparison.accepted_unaided_pairs.map(pair => pair.saved_seconds));
-  comparison.median_saved_percent = median(comparison.accepted_unaided_pairs.map(pair => pair.saved_percent).filter(value => value !== null));
+  const classes = new Set(comparison.accepted_unaided_pairs.map(pair => pair.baseline_method));
+  const enoughComparable = comparison.accepted_unaided_pairs.length >= 5 && classes.size === 1;
+  const aggregatePercents = comparison.accepted_unaided_pairs.map(pair => pair.saved_percent).filter(value => value !== null);
+  comparison.aggregate_time_status = comparison.accepted_unaided_pairs.length === 0 ? 'NOT_RUN' :
+    comparison.accepted_unaided_pairs.length < 5 ? 'INSUFFICIENT_PAIRS' :
+    classes.size !== 1 ? 'MIXED_BASELINES' : 'DESCRIPTIVE_PILOT_ONLY';
+  comparison.median_saved_seconds = enoughComparable ? median(comparison.accepted_unaided_pairs.map(pair => pair.saved_seconds)) : null;
+  comparison.median_saved_percent = enoughComparable && aggregatePercents.length >= 5 ? median(aggregatePercents) : null;
   // A named native-WordPress comparison is never inferred from an unlabelled
   // "usual workflow". Suppress pilot medians for fewer than five verified pairs.
   const native = comparison.accepted_unaided_pairs.filter(pair => pair.baseline_method === 'NATIVE_WORDPRESS_PASTE');
+  const nativePercents = native.map(pair => pair.saved_percent).filter(value => value !== null);
   comparison.native_wordpress = {
     baseline_method: 'NATIVE_WORDPRESS_PASTE', verified_unaided_pairs: native.length,
     faster: native.filter(pair => pair.saved_seconds > 0).length,
     slower: native.filter(pair => pair.saved_seconds < 0).length,
     tied: native.filter(pair => pair.saved_seconds === 0).length,
     median_saved_seconds: native.length >= 5 ? median(native.map(pair => pair.saved_seconds)) : null,
-    median_saved_percent: native.length >= 5 ? median(native.map(pair => pair.saved_percent).filter(value => value !== null)) : null,
+    median_saved_percent: nativePercents.length >= 5 ? median(nativePercents) : null,
     evidence_status: native.length === 0 ? 'NOT_RUN' : native.length < 5 ? 'INSUFFICIENT_PAIRS' : 'DESCRIPTIVE_PILOT_ONLY'
   };
   const target = (met, unknown = 0) => records.length < 10 ? 'PENDING' : met ? 'MET' : unknown ? 'PENDING' : 'NOT_MET';
@@ -257,7 +273,7 @@ export function summarizeSessions(input) {
     critical_incidents_all_human_observations: critical,
     missing_safety_checks_all_human_observations: missingSafety,
     mixed_releases: releases.length > 1, releases: releaseReports,
-    interpretation: 'Local transcription of recorded observations, not verification that sessions occurred. Paired time summaries require a named baseline, matched scope, two completed unaided methods and independently observed save/reopen for both. A native WordPress median needs at least five eligible pairs and is descriptive only. Missing and synthetic evidence never establish adoption, causal time savings or willingness to pay. Release cohorts stay separate. Keep this small-cohort report private.' };
+    interpretation: 'Local transcription of recorded observations, not verification that sessions occurred. Paired time summaries require a named baseline, matched scope, two completed unaided methods and independently observed save/reopen for both. A native WordPress median needs five eligible observations of that specific measure and is descriptive only. Aggregate medians are also withheld for undersized or mixed baselines. Missing and synthetic evidence never establish adoption, causal time savings or willingness to pay. Release cohorts stay separate. Keep this small-cohort report private.' };
 }
 
 function privateDirectory(directory, create = false) {
