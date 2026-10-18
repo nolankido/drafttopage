@@ -918,7 +918,7 @@ test('Definition lists in table captions fail closed instead of joining visible 
   assert.doesNotMatch(safe.markdown, /Start time|Check in/);
   const rendered = createHTMLSource({ body: safe.markdown });
   assert.match(rendered, /Visible caption ending\./);
-  assert.match(rendered, /<th>Column<\/th>/);
+  assert.match(rendered, /<th\b[^>]*>Column<\/th>/);
   assert.ok(safe.warnings.some(message => message.includes('hidden content')));
 });
 
