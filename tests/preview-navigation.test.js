@@ -170,3 +170,49 @@ print(json.dumps(out))
   assert.deepEqual(result,routes);
   assert.match(await readFile('public/help/draft-checks/index.html','utf8'),/id="preview-passages"/);
 });
+
+test('Large active edits coalesce full preview rebuilds and preserve synchronous review invalidation', () => {
+  const previousWindow = globalThis.window, previousDocument = globalThis.document;
+  const jobs = new Map(); let token = 0, clock = 0;
+  const priorNow = Date.now, originalTimeout = globalThis.setTimeout, originalClearTimeout = globalThis.clearTimeout;
+  class FakeNode {
+    constructor(tag='div') { this.tagName=tag.toUpperCase();this.children=[];this.events={};this.attrs={};this.open=false;this.checked=false;this.disabled=false;this.hidden=false;this.value='';this.text='';this.inert=false;this.selectionStart=0;this.selectionEnd=0;this.renderCount=0; }
+    addEventListener(kind,fn){(this.events[kind]??=[]).push(fn);}
+    setAttribute(k,v){this.attrs[k]=String(v);}
+    replaceChildren(...children){this.renderCount++;this.children=children.flatMap(x=>x.tagName==='FRAGMENT'?x.children:[x]);}
+    append(...children){this.children.push(...children);}
+    set textContent(s){this.text=s;this.children=[]}
+    get textContent(){return this.text+this.children.map(x=>x.textContent).join('')}
+  }
+  try {
+    const nodes = new Map(), $ = id => {
+      if (!nodes.has(id)) nodes.set(id,new FakeNode());
+      return nodes.get(id);
+    };
+    const body='Fictional paragraph with no private content.\n\n'.repeat(320);
+    $('body').value=body; $('preview-panel').open=true; $('reviewed').checked=true;
+    const doc = {getElementById:$,createElement:tag=>new FakeNode(tag),createDocumentFragment:()=>new FakeNode('fragment'),createTextNode:value=>{const n=new FakeNode('text');n.textContent=value;return n;},activeElement:$('body')};
+    globalThis.document=doc;
+    globalThis.window={setTimeout};
+    globalThis.setTimeout=(callback,delay)=>{const id=++token;jobs.set(id,{callback,at:clock+delay});return id;};
+    globalThis.clearTimeout=id=>jobs.delete(id);
+    Date.now=()=>clock;
+    const ui=installPreviewNavigation({getDraft:()=>({title:'Fictional draft',body:$('body').value}),report:()=>{}});
+    assert.equal($('article-preview').renderCount,0,'Initial focused large preview is deferred');
+    for (let i=0;i<15;i++){clock+=7;$('body').value+='x';$('reviewed').checked=false;ui.refresh();}
+    assert.equal($('article-preview').renderCount,0);
+    assert.equal($('article-preview').inert,true);
+    assert.equal($('article-preview').attrs['aria-busy'],'true');
+    clock=170;
+    for(const [id,job] of [...jobs])if(job.at<=clock){jobs.delete(id);job.callback();}
+    assert.equal($('article-preview').renderCount,1);
+    assert.equal($('article-preview').inert,false);
+    assert.equal($('article-preview').attrs['aria-busy'],'false');
+    assert.match($('article-preview').textContent,/x{15}$/);
+    ui.clear();
+    assert.equal(jobs.size,0);
+  } finally {
+    Date.now=priorNow; globalThis.setTimeout=originalTimeout;globalThis.clearTimeout=originalClearTimeout;
+    globalThis.window=previousWindow;globalThis.document=previousDocument;
+  }
+});
