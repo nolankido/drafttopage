@@ -22,6 +22,35 @@ function fixture(run) {
 }
 const goodEvidence = { result: 'PASS', scope: 'full', checks: ['fictional fixture'], errors: [], unexpected_requests: [], layout: { 'fixture-320': false } };
 
+test('Strict local release fails closed before any build if WordPress CLI is absent', () => fixture(root => {
+  let calls = 0;
+  const result = verifyRelease({ root, env: {}, requireWordPress: true, run: () => { calls++; return {status:0}; } });
+  assert.equal(result.result, 'FAIL');
+  assert.equal(calls, 0);
+  assert.deepEqual(result.steps, []);
+  assert.equal(result.wordpress.result, 'NOT_RUN');
+  assert.match(result.error, /requires DRAFTTOPAGE_WORDPRESS_CLI/);
+  assert.equal(existsSync(join(root, 'test-results', 'browser-results.json')), false);
+  const saved = JSON.parse(readFileSync(join(root, 'test-results', 'release-results.json'), 'utf8'));
+  assert.equal(saved.result, 'FAIL');
+  assert.equal(saved.scope.includes('required independent WordPress receipt'), true);
+}));
+
+test('Strict release with a CLI pins the actual receipt as a separate mandatory step', () => fixture(root => {
+  // This fixture deliberately lacks a complete WordPress receipt. We verify
+  // that a missing or invalid WordPress acceptance cannot result in success.
+  let calls = 0;
+  const env = { DRAFTTOPAGE_WORDPRESS_CLI: '/fictional/local/playground.js' };
+  const result = verifyRelease({ root, env, requireWordPress: true, run: () => {
+    calls++;
+    if (calls === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify(goodEvidence));
+    return { status: 0 };
+  } });
+  assert.equal(result.result, 'FAIL');
+  assert.ok(calls >= 5);
+  assert.match(result.error, /wordpress failed|WordPress evidence/i);
+}));
+
 test('The manual release gate rejects stale browser evidence and stops after a failed model check', () => fixture(root => {
   const calls = [];
   const result = verifyRelease({ root, env: {}, run: (command, args) => {

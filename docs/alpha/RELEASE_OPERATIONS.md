@@ -6,10 +6,18 @@ This is an owner-operated release procedure. Preserve the native Cloudflare Git 
 
 On a trusted complete checkout of main, record a clean working-tree result, the full Git HEAD, Node/Python/browser versions, and the last Cloudflare production Worker version. Run Git status, rev-parse and the current manual local gate. Do not change files, package versions or the browser installation midway through a validation run.
 
-Run the existing manually invoked full gate with Node 22+, local Python Playwright and Chromium. For pinned WordPress save/reopen, also set DRAFTTOPAGE_WORDPRESS_CLI to the actual installed WordPress Playground CLI:
+Run the deliberately invoked release preflight first on a **clean Git checkout**. It checks Git HEAD and tree cleanliness, Node 22+, installed Python Playwright, a launchable Chromium, and the explicitly installed WordPress Playground CLI without fetching or installing anything. A blocked preflight makes no release claim.
 
-    DRAFTTOPAGE_WORDPRESS_CLI=/absolute/existing/cli.js npm run verify:release
-    npm run verify:wordpress:receipt
+    DRAFTTOPAGE_WORDPRESS_CLI=/absolute/existing/cli.js npm run preflight:release:full
+    DRAFTTOPAGE_WORDPRESS_CLI=/absolute/existing/cli.js npm run verify:release:full
+
+The **strict full** command refuses to start if the WordPress CLI is not configured. It then runs build, all Node tests, static checks, the routed Playwright browser suite, actual isolated local WordPress paste/save/reopen/Media Library acceptance, and a separate source-bound WordPress receipt check. No earlier green receipt is reused. For a browser-only development check, `npm run verify:release` remains available, but its WordPress result is `NOT_RUN` unless WordPress CLI was supplied. A passing browser-only run must never be described as a full WordPress-qualified release.
+
+For a faster isolated narrow-layout regression before full qualification, after building run:
+
+    python3 scripts/browser-smoke.py --table-rows-only
+
+This checks the actual generated workspace at desktop, 390px and 320px viewport widths, including row insertion/reordering across the ten-row page boundary. Do not use this scoped run in place of `verify:release:full`. The independent WordPress receipt can also be rechecked with `npm run verify:wordpress:receipt`.
 
 The release gate performs build, Node tests, static checks, routed-browser tests and optional isolated local WordPress. Missing WordPress tools produce NOT_RUN, **not** a public alpha pass. Results remain under ignored test-results. A failed test or changed source must trigger a fresh entire run, not a reused green receipt.
 
