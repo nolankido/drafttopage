@@ -271,9 +271,9 @@ test('Direct row reordering is immutable, preserves every cell, and enforces bot
 });
 
 test('Reordering through the plan preserves exact adjacent Unicode and CRLF prose, alignment, and a clean rollback',()=>{
-  for(const newline of ['\\n','\\r\\n']){
+  for(const newline of ['\n','\r\n']){
     const body='前書き 😀'+newline+newline+editableTableMarkdown({
-      head:['Step','Notes'],align:['center','right'],rows:[['One','**first**'],['Two','[link](https://example.com)'],['Three','literal \\| pipe']]
+      head:['Step','Notes'],align:['center','right'],rows:[['One','**first**'],['Two','[link](https://example.com)'],['Three','literal | pipe']]
     },newline)+newline+newline+'After 😀';
     // Choose a table whose contents are in the supported subset and preserve the exact source.
     const range=markdownTableRanges(body)[0],target=tableEditTarget(body,range.start),before=target.before;
@@ -368,7 +368,7 @@ test('Selecting positions and same-row moves are review-safe no-ops; real row mo
 }));
 
 test('Maximum-size and header-only tables gate row arrangement and preserve source until apply',()=>controls(({$,ui,busy,approval,applies})=>{
-  $('body').value='| Name |\\n| --- |';ui.refresh();$('table-open-selected').fire('click');
+  $('body').value='| Name |\n| --- |';ui.refresh();$('table-open-selected').fire('click');
   assert.equal($('table-row-selected').disabled,true);
   assert.equal($('table-insert-before').disabled,true);
   assert.equal($('table-move-to').disabled,true);
@@ -400,7 +400,7 @@ test('Prepared reordering survives stale article recheck and failed checkpoint w
   const backup=createWorkspaceBackup(workspace.source,workspace.draft);
   const base=workspace.draft.body;
   assert.equal(parseWorkspaceBackup(backup).draft.body,base);
-  const changed='New fictional lead.\\n\\n'+base;
+  const changed='New fictional lead.\n\n'+base;
   workspace.draft.body=changed;$('body').value=changed;ui.refresh();
   $('table-preview-change').fire('click');assert.equal($('table-apply').disabled,true);
   $('table-recheck').fire('click');assert.equal($('table-cell-1-0').value,'Welcome');
