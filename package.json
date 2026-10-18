@@ -17,6 +17,7 @@
     "verify:wordpress:receipt": "node scripts/verify-wordpress-receipt.mjs",
     "verify:wordpress:hosted": "node scripts/validate-hosted-wordpress-evidence.mjs",
     "verify:release": "node scripts/verify-release.mjs",
+    "verify:production": "node scripts/production-smoke.mjs",
     "verify:alpha": "node scripts/alpha-release-gate.mjs",
     "precheck": "npm run build",
     "check": "node scripts/check.mjs",
