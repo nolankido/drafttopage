@@ -1,0 +1,21 @@
+# Turn 7: compound document fidelity and table-caption boundaries
+
+Date: October 18, 2026
+
+## Objective and evidence separation
+
+The existing offline corpus has 13 immutable upstream application-origin or historical source fixtures and 15 pinned contracts, plus 26 authored Markdown/HTML probes. This turn adds three fictional, independently specified **compound** article contracts: a reproducibly constructed DOCX package containing two headings, bold text, Unicode, a link, a numbered list, a header table and final sentinel; a Google Docs-style HTML clipboard article with heading, emphasis, link, list, table and quotation; and a two-paragraph HTML table caption that previously silently joined words. Total target: 44 contracts, with 29 authored. All 13 licensed source bytes, upstream hashes and attribution remain unchanged.
+
+The DOCX benchmark is generated from explicit test-authored WordprocessingML with a minimal standards-format ZIP and optional numbered list and hyperlink relationships. It is tested through the actual .docx importer, WordPress blocks, HTML and Word exports, native file review and confirmation flows, and the independent Python HTML/XML/ZIP readers when `benchmark:documents` is run. It is **not** a recent Word app export, not a customer article, and not a native WordPress clipboard comparison. The HTML fixtures simulate formatting patterns; they are not current signed-in Google Docs paste captures.
+
+## Reproduced defect and fix
+
+A table caption containing two distinct paragraphs previously converted to `First lineSecond line` without warning. Simple `p/div` caption boundaries now produce separate article paragraphs in exported Markdown. The importer explicitly discloses that native table-caption semantics and layout were not preserved. Unsupported visible nested headings, lists, block quotes, code, rules and tables in captions fail closed instead of flattening. Previously guarded definition-list semantics and hidden descendants remain guarded and/or omitted.
+
+## Validation contract
+
+Use `npm test` and `npm run check` in a complete checkout. For real routed document benchmark run `npm run build` then `npm run benchmark:documents`, or include it in the manual `npm run verify:release`. A Cloudflare native Node/static build alone is not an actual routed browser run. Failures in exact text, structural list/table checks, link targets, quote markers, safe omissions, staged approval, or the final sentence must reject the release candidate.
+
+## Remaining gates
+
+The project still needs consented and independently recorded current Word and Google Docs source-application captures, comparison with native WordPress paste, hosted WordPress draft save/close/reopen, and human/device evidence. No users were contacted; no site, user data, or source document was fetched. No new account, AI API, payment, tracking, GitHub Actions, or automatic publishing was added.

@@ -263,6 +263,55 @@ CONVERT = """async ({data,kind,options}) => {
 }"""
 
 
+# Construct a reproducible, fully synthetic DOCX from authored XML. This is
+# not a Microsoft Word/Google Docs export or a measured native WordPress paste.
+# Never fetch URLs and never infer the expected article from converter output.
+def build_authored_docx(case):
+    from xml.sax.saxutils import quoteattr
+    assert case['kind'] == 'docx'
+    assert isinstance(case['source'], str) and 0 < len(case['source']) < 512 * 1024
+    word = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+    office_rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+    package_rel = 'http://schemas.openxmlformats.org/package/2006/relationships'
+    document = ('<w:document xmlns:w="' + word + '" xmlns:r="' + office_rel +
+                '"><w:body>' + case['source'] + '</w:body></w:document>')
+    parsed = ET.fromstring(document)
+    assert parsed.tag == '{' + word + '}document'
+    assert not any(node.tag.endswith('}altChunk') for node in parsed.iter())
+    rels = []
+    parts = {
+        '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+        '_rels/.rels': '<Relationships xmlns="' + package_rel + '"><Relationship Id="main" Type="' + office_rel + '/officeDocument" Target="word/document.xml"/></Relationships>',
+        'word/document.xml': document
+    }
+    if case.get('numbering') is True:
+        levels = ''.join('<w:lvl w:ilvl="' + str(i) + '"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%' + str(i+1) + '."/></w:lvl>' for i in range(2))
+        parts['word/numbering.xml'] = '<w:numbering xmlns:w="' + word + '"><w:abstractNum w:abstractNumId="0">' + levels + '</w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num></w:numbering>'
+        rels.append('<Relationship Id="numbering" Type="' + office_rel + '/numbering" Target="numbering.xml"/>')
+    links = case.get('relationships', [])
+    assert isinstance(links, list) and len(links) <= 12
+    used = set()
+    for item in links:
+        assert set(item) == {'id', 'target'}
+        key, target = item['id'], item['target']
+        assert re.fullmatch(r'[A-Za-z][A-Za-z0-9]{0,30}', key) and key not in used
+        assert isinstance(target, str) and re.fullmatch(r'https://[A-Za-z0-9./?&=_%:-]{1,300}', target)
+        used.add(key)
+        rels.append('<Relationship Id=' + quoteattr(key) + ' Type="' + office_rel +
+                    '/hyperlink" Target=' + quoteattr(target) + ' TargetMode="External"/>')
+    if rels:
+        parts['word/_rels/document.xml.rels'] = '<Relationships xmlns="' + package_rel + '">' + ''.join(rels) + '</Relationships>'
+    for content in parts.values():
+        ET.fromstring(content)
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', compression=zipfile.ZIP_STORED) as archive:
+        for name, content in parts.items():
+            item = zipfile.ZipInfo(name, date_time=(1980, 1, 1, 0, 0, 0))
+            item.compress_type = zipfile.ZIP_STORED
+            archive.writestr(item, content.encode('utf-8'))
+    return buffer.getvalue()
+
+
 def run_document_benchmark(open_page, root, out):
     from playwright.sync_api import expect
     fixture_root = root / 'tests/fixtures/documents'
@@ -282,7 +331,9 @@ def run_document_benchmark(open_page, root, out):
                          'Paste captures are historical upstream fixtures, not fresh application sessions.',
                          'Long Markdown sample uses passage checks, not exact whole-document fidelity.',
                          'No real WordPress save/reopen, real-device, or assistive-technology acceptance.',
-                         'Authored fictional input probes are not real Word, Google Docs, or customer captures.']}
+                         'Authored fictional input probes are not real Word, Google Docs, or customer captures.',
+                         'Synthetic DOCX is constructed from authored XML in this offline runner, not exported by Word.',
+                         'No native WordPress paste comparison or human save/reopen timing was performed.']}
     def save():
         report_path.write_text(json.dumps(report, indent=2) + '\n')
     save()
@@ -304,12 +355,13 @@ def run_document_benchmark(open_page, root, out):
                 digest = hashlib.sha256(source).hexdigest()
                 assert digest == fixtures[case['file']]['sha256'], 'Fixture bytes differ from the pinned corpus'
             else:
-                assert case['kind'] in ['md', 'html'] and case['id'].startswith('authored-'), 'Unknown authored case format'
-                source = case['source'].encode('utf-8')
-                assert len(source) <= 512 * 1024, 'Authored source exceeds import limit'
+                assert case['kind'] in ['md', 'html', 'docx'] and case['id'].startswith('authored-'), 'Unknown authored case format'
                 kind = case['kind']
+                source = build_authored_docx(case) if kind == 'docx' else case['source'].encode('utf-8')
+                assert len(source) <= (8 * 1024 * 1024 if kind == 'docx' else 512 * 1024), 'Authored source exceeds import limit'
                 digest = hashlib.sha256(source).hexdigest()
-                source_ref = 'Locally authored fictional ' + ('HTML' if kind == 'html' else 'Markdown') + ' test input, not an application capture'
+                source_ref = ('Programmatically constructed fictional DOCX, never opened or exported by Microsoft Word' if kind == 'docx' else
+                              'Locally authored fictional ' + ('HTML' if kind == 'html' else 'Markdown') + ' test input, not an application capture')
             entry.update({'sourceSha256': digest, 'source': source_ref, 'kind': kind})
             page, context, state = open_page('/write/')
             expect(page.locator('#desk-status')).to_contain_text('ready')
@@ -340,7 +392,8 @@ def run_document_benchmark(open_page, root, out):
                 else:
                     page.locator('#import-file').set_input_files({
                         'name': case['id'] + '.' + kind,
-                        'mimeType': 'text/html' if kind == 'html' else 'text/markdown', 'buffer': source
+                        'mimeType': ('application/vnd.openxmlformats-officedocument.wordprocessingml.document' if kind == 'docx' else
+                                     'text/html' if kind == 'html' else 'text/markdown'), 'buffer': source
                     })
                 if case.get('options', {}).get('firstRowHeaders'):
                     expect(page.locator('#desk-status')).to_contain_text('no explicit header row')

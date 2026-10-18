@@ -1008,3 +1008,49 @@ test('Captions containing only hidden definition entries retain visible caption 
     element('dl', [element('dt', ['Visible']), element('dd', ['Hidden'], { hidden: '' })])
   ]))), /Definition lists inside table captions cannot be preserved/);
 });
+
+test('Realistic multi-paragraph HTML table captions retain boundaries and exact trailing article text', () => {
+  const caption = element('caption', [
+    element('p', ['First quarter results']),
+    element('p', ['Second quarter results'])
+  ]);
+  const article = element('section', [
+    element('h1', ['Quarterly fictional report']),
+    element('table', [
+      caption,
+      element('tr', [element('th', ['Metric']), element('th', ['Count'])]),
+      element('tr', [element('td', ['Visitors']), element('td', ['12'])])
+    ]),
+    element('p', ['FINAL_CAPTION_SENTINEL_928'])
+  ]);
+  const original = JSON.stringify(article);
+  const result = convert(article);
+  assert.equal(JSON.stringify(article), original, 'detached source must remain unchanged');
+  assert.match(result.markdown, /First quarter results\n\nSecond quarter results/);
+  assert.doesNotMatch(result.markdown, /resultsSecond/);
+  assert.ok(result.warnings.some(w => w.includes('Original caption placement and semantics were not retained')));
+  const output = createHTMLSource({ body: result.markdown });
+  assert.match(output, /<p>First quarter results<\/p>\n<p>Second quarter results<\/p>/);
+  assert.match(output, /<th\b[^>]*>Metric<\/th>/);
+  assert.match(output, /<td\b[^>]*>12<\/td>/);
+  assert.match(output, /FINAL_CAPTION_SENTINEL_928/);
+});
+test('Unsupported visible nested structures in table captions are rejected before any article change', () => {
+  const table = node => element('table', [
+    element('caption', [element('p', ['Important context']), node]),
+    element('tr', [element('th', ['Header'])]),
+    element('tr', [element('td', ['Value'])])
+  ]);
+  for (const node of [
+    element('h2', ['Heading']), element('ul', [element('li', ['List item'])]),
+    element('blockquote', [element('p', ['Quoted'])]),
+    element('pre', ['Code']), element('hr')
+  ]) {
+    const source = table(node), original = JSON.stringify(source);
+    assert.throws(() => convert(source), /inside table captions need review/);
+    assert.equal(JSON.stringify(source), original);
+  }
+  const omitted = convert(table(element('h2', ['SECRET'], { hidden: '' })));
+  assert.doesNotMatch(omitted.markdown, /SECRET/);
+  assert.match(omitted.markdown, /Important context/);
+});

@@ -313,9 +313,16 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
           }
           if (['dt', 'dd'].includes(tag(nested)))
             throw new Error('Definition lists inside table captions cannot be preserved. Move terms and descriptions outside the table before importing.');
+          // A caption is otherwise flattened into article prose. Complex block
+          // semantics cannot survive that conversion without an explicit repair.
+          if (['h1','h2','h3','h4','h5','h6','blockquote','pre','ul','ol','li','table','hr'].includes(tag(nested)))
+            throw new Error('Headings, lists, quotes, code, tables and rules inside table captions need review in the source editor before importing.');
           pending.push(...children(nested));
         }
-        captions.push(inline(child).trim());
+        const caption = blockDescendants.has(child) ? flow(child) : inline(child).trim();
+        if (caption) captions.push(caption);
+        if (blockDescendants.has(child))
+          warn('Paragraphs inside HTML table captions became separate article paragraphs. Original caption placement and semantics were not retained.');
       }
       else if (tag(child) === 'tr') rows.push(child);
       else if (['thead', 'tbody', 'tfoot'].includes(tag(child)) && !skip(child)) rows.push(...children(child).filter(n => tag(n) === 'tr'));
