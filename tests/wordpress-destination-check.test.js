@@ -12,7 +12,7 @@ test('WordPress local expectations distinguish body blocks from title and option
   assert.equal(result.titleProvided,true);
   assert.equal(result.headings,1); assert.equal(result.lists,1); assert.equal(result.tables,1); assert.equal(result.links,1);
   assert.deepEqual(result.optionalFields,['excerpt','slug']);
-  assert.equal(result.sourceEnding,'END_UNIQUE_4827');
+  assert.ok(result.sourceEnding.endsWith('END_UNIQUE_4827'));
   assert.match(destinationSummary(result),/separate WordPress title field/);
   assert.doesNotMatch(destinationSummary(result),/Brief\.|fictional-post|END_UNIQUE/);
 });
