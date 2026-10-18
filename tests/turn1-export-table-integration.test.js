@@ -21,14 +21,14 @@ test('every generated writing route includes export review shortcut and guided t
 
 test('integrated styles retain current-draft navigation and new review shortcut', async () => {
   const css = await read('public/desk.css');
-  assert.match(css, /\\.site-header \\.workspace-navigation/);
-  assert.match(css, /\\.workspace-resume/);
-  assert.match(css, /\\.approved-export-shortcut\\[hidden\\]/);
+  assert.ok(css.includes('.site-header .workspace-navigation'));
+  assert.ok(css.includes('.workspace-resume'));
+  assert.ok(css.includes('.approved-export-shortcut[hidden]'));
 });
 
 test('combined experience keeps export action separate from navigation', async () => {
   const workflow = await read('public/workflow-navigation.js');
-  assert.match(workflow, /navigate\\(target\\)/);
+  assert.ok(workflow.includes('navigate(target)'));
   assert.match(workflow, /Nothing was copied or published by this shortcut/);
   const table = await read('scripts/table-editor.html.inc');
   assert.match(table, /Only prepared cells change/);
