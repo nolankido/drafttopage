@@ -40,7 +40,9 @@ test('Strict release rejects absent real WordPress evidence even when the child 
   // This fixture deliberately lacks a complete WordPress receipt. We verify
   // that a missing or invalid WordPress acceptance cannot result in success.
   let calls = 0;
-  const env = { DRAFTTOPAGE_WORDPRESS_CLI: '/fictional/local/playground.js' };
+  const cli = join(root, 'test-results', 'existing-playground-cli.js');
+  writeFileSync(cli, '// Fictional installed CLI fixture; never executed.\n');
+  const env = { DRAFTTOPAGE_WORDPRESS_CLI: cli };
   const result = verifyRelease({ root, env, requireWordPress: true, run: () => {
     calls++;
     if (calls === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify(goodEvidence));
@@ -50,6 +52,43 @@ test('Strict release rejects absent real WordPress evidence even when the child 
   assert.ok(calls >= 5);
   assert.match(result.error, /ENOENT|wordpress failed|WordPress evidence/i);
 }));
+
+test('WordPress-qualified release rejects invalid CLI paths before any test or build', () => fixture(root => {
+  const invalid = ['relative/playground.js', root, join(root, 'missing-playground.js')];
+  for (const cli of invalid) {
+    let calls = 0;
+    const result = verifyRelease({ root, env: { DRAFTTOPAGE_WORDPRESS_CLI: cli }, requireWordPress: true,
+      run: () => { calls++; return { status: 0 }; } });
+    assert.equal(result.result, 'FAIL');
+    assert.equal(calls, 0);
+    assert.deepEqual(result.steps, []);
+    assert.match(result.error, /existing absolute local file/);
+    assert.equal(existsSync(join(root, 'test-results/browser-results.json')), false);
+  }
+  // Legacy release with a CLI is also WordPress-qualified and must reject an invalid path.
+  let legacyCalls = 0;
+  const legacy = verifyRelease({ root, env: { DRAFTTOPAGE_WORDPRESS_CLI: 'relative/playground.js' },
+    run: () => { legacyCalls++; return { status: 0 }; } });
+  assert.equal(legacy.result, 'FAIL'); assert.equal(legacyCalls, 0);
+}));
+
+test('Dirty worktrees cannot produce a release receipt, including tracked, staged and untracked files', () => {
+  for (const prepare of [
+    root => writeFileSync(join(root, 'tests/fixture.test.js'), '// modified source\n'),
+    root => { writeFileSync(join(root, 'tests/fixture.test.js'), '// staged edit\n'); execFileSync('git', ['add', 'tests/fixture.test.js'], {cwd:root}); },
+    root => writeFileSync(join(root, 'UNTRACKED_SOURCE.md'), 'unsaved article source\n')
+  ]) fixture(root => {
+    prepare(root);
+    let calls = 0;
+    const result = verifyRelease({ root, env: {}, run: () => { calls++; return {status:0}; } });
+    assert.equal(result.result, 'FAIL'); assert.equal(calls, 0);
+    assert.deepEqual(result.steps, []);
+    assert.match(result.error, /requires a clean Git checkout/);
+    const saved = JSON.parse(readFileSync(join(root, 'test-results', 'release-results.json'), 'utf8'));
+    assert.equal(saved.result, 'FAIL');
+    assert.equal(existsSync(join(root, 'test-results/browser-results.json')), false);
+  });
+});
 
 test('The manual release gate rejects stale browser evidence and stops after a failed model check', () => fixture(root => {
   const calls = [];
@@ -110,6 +149,20 @@ test('A checkout without Git metadata cannot produce a green release receipt', (
   assert.match(result.error, /requires a Git commit and a complete source fingerprint/);
   assert.equal(existsSync(join(root, 'test-results', 'browser-results.json')), false);
   assert.equal(JSON.parse(readFileSync(join(root, 'test-results', 'release-results.json'))).result, 'FAIL');
+}));
+
+test('Untracked source created during validation invalidates the same running receipt', () => fixture(root => {
+  let calls = 0;
+  const result = verifyRelease({ root, env: {}, run: () => {
+    if (++calls === 4) {
+      writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify(goodEvidence));
+      writeFileSync(join(root, 'UNTRACKED_AFTER_START.md'), 'new source added during validation\n');
+    }
+    return { status: 0 };
+  } });
+  assert.equal(result.result, 'FAIL');
+  assert.equal(result.steps.at(-1).name, 'source snapshot');
+  assert.match(result.error, /commit or source changed during validation/);
 }));
 
 test('Moving Git HEAD during validation invalidates an otherwise green source digest', () => fixture(root => {
