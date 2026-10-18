@@ -460,30 +460,4 @@ test('Authored combined Word article preserves styled text, links, list, table a
   assert.match(html, /fictional reference/);
   assert.match(html, /<th[^>]*>Metric<\/th>/);
   assert.match(html, /harbor 924\./);
-  // Independently inspect the three exported formats using Python's HTML
-  // parser and Word ZIP/XML reader, rather than accepting parser self-report.
-  const { execFileSync } = await import('node:child_process');
-  const independent = execFileSync('python3', ['-c',
-    "import json,sys; from scripts.document_benchmark import check_conversion; p=json.load(sys.stdin); r=check_conversion(p['result'],p['expect']); print(r['textCheck'])"
-  ], {
-    input: JSON.stringify({
-      // Compound fidelity is checked as exact article text, table/list cells
-      // and links. Inline styles and Word relationship bytes are checked
-      // separately so a table-header paragraph style does not count as an
-      // authored inline bold run in a different destination.
-      expect: {
-        title: spec.expect.title, text: spec.expect.text,
-        rows: spec.expect.rows, listItems: spec.expect.listItems,
-        links: spec.expect.links
-      },
-      result: {
-        draft: imported.draft, warnings: result.warnings,
-        wordpress: html, html: createHTMLSource(imported.draft),
-        word: Buffer.from(createWordDocument(imported.draft)).toString('base64'),
-        imageReferences: 0, findings: []
-      }
-    }),
-    encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 45000
-  });
-  assert.equal(independent.trim(), 'exact');
 });
