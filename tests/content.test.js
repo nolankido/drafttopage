@@ -42,7 +42,7 @@ test('Every public page title and description is unique', async () => {
 });
 test('Sitemap omits protected and error routes', async () => {
   const map = await readFile('public/sitemap.xml', 'utf8');
-  assert.equal((map.match(/<url>/g) || []).length, 25); assert.doesNotMatch(map, /\/pilot|\/api\/|404\.html/);
+  assert.equal((map.match(/<url>/g) || []).length, JSON.parse(await readFile('public/release.json','utf8')).publicPages); assert.doesNotMatch(map, /\/pilot|\/api\/|404\.html/);
 });
 test('Pilot guides open in new tabs, terminology is accurate, and activation stays separate', () => {
   assert.match(appPage, /for="profile">Article type/); assert.doesNotMatch(appPage, /for="profile">Website profile/);
