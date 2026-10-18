@@ -366,7 +366,7 @@ draftReview = installDraftReview({
     $('body').setSelectionRange(plan.selectionStart, plan.selectionEnd);
   }
 });
-publishingExports = installPublishingExports({ getDraft: () => capture().draft, getCopySnapshot: capture, copyChanged: () => { draftReview?.refresh(); updateExitWarning(); }, openFinding: openFormattingFinding, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
+publishingExports = installPublishingExports({ getDraft: () => capture().draft, getCopySnapshot: capture, copyChanged: () => { draftReview?.refresh(); updateExitWarning(); workflow?.update(); }, openFinding: openFormattingFinding, getWordPressOptions: () => ({ includeLinkedImages: wordPressImages?.enabled() ?? false }), approved, changed, report, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), defaultDestination: markdownTool ? 'markdown' : wordTool ? 'word' : htmlTool ? 'html' : 'wordpress', compact: wordTool || htmlTool || wordpressTool || markdownTool });
 loadEditingTool(() => import('./reference-link-controls.js'), ({ installReferenceLinks }) => {
   referenceLinks = installReferenceLinks({ getBody: () => $('body').value, getTitle: () => $('title').value, apply: (body, label) => {
     revisions.captureBefore(label);

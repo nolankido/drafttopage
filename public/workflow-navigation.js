@@ -23,7 +23,15 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
   const bring = bar.querySelector('[data-workflow-step="bring"]');
   const buttons = { bring, review: $('start-review'), export: $('start-handoff') };
   const source = bring.id === 'start-word-file' ? 'word' : bring.id === 'start-copied-paste' ? 'copied' : bring.id === 'start-html-source' ? 'html' : 'text';
-  let selected = 'bring', lastBody, lastTitle, lastReviewed;
+  let selected = 'bring', lastBody, lastTitle, lastReviewed, editingCurrent = false;
+  const actionForDestination = () => ({
+    wordpress: { id: 'copy-wordpress', label: 'Copy WordPress blocks' },
+    markdown: { id: 'copy-article-markdown', label: 'Copy article Markdown' },
+    html: { id: 'copy-html-source', label: 'Copy HTML source' },
+    word: { id: 'download-word', label: 'Download Word' },
+    other: { id: 'copy-body', label: 'Copy article body' }
+  })[$('publishing-destination').value] || null;
+  const exportUnavailable = target => !target || target.disabled || target.getAttribute?.('aria-disabled') === 'true';
   const destination = () => ({ wordpress: 'WordPress', markdown: 'Markdown', html: 'HTML source', word: 'Word', other: 'another export' })[$('publishing-destination').value] || 'your export';
   function update() {
     const draft = getDraft(), hasBody = Boolean(draft.body.trim()), pending = getImportState(), busy = isBusy();
@@ -31,13 +39,14 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     lastBody = draft.body; lastTitle = draft.title;
     if ($('reviewed').checked && !lastReviewed && hasBody && !pending.pending) selected = 'export';
     lastReviewed = $('reviewed').checked;
+    if (pending.pending || !hasBody) editingCurrent = false;
     const current = busy || pending.pending || !hasBody ? 'bring' : selected;
     bar.dataset.step = current;
     for (const [step, button] of Object.entries(buttons)) {
       if (step === current) button.setAttribute('aria-current', 'step'); else button.removeAttribute('aria-current');
       button.disabled = busy;
     }
-    const message = busy ? 'Wait for the current file operation. Your article is kept.' : pending.pending ? pending.staged ? 'An import is waiting for review. Apply or clear it before continuing with this article.' : 'An import is unfinished. Preview or clear it before continuing.' : !hasBody ? source === 'word' ? 'Choose a Word document to begin.' : source === 'copied' ? 'Paste a copied selection to begin.' : source === 'html' ? 'Paste HTML source or choose an HTML file to begin.' : 'Add your article to begin.' : $('reviewed').checked ? 'Export review is checked. Use the available ' + destination() + ' controls below, then inspect the result in your destination.' : current === 'export' ? 'Review is required before copying or downloading. Choose your destination and title handling below.' : 'Article in the editor. Read the preview, compare it with your source, then choose your export.';
+    const message = busy ? 'Wait for the current file operation. Your article is kept.' : pending.pending ? pending.staged ? 'An import is waiting for review. Apply or clear it before continuing with this article.' : 'An import is unfinished. Preview or clear it before continuing.' : !hasBody ? source === 'word' ? 'Choose a Word document to begin.' : source === 'copied' ? 'Paste a copied selection to begin.' : source === 'html' ? 'Paste HTML source or choose an HTML file to begin.' : 'Add your article to begin.' : editingCurrent ? 'Editing the current article. Your writing and review choice are kept; changing the article clears export approval.' : $('reviewed').checked ? 'Export review is checked. Use the available ' + destination() + ' controls below, then inspect the result in your destination.' : current === 'export' ? 'Review is required before copying or downloading. Choose your destination and title handling below.' : 'Article in the editor. Read the preview, compare it with your source, then choose your export.';
     $('workflow-status').textContent = message;
     $('review-current-article').hidden = !hasBody && !pending.pending;
     $('review-current-article').disabled = busy;
@@ -47,12 +56,28 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     $('continue-to-export').textContent = 'Continue to ' + destination();
     for (const id of ['workflow-edit', 'edit-from-preview', 'edit-from-export']) {
       const button = $(id);
-      if (button) { button.hidden = !hasBody && !pending.pending; button.disabled = busy; }
+      if (button) {
+        button.hidden = !hasBody && !pending.pending;
+        button.disabled = busy;
+        button.textContent = pending.pending ? 'Review pending import' : id === 'workflow-edit' ? 'Edit current article' : 'Back to article editor';
+      }
     }
+    const action = actionForDestination(), target = action ? $(action.id) : null;
+    const shortcut = $('approved-export-shortcut'), jump = $('jump-to-primary-export');
+    shortcut.hidden = !hasBody || Boolean(pending.pending);
+    jump.disabled = busy || !hasBody || Boolean(pending.pending) || !$('reviewed').checked || exportUnavailable(target);
+    if (action) {
+      jump.textContent = 'Go to ' + action.label;
+      jump.setAttribute('aria-controls', action.id);
+    }
+    $('approved-export-hint').textContent = !$('reviewed').checked
+      ? 'Review the article above to enable this shortcut. It never copies, downloads, or publishes.'
+      : jump.disabled ? 'Finish any required export checks first. Your article stays unchanged.'
+      : 'Moves focus to the existing ' + action.label + ' control. Select that control to copy or download. Nothing is published.';
     buttons.export.setAttribute('aria-label', $('publishing-destination').value === 'other' ? '3. Choose export options' : '3. Export to ' + destination());
     measureWorkflow(bar);
   }
-  function select(step) { if (isBusy()) return; selected = step; update(); }
+  function select(step) { if (isBusy()) return; if (step !== 'bring') editingCurrent = false; selected = step; update(); }
   const navigate = (target, anchor = target) => move(target, { bar, anchor });
   function bringLocation(pending = getImportState()) {
     select('bring');
@@ -79,7 +104,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     if (isBusy()) return;
     const pending = getImportState();
     if (pending.pending) { bringLocation(pending); return; }
-    select('bring'); navigate($('body'), $('article-heading'));
+    select('bring'); editingCurrent = true; update(); navigate($('body'), $('article-heading'));
     report('Returned to the article editor. Your cursor position, writing, and export approval are kept. Editing writing clears approval.');
   }
   function handoff() {
@@ -94,6 +119,13 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
   $('review-current-article').addEventListener('click', review);
   $('start-handoff').addEventListener('click', handoff);
   $('continue-to-export').addEventListener('click', handoff);
+  $('jump-to-primary-export').addEventListener('click', () => {
+    const action = actionForDestination(), target = action ? $(action.id) : null;
+    if (isBusy() || getImportState().pending || !getDraft().body.trim() || !$('reviewed').checked || exportUnavailable(target)) return;
+    select('export');
+    navigate(target);
+    report('Moved to ' + action.label + '. Activate that control to copy or download the reviewed article. Nothing was copied or published by this shortcut.');
+  });
   for (const id of ['workflow-edit', 'edit-from-preview', 'edit-from-export']) $(id)?.addEventListener('click', edit);
   window.addEventListener('resize', () => measureWorkflow(bar));
   if (typeof ResizeObserver === 'function') new ResizeObserver(() => measureWorkflow(bar)).observe(bar);
