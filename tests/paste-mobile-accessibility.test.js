@@ -82,3 +82,13 @@ test('Paste errors have one announcing status and retain field-level description
   assert.doesNotMatch(desk,/id="body-paste-status"[^>]*aria-live/);
   assert.doesNotMatch(importPanel,/id="import-paste-status"[^>]*role="status"/);
 });
+
+test('Import preview focus and mobile paste help are shared by every workspace',async()=>{
+  const controller=await readFile(new URL('../public/desk.js',import.meta.url),'utf8');
+  const html=await readFile(new URL('../scripts/writing-desk.html',import.meta.url),'utf8');
+  const guide=await readFile(new URL('../scripts/publishing-handoff-help.html.inc',import.meta.url),'utf8');
+  assert.match(controller,/focusPreview: true, pasteFirst: copiedPasteTool/);
+  assert.match(controller,/focusImportPreview: heading => focusWorkflowTarget\(heading/);
+  assert.match(html,/use the native Paste menu after tapping/);
+  assert.match(guide,/phone\/tablet and use its native Paste menu/);
+});
