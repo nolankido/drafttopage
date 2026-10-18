@@ -6,15 +6,18 @@ import { revealArticleSelection } from './editing.js';
 import { downloadText } from './download.js';
 import { createCopyActions } from './copy-actions.js';
 import { formattingActionLabel } from './export-review.js';
+import { installWordPressDestinationCheck } from './wordpress-destination-controls.js';
 
 export function installWordPressHandoff({ getDraft, approved, report, isBusy = () => false, getWordPressOptions = () => ({}), reveal = revealArticleSelection, copyActions = null, reportAction = report, openFinding = null }) {
   const $ = id => document.getElementById(id);
   const copies = copyActions || createCopyActions({ snapshot: () => JSON.stringify([getDraft(), getWordPressOptions(), $('publishing-destination').value, $('reviewed').checked]), report, changed: update });
   let signature = '', review = null, rendered = '', kitRendered = '';
+  const destination = installWordPressDestinationCheck({ $, getDraft, getWordPressOptions, isBusy });
   const draftSignature = draft => JSON.stringify([draft.title, draft.body]);
   const fieldValid = (draft, key) => typeof draft[key] === 'string' && Boolean(draft[key].trim()) && draft[key].length <= ARTICLE_LIMITS[key] && !draft[key].includes('\u0000') && (key !== 'slug' || /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(draft[key]));
   function reset() {
     signature = ''; review = null; rendered = ''; kitRendered = '';
+    destination.reset();
     $('wordpress-findings').replaceChildren(); $('wordpress-kit-files').replaceChildren();
     for (const id of ['wordpress-review-status', 'wordpress-fields-status', 'wordpress-kit-status']) $(id).textContent = '';
     for (const id of ['download-wordpress-kit', 'copy-wordpress-excerpt', 'copy-wordpress-slug', 'copy-wordpress-description']) $(id).disabled = true;
@@ -80,6 +83,7 @@ export function installWordPressHandoff({ getDraft, approved, report, isBusy = (
         $('wordpress-kit-files').replaceChildren(...manifest.files.map(file => { const li = document.createElement('li'); li.textContent = file.name + ': ' + file.purpose; return li; }));
       }
     } else { $('wordpress-kit-files').replaceChildren(); kitRendered = ''; }
+    destination.update();
   }
   $('wordpress-review-panel').addEventListener('toggle', update);
   $('wordpress-kit-panel').addEventListener('toggle', update);
