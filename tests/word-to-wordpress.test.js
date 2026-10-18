@@ -14,7 +14,7 @@ test('Word authors get the complete shared workspace, WordPress destination, and
   assert.doesNotMatch(page, /backups belong in Save or restore, above/);
   assert.match(page, /<title>Free Word to WordPress Converter \| Draft to Page<\/title>/);
   assert.match(page, /rel="canonical" href="https:\/\/drafttopage.com\/word-to-wordpress\/"/);
-  assert.match(page, /href="\/word-to-wordpress\/" aria-current="page">Word to WordPress/);
+  assert.match(page, /href="\/word-to-wordpress\/" aria-current="page"[^>]*>Word to WordPress/);
   assert.match(page, /<details id="preview-panel" open>/);
   assert.match(page, /<script type="module" src="\/desk.js">/);
   assert.equal((sitemap.match(/<loc>https:\/\/drafttopage.com\/word-to-wordpress\/<\/loc>/g) || []).length, 1);
@@ -60,7 +60,7 @@ test('Existing tools keep their original import layout and the new task is linke
   assert.match(home, /Open a Word draft/); assert.match(home, /Paste text or Markdown/);
   for (const route of ['markdown-to-wordpress', 'markdown-to-word', 'help/article-import']) {
     const page = await readFile('public/' + route + '/index.html', 'utf8');
-    assert.ok(page.includes('href="/word-to-wordpress/">Word to WordPress converter</a>'));
+    assert.match(page, /href="\/word-to-wordpress\/"[^>]*>Word to WordPress converter/);
   }
 });
 test('The Word-specific guide explains the real conversion and manual publishing limits', async () => {

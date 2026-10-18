@@ -142,7 +142,7 @@ test('The Word-to-Markdown route is discoverable and keeps the shared import, ed
   assert.match(html, /<details id="import-panel" class="import-panel" open>/); assert.match(html, /<details id="preview-panel" open>/); assert.match(html, /<details id="markdown-source-panel" open>/);
   assert.match(html, /<title>Free Word to Markdown Converter \| Draft to Page<\/title>/);
   assert.match(html, /rel="canonical" href="https:\/\/drafttopage.com\/word-to-markdown\/"/);
-  assert.match(html, /href="\/word-to-markdown\/" aria-current="page">Word to Markdown/); assert.match(home, /href="\/word-to-markdown\/">Word to Markdown/);
+  assert.match(html, /href="\/word-to-markdown\/" aria-current="page"[^>]*>Word to Markdown/); assert.match(home, /href="\/word-to-markdown\/">Word to Markdown/);
   assert.equal((sitemap.match(/<loc>https:\/\/drafttopage.com\/word-to-markdown\/<\/loc>/g) || []).length, 1);
   for (const key of ['wordMarkdownTool', 'articleMarkdownExport', 'downloadableWordSample']) assert.equal(JSON.parse(release)[key], true);
   assert.doesNotMatch(html, /<iframe|<img\b|src="https?:|name="robots" content="noindex"|\u2014/);

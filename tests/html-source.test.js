@@ -68,7 +68,7 @@ test('The HTML route reuses every workspace control and selects a distinct, disc
   assert.match(html, /data-workspace="html"/); assert.match(html, /<details id="preview-panel" open>/);
   assert.match(html, /<title>Free Markdown to HTML Converter \| Draft to Page<\/title>/);
   assert.match(html, /rel="canonical" href="https:\/\/drafttopage.com\/markdown-to-html\/"/);
-  assert.match(html, /href="\/markdown-to-html\/" aria-current="page">Markdown to HTML/);
+  assert.match(html, /href="\/markdown-to-html\/" aria-current="page"[^>]*>Markdown to HTML/);
   assert.match(home, /href="\/markdown-to-html\/">Markdown to HTML/);
   assert.equal((sitemap.match(/<loc>https:\/\/drafttopage.com\/markdown-to-html\/<\/loc>/g) || []).length, 1);
   assert.equal(JSON.parse(release).markdownHTMLTool, true); assert.equal(JSON.parse(release).htmlSource, true);

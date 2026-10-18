@@ -136,7 +136,7 @@ test('Word route keeps the full shared workspace, canonical navigation, discover
   for (const id of ids(writer)) assert.ok(ids(word).includes(id), id);
   assert.equal(new Set(ids(word)).size, ids(word).length);
   assert.match(word, /data-workspace="word"/); assert.match(word, /href="https:\/\/drafttopage.com\/markdown-to-word\/"/);
-  assert.match(word, /href="\/markdown-to-word\/" aria-current="page">Markdown to Word/);
+  assert.match(word, /href="\/markdown-to-word\/" aria-current="page"[^>]*>Markdown to Word/);
   assert.match(home, /href="\/markdown-to-word\/"/); assert.equal((sitemap.match(/<loc>https:\/\/drafttopage.com\/markdown-to-word\/<\/loc>/g) || []).length, 1);
   assert.doesNotMatch(word, /Direct .docx import is not supported/); assert.match(word, /select a plain .docx file up to 8 MiB/); assert.match(word, /not a Word pagination preview/);
   assert.match(privacy, /No author metadata, source images, macros/); assert.equal(JSON.parse(release).wordDocumentExport, true); assert.equal(JSON.parse(release).markdownWordTool, true);
