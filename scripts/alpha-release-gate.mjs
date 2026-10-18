@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { sourceDigest } from './source-snapshot.mjs';
+import { hasCompleteTableRowSummary } from './release-browser-contract.mjs';
 
 export const ALPHA_REQUIRED_STEPS = Object.freeze(['build', 'tests', 'static', 'browser', 'wordpress', 'wordpress receipt', 'source snapshot']);
 export const ALPHA_REAL_WORLD_GATES = Object.freeze([
@@ -23,8 +24,7 @@ export function evaluateAlphaRelease({ currentHead, sourceSha256, branch, clean,
   if (!digest(sourceSha256)) block('source_snapshot_missing');
   if (local?.result !== 'PASS' || local.head !== currentHead || local.sourceSha256 !== sourceSha256 ||
       !Array.isArray(local.steps) || ALPHA_REQUIRED_STEPS.some(name => !local.steps.some(s => s.name === name && s.result === 'PASS')) ||
-      local.browser?.scope !== 'full' || !Number.isInteger(local.browser?.checks) || local.browser.checks < 1 ||
-      !Number.isInteger(local.browser?.layoutChecks) || local.browser.layoutChecks < 1) block('fresh_complete_local_validation_required');
+      !hasCompleteTableRowSummary(local.browser)) block('fresh_complete_local_validation_required');
   if (local?.wordpress?.result !== 'PASS') block('local_wordpress_save_reopen_required');
   if (attestation?.format !== 'drafttopage-alpha-release-record' || attestation.version !== 1 ||
       attestation.release_commit !== currentHead || attestation.source_sha256 !== sourceSha256)

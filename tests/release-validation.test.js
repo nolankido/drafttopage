@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { verifyRelease } from '../scripts/verify-release.mjs';
+import { TABLE_ROW_SCENARIO, TABLE_ROW_LAYOUT_KEYS, validateFullBrowserEvidence } from '../scripts/release-browser-contract.mjs';
 
 function fixture(run) {
   const root = mkdtempSync(join(tmpdir(), 'drafttopage-release-'));
@@ -20,7 +21,12 @@ function fixture(run) {
     return run(root);
   } finally { rmSync(root, { recursive: true, force: true }); }
 }
-const goodEvidence = { result: 'PASS', scope: 'full', checks: ['fictional fixture'], errors: [], unexpected_requests: [], layout: { 'fixture-320': false } };
+const requiredLayouts = Object.fromEntries(TABLE_ROW_LAYOUT_KEYS.map(key => [key, false]));
+// These are synthetic unit-test receipts for contract logic, not observed browser results.
+const goodEvidence = { result: 'PASS', scope: 'full',
+  checks: [TABLE_ROW_SCENARIO + ' (fictional unit fixture)'],
+  errors: [], unexpected_requests: [],
+  layout: { ...requiredLayouts, 'fixture-320': false } };
 
 test('Strict local release fails closed before any build if WordPress CLI is absent', () => fixture(root => {
   let calls = 0;
@@ -101,8 +107,30 @@ test('The manual release gate rejects stale browser evidence and stops after a f
   assert.equal(JSON.parse(readFileSync(join(root, 'test-results', 'release-results.json'))).result, 'FAIL');
 }));
 
+test('Full browser gate refuses a missing or fabricated mobile table acceptance, even when all other layouts pass', () => {
+  const withoutMarker = {...goodEvidence, checks:['Other successful browser fixture']};
+  const without320 = {...goodEvidence, layout:Object.fromEntries(
+    Object.entries(goodEvidence.layout).filter(([name])=>name!=='table-row-arrange-inserted-320'))};
+  const disguised320 = {...goodEvidence, layout:{...goodEvidence.layout, 'table-row-arrange-moved-320':0}};
+  const undisclosed390 = {...goodEvidence, layout:{...goodEvidence.layout, 'table-row-arrange-before-390':null}};
+  for(const evidence of [withoutMarker, without320, disguised320, undisclosed390]){
+    assert.throws(()=>validateFullBrowserEvidence(evidence), /browser run lacks|Browser evidence is incomplete/);
+    fixture(root=>{
+      let calls=0;
+      const result=verifyRelease({root,env:{},run:()=>{
+        if(++calls===4)writeFileSync(join(root,'test-results/browser-results.json'),JSON.stringify(evidence));
+        return{status:0};
+      }});
+      assert.equal(result.result,'FAIL');
+      assert.equal(result.steps[3]?.name,'browser');
+      assert.equal(result.steps[3]?.result,'FAIL');
+      assert.equal(result.steps.some(step=>step.name==='source snapshot'),false);
+    });
+  }
+});
+
 test('An unavailable browser command or absent, partial, overflowing or erroneous evidence cannot pass', () => {
-  for (const evidence of [null, { ...goodEvidence, scope: 'desk-only' }, { ...goodEvidence, checks: [] }, { ...goodEvidence, layout: {} }, { ...goodEvidence, layout: { narrow: true } }, { ...goodEvidence, errors: ['fixture error'] }, { ...goodEvidence, unexpected_requests: ['https://example.invalid/'] }]) fixture(root => {
+  for (const evidence of [null, { ...goodEvidence, scope: 'desk-only' }, { ...goodEvidence, checks: [] }, { ...goodEvidence, layout: {} }, { ...goodEvidence, layout: { narrow: true } }, { ...goodEvidence, layout: { ...requiredLayouts, 'other-case': 'NOT_RUN' } }, { ...goodEvidence, errors: ['fixture error'] }, { ...goodEvidence, unexpected_requests: ['https://example.invalid/'] }]) fixture(root => {
     let calls = 0;
     const result = verifyRelease({ root, env: {}, run: () => { if (++calls === 4 && evidence) writeFileSync(join(root, 'test-results', 'browser-results.json'), JSON.stringify(evidence)); return { status: 0 }; } });
     assert.equal(result.result, 'FAIL'); assert.equal(result.steps[3].result, 'FAIL');
@@ -123,7 +151,10 @@ test('Fresh complete browser evidence passes after all commands and a supplied P
   } });
   assert.equal(result.result, 'PASS'); assert.equal(calls[3].command, python);
   assert.deepEqual(calls[3].args, ['scripts/browser-smoke.py']);
-  assert.deepEqual(result.browser, { scope: 'full', checks: 1, layoutChecks: 1 });
+  assert.deepEqual(result.browser, {
+    scope: 'full', checks: 1, layoutChecks: TABLE_ROW_LAYOUT_KEYS.length + 1,
+    tableRowScenario: 'PASS', tableRowLayouts: [...TABLE_ROW_LAYOUT_KEYS]
+  });
 }));
 
 

@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { verifyRelease, validateWordPressEvidence } from '../scripts/verify-release.mjs';
+import { TABLE_ROW_SCENARIO, TABLE_ROW_LAYOUT_KEYS } from '../scripts/release-browser-contract.mjs';
 import { sourceDigest } from '../scripts/source-snapshot.mjs';
 import { configuration } from '../scripts/wordpress-roundtrip-cases.mjs';
 
@@ -158,7 +159,9 @@ test('The manual gate removes stale WordPress proof, records an explicit skip, a
       const result = verifyRelease({ root, env: requested ? { DRAFTTOPAGE_WORDPRESS_CLI: cliPath } : {}, run: (command, args) => {
         calls.push(args);
         if (calls.length === 1) assert.equal(existsSync(wordpressFile), false);
-        if (calls.length === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify({ result: 'PASS', scope: 'full', checks: ['fixture'], errors: [], unexpected_requests: [], layout: { narrow: false } }));
+        if (calls.length === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify({ result: 'PASS', scope: 'full', checks: [TABLE_ROW_SCENARIO + ' (synthetic receipt contract test)'],
+          errors: [], unexpected_requests: [],
+          layout: Object.fromEntries(TABLE_ROW_LAYOUT_KEYS.map(key=>[key,false])) }));
         if (calls.length === 5 && fresh) writeFileSync(wordpressFile, JSON.stringify({ ...complete(), sourceSha256: sourceDigest(root) }));
         return { status: 0 };
       } });

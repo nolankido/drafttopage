@@ -17,7 +17,7 @@ For a faster isolated narrow-layout regression before full qualification, after 
 
     python3 scripts/browser-smoke.py --table-rows-only
 
-This checks the actual generated workspace at desktop, 390px and 320px viewport widths, including row insertion/reordering across the ten-row page boundary. Do not use this scoped run in place of `verify:release:full`. The independent WordPress receipt can also be rechecked with `npm run verify:wordpress:receipt`.
+This checks the actual generated workspace at desktop, 390px and 320px viewport widths, including row insertion/reordering across the ten-row page boundary. Do not use this scoped run in place of `verify:release:full`. Both manual full release commands now reject an otherwise green browser report unless it contains the explicit table-row scenario completion plus all five measured layout results (`before-1440`, `before-390`, `inserted-320`, `moved-320`, `moved-390`), each exactly `false` for overflow/clipping. The local release summary carries those verified keys forward; the alpha promotion gate rejects summaries without them. A generic successful browser count or unrelated mobile check does not qualify. The independent WordPress receipt can also be rechecked with `npm run verify:wordpress:receipt`.
 
 The release gate performs build, Node tests, static checks, routed-browser tests and optional isolated local WordPress. Missing WordPress tools produce NOT_RUN, **not** a public alpha pass. Results remain under ignored test-results. A failed test or changed source must trigger a fresh entire run, not a reused green receipt.
 

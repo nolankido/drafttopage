@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { sourceDigest as snapshotSource } from './source-snapshot.mjs';
+import { validateFullBrowserEvidence } from './release-browser-contract.mjs';
 
 export function validateWordPressEvidence(evidence, configuration, sourceSha256) {
   const expected = configuration.cases;
@@ -175,12 +176,11 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
       }
       if (name === 'browser') {
         const evidence = JSON.parse(readFileSync(browserFile, 'utf8'));
-        if (evidence.result !== 'PASS' || evidence.scope !== 'full' || !Array.isArray(evidence.checks) || !evidence.checks.length ||
-            !Array.isArray(evidence.errors) || evidence.errors.length || !Array.isArray(evidence.unexpected_requests) || evidence.unexpected_requests.length ||
-            !evidence.layout || !Object.keys(evidence.layout).length || Object.values(evidence.layout).some(Boolean)) {
-          entry.result = 'FAIL'; throw new Error('Browser evidence is incomplete or contains failures.');
+        try {
+          report.browser = validateFullBrowserEvidence(evidence);
+        } catch (failure) {
+          entry.result = 'FAIL'; throw failure;
         }
-        report.browser = { scope: evidence.scope, checks: evidence.checks.length, layoutChecks: Object.keys(evidence.layout).length };
       }
       if (name === 'wordpress') {
         report.wordpress = validateWordPressEvidence(JSON.parse(readFileSync(wordpressFile, 'utf8')),
