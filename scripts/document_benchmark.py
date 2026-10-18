@@ -300,7 +300,13 @@ def build_authored_docx(case):
     assert not any(node.tag.endswith('}altChunk') for node in parsed.iter())
     rels = []
     parts = {
-        '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+        '[Content_Types].xml': (
+            '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            '<Default Extension="xml" ContentType="application/xml"/>'
+            '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+            + ('<Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>'
+               if case.get('numbering') is True else '') + '</Types>'),
         '_rels/.rels': '<Relationships xmlns="' + package_rel + '"><Relationship Id="main" Type="' + office_rel + '/officeDocument" Target="word/document.xml"/></Relationships>',
         'word/document.xml': document
     }

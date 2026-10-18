@@ -27,3 +27,9 @@ Visible empty paragraph wrappers now retain block boundaries without creating br
 The compound DOCX contract now requires independent Word ZIP/XML inspection of actual numbered list paragraphs and table rows/cells as well as HTML/WordPress structure and exact text. A flattened Word export is not eligible for a passing compound contract. These changes preserve the distinction between synthetic engineering evidence and actual source-app or WordPress destination acceptance.
 
 The final integrated review also identified visible thematic rules inside definition-list shells as a silent omission path. The caption validator now treats `hr` and `wbr` as visible structural material, rejecting these unsupported caption definitions before import. Hidden/omitted void elements remain omitted with a disclosure.
+
+## October 18 independent review completion follow-up
+
+Simple block-level caption wrappers, including section, article and aside, now create deliberate paragraph boundaries instead of silently concatenating words. Nested ambiguous containers fail closed. The empty-block distinction handles visible empty formatting spans alongside separately omitted siblings without allowing fully hidden subtrees to divide visible text.
+
+Both compound fixtures, including the synthetic HTML Docs-style case, now require **independent Word ZIP/XML checks** that exported lists remain genuine numbered-list paragraphs and tables remain genuine rows/cells. The synthetic DOCX builder includes actual package content-type defaults and an explicit numbering-part override, with a separate negative-control regression. These are synthetic format-verification changes, not claims about fresh Word/Docs capture or native hosted WordPress acceptance.
