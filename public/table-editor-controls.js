@@ -8,7 +8,7 @@ import { revealArticleSelection } from './editing.js';
 export function installTableEditor({ getBody, apply, workChanged, report, isBusy = () => false, confirmAction = message => confirm(message), reveal = revealArticleSelection, render = renderPreview, inspect = markdownTableRanges }) {
   const $ = id => document.getElementById(id);
   let target = null, cells = null, page = 0, preview = null, snapshot = null, tables = [], guards = [], generation = 0, message = 'Choose a table or create one at the article end.';
-  let describedRange = null, describedBody = null;
+  let describedRange = null, describedBody = null, selectedRow = 0, destinationRow = 0;
   const hasWork = () => Boolean(target);
   const dirty = () => Boolean(target && cells && JSON.stringify(cells) !== JSON.stringify(target.table));
   const inventoryVisible = () => {
@@ -33,6 +33,23 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
     catch { text = 'Current table context is unavailable. Inspect its article source before editing.'; }
     if (context.textContent !== text) context.textContent = text;
     describedRange = range; describedBody = body;
+  }
+  function rowChoices() {
+    const count = cells?.rows.length || 0;
+    selectedRow = count ? Math.min(selectedRow, count - 1) : 0;
+    destinationRow = count ? Math.min(destinationRow, count - 1) : 0;
+    const choices = () => Array.from({ length: count }, (_, index) => {
+      const option = document.createElement('option');
+      option.value = String(index);
+      option.textContent = 'Row ' + (index + 1);
+      return option;
+    });
+    $('table-row-selected').replaceChildren(...choices());
+    $('table-row-destination').replaceChildren(...choices());
+    if (count) {
+      $('table-row-selected').value = String(selectedRow);
+      $('table-row-destination').value = String(destinationRow);
+    }
   }
   function refresh() {
     const body = getBody(), busy = isBusy(), stale = target && target.body !== body;
@@ -61,6 +78,16 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
     $('table-next-page').disabled = busy || !cells || (page + 1) * TABLE_PAGE_ROWS >= cells.rows.length;
     $('table-add-row').disabled = busy || !cells || cells.rows.length >= TABLE_LIMITS.rows;
     $('table-add-column').disabled = busy || !cells || cells.head.length >= TABLE_LIMITS.columns;
+    const rowCount = cells?.rows.length || 0, hasSelectedRow = Boolean(rowCount && selectedRow >= 0 && selectedRow < rowCount);
+    $('table-row-selected').disabled = busy || !hasSelectedRow;
+    $('table-row-destination').disabled = busy || !hasSelectedRow || rowCount < 2;
+    for (const id of ['table-insert-before', 'table-insert-after']) $(id).disabled = busy || !hasSelectedRow || rowCount >= TABLE_LIMITS.rows;
+    $('table-move-up').disabled = busy || !hasSelectedRow || selectedRow === 0;
+    $('table-move-down').disabled = busy || !hasSelectedRow || selectedRow === rowCount - 1;
+    $('table-move-to').disabled = busy || !hasSelectedRow || selectedRow === destinationRow;
+    $('table-row-arrange-status').textContent = !cells ? 'Open or create a table first.' : !rowCount
+      ? 'This table has only headers. Use Add row at end to create its first data row.'
+      : 'Selected row ' + (selectedRow + 1) + ' of ' + rowCount + '. Choose a position for moving, or insert a blank row above or below. Changes remain in preparation until Apply.';
     $('table-preview-change').disabled = busy || !target || Boolean(stale);
     $('table-preview-remove').disabled = busy || target?.kind !== 'edit' || Boolean(stale);
     $('table-apply').disabled = busy || !preview || Boolean(stale);
@@ -82,16 +109,28 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
     const button = document.createElement('button'); button.type = 'button'; button.className = 'secondary'; button.textContent = text;
     button.dataset.available = String(available); button.addEventListener('click', () => { if (!isBusy() && available && currentGeneration === generation) callback(); }); return button;
   }
-  function shape(actionName, index) {
+  function shape(actionName, index, destination = null) {
     if (isBusy() || !cells) return;
+    if (actionName === 'move-row' && index === destination) {
+      status('The row is already in that position. The current preview and writing are kept.');
+      refresh(); return;
+    }
     try {
       if (actionName === 'remove-row' && cells.rows[index]?.some(text => text.trim()) && !confirmAction('Remove data row ' + (index + 1) + ' from this table preparation? Its cell text will be discarded from preparation. The article is kept until you apply.')) return;
       if (actionName === 'remove-column' && [cells.head[index], ...cells.rows.map(row => row[index])].some(text => text?.trim()) && !confirmAction('Remove column ' + (index + 1) + ' and its cell text from this preparation? The article is kept until you apply.')) return;
-      cells = changeEditableTable(cells, actionName, index);
-      if (actionName === 'insert-row') page = Math.floor(index / TABLE_PAGE_ROWS);
+      const next = changeEditableTable(cells, actionName, index, destination);
+      cells = next;
+      const rowChange = ['insert-row', 'remove-row', 'move-row'].includes(actionName);
+      if (rowChange) {
+        selectedRow = actionName === 'move-row' ? destination : actionName === 'insert-row' ? index : Math.min(index, cells.rows.length - 1);
+        selectedRow = Math.max(0, selectedRow);
+        destinationRow = selectedRow;
+        page = cells.rows.length ? Math.floor(selectedRow / TABLE_PAGE_ROWS) : 0;
+      }
       page = Math.max(0, Math.min(page, Math.ceil(cells.rows.length / TABLE_PAGE_ROWS) - 1));
       purgePreview(); grid(); status('Table structure changed in preparation. Preview before applying.'); refresh(); workChanged();
-      $('table-grid').focus();
+      if (rowChange && cells.rows.length) $('table-cell-' + selectedRow + '-0').focus();
+      else $('table-grid').focus();
     } catch (failure) { status(failure.message); report(failure.message); }
   }
   function grid() {
@@ -115,10 +154,11 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
       cells.rows[row].forEach((text, column) => { const cell = document.createElement('td'); cell.append(...field('table-cell-' + row + '-' + column, 'Row ' + (row + 1) + ', column ' + (column + 1), text, value => { cells.rows[row][column] = value; })); line.append(cell); }); body.append(line);
     }
     table.append(caption, head, body); $('table-grid').replaceChildren(table);
+    rowChoices();
   }
   function load(next) {
     if (hasWork() && (dirty() || target.kind === 'append') && !confirmAction('Replace the current table preparation? Unsaved cell edits are excluded from backups and checkpoints. The article is kept.')) return false;
-    target = next; cells = copyEditableTable(next.table); page = 0; purgePreview(); grid(); revealDetails($('table-editor-panel'));
+    target = next; cells = copyEditableTable(next.table); page = 0; selectedRow = 0; destinationRow = 0; purgePreview(); grid(); revealDetails($('table-editor-panel'));
     status('Table preparation ready. Edit cells, preview the result, then apply.'); refresh(); workChanged(); $('table-head-0').focus(); return true;
   }
   function choose(start, end = start) {
@@ -127,7 +167,8 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
     catch (failure) { status(failure.message); report(failure.message); return false; }
   }
   function clear() {
-    target = null; cells = null; page = 0; generation++; purgePreview(); for (const guard of guards) guard.clear(); guards = []; $('table-grid').replaceChildren();
+    target = null; cells = null; page = 0; selectedRow = 0; destinationRow = 0; generation++; purgePreview(); for (const guard of guards) guard.clear(); guards = []; $('table-grid').replaceChildren();
+    $('table-row-selected').replaceChildren(); $('table-row-destination').replaceChildren();
     status('Table preparation cleared. Article writing and approval are kept.'); refresh(); workChanged();
   }
   $('start-table-editor').addEventListener('click', () => {
@@ -156,11 +197,42 @@ export function installTableEditor({ getBody, apply, workChanged, report, isBusy
       target = recheckTableTarget(target, getBody(), range?.start); purgePreview(); status('Location explicitly rechecked. Prepared cells are kept. Preview again before applying.'); refresh(); workChanged();
     } catch (failure) { status(failure.message); report(failure.message); }
   });
+  $('table-row-selected').addEventListener('change', () => {
+    if (isBusy() || !cells) return;
+    const index = Number($('table-row-selected').value);
+    if (!Number.isInteger(index) || index < 0 || index >= cells.rows.length) { refresh(); return; }
+    selectedRow = index; destinationRow = index; page = Math.floor(index / TABLE_PAGE_ROWS);
+    grid(); refresh();
+    status('Row ' + (index + 1) + ' selected in preparation. Choose where to insert or move it.');
+  });
+  $('table-row-destination').addEventListener('change', () => {
+    if (isBusy() || !cells) return;
+    const index = Number($('table-row-destination').value);
+    if (!Number.isInteger(index) || index < 0 || index >= cells.rows.length) { refresh(); return; }
+    destinationRow = index; refresh();
+  });
+  $('table-insert-before').addEventListener('click', () => {
+    if (!isBusy() && cells && cells.rows.length < TABLE_LIMITS.rows && selectedRow < cells.rows.length) shape('insert-row', selectedRow);
+  });
+  $('table-insert-after').addEventListener('click', () => {
+    if (!isBusy() && cells && cells.rows.length < TABLE_LIMITS.rows && selectedRow < cells.rows.length) shape('insert-row', selectedRow + 1);
+  });
+  $('table-move-up').addEventListener('click', () => {
+    if (!isBusy() && cells && selectedRow > 0) shape('move-row', selectedRow, selectedRow - 1);
+  });
+  $('table-move-down').addEventListener('click', () => {
+    if (!isBusy() && cells && selectedRow < cells.rows.length - 1) shape('move-row', selectedRow, selectedRow + 1);
+  });
+  $('table-move-to').addEventListener('click', () => {
+    if (!isBusy() && cells && selectedRow < cells.rows.length && destinationRow < cells.rows.length) shape('move-row', selectedRow, destinationRow);
+  });
   $('table-add-row').addEventListener('click', () => { if (cells) shape('insert-row', cells.rows.length); });
   $('table-add-column').addEventListener('click', () => { if (cells) shape('insert-column', cells.head.length); });
   for (const [id, delta] of [['table-previous-page',-1],['table-next-page',1]]) $(id).addEventListener('click', () => {
     if (isBusy() || !cells) return; const next = page + delta;
-    if (next < 0 || next * TABLE_PAGE_ROWS >= cells.rows.length) return; page = next; grid(); refresh(); $('table-grid').focus();
+    if (next < 0 || next * TABLE_PAGE_ROWS >= cells.rows.length) return;
+    page = next; selectedRow = page * TABLE_PAGE_ROWS; destinationRow = selectedRow;
+    grid(); refresh(); $('table-grid').focus();
   });
   function prepare(mode) {
     if (isBusy()) return; purgePreview();
