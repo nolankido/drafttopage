@@ -26,9 +26,11 @@ export function diagnosticSummary({ release, route, agent } = {}) {
 }
 export function installAlphaDiagnostics({ doc = document, nav = navigator } = {}) {
   const $ = id => doc.getElementById(id);
-  const text = $('alpha-diagnostic-text'), status = $('alpha-diagnostic-status'), button = $('alpha-diagnostic-copy');
-  if (!text || !status || !button) return null;
-  text.value = diagnosticSummary({ release: $('main')?.dataset?.release, route: '/help/alpha-support/', agent: nav?.userAgent });
+  const text = $('alpha-diagnostic-text'), status = $('alpha-diagnostic-status'), button = $('alpha-diagnostic-copy'), choice = $('alpha-diagnostic-converter');
+  if (!text || !status || !button || !choice) return null;
+  const refresh = () => { text.value = diagnosticSummary({ release: $('main')?.dataset?.release, route: choice.value, agent: nav?.userAgent }); };
+  choice.addEventListener('change', () => { refresh(); status.textContent = 'Summary updated locally. Copy only when ready; nothing was submitted.'; });
+  refresh();
   button.addEventListener('click', async () => {
     try {
       if (typeof nav?.clipboard?.writeText !== 'function') throw new Error('Clipboard unavailable');
