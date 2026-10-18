@@ -89,5 +89,8 @@
       "procedural_hints": null
     }
   },
-  "issue_categories": []
+  "issue_categories": [],
+  "unintended_persistence": null,
+  "unintended_publication": null,
+  "unexpected_external_request": null
 }

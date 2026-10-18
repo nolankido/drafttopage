@@ -12,6 +12,7 @@ function observed(index,source='WORD',release='a'.repeat(40)) {
     release_commit:release,session_date:'2026-10-17',source_cohort:source,
     evidence_type:'HUMAN_OBSERVATION',participant_qualified:true,consent_to_record_outcomes:true,
     unrecoverable_writing_loss:false,private_material_in_export:false,article_ending_retained:true,
+    unintended_persistence:false,unintended_publication:false,unexpected_external_request:false,
     wordpress_save_reopen_attempted:true,wordpress_native_blocks_editable:true,
     title_handling_understood:true,approval_understood:true,manual_publishing_understood:true});
   record.tasks=record.tasks.map(({id})=>task(id));

@@ -55,7 +55,7 @@ Ten sessions give directional evidence, not a population estimate or product-mar
 
 ## Triage and next release
 
-Stop expansion and reproduce any lost writing, private material in an article export, unintended persistence, publication, or unexpected external request using a fictional fixture. Fix and revalidate before more sessions. Preserve the participant's own material privately; do not request it for a public bug report.
+Stop expansion and reproduce any lost writing, private material in an article export, missing article ending, unintended persistence, unintended publication, or unexpected external request using a fictional fixture. Record each observed safety outcome with a separate true/false/null flag. Never assume that a missing or unrecorded flag means no incident. Fix and revalidate before more sessions. Preserve the participant's own material privately; do not request it for a public bug report.
 
 Group other issues by observed failure: cannot begin, cannot understand preview, incorrect conversion, cannot finish handoff, or cannot resume safely. For each, record session IDs, task, affected source/destination, frequency, assistance needed and a minimal fictional reproduction. Prioritize repeated task blockers before adding features. Distinguish parser defects from confusing instructions and unmet formatting expectations.
 
