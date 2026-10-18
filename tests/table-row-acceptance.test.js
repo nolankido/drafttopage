@@ -11,7 +11,7 @@ test('The full routed browser gate and optional fast path share one actual respo
   assert.match(source,/--table-rows-only/);
   assert.equal(source.match(/run_table_row_acceptance\(open_page, report, open_details\)/g)?.length,2);
   const scenario=readFileSync('scripts/table_row_acceptance.py','utf8');
-  for(const required of ["'width': 390", "'width': 320", "'width': 1440", "#table-move-to", "#table-insert-before", "#table-apply", "#download-wordpress"]) {
+  for(const required of ["check_narrow(390,", "check_narrow(320,", "check_narrow(1440,", "#table-move-to", "#table-insert-before", "#table-apply", "#download-wordpress"]) {
     assert.ok(scenario.includes(required), 'Missing real layout or content scenario '+required);
   }
   assert.match(scenario,/documentElement\.scrollWidth/);

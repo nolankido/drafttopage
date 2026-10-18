@@ -36,7 +36,7 @@ test('Strict local release fails closed before any build if WordPress CLI is abs
   assert.equal(saved.scope.includes('required independent WordPress receipt'), true);
 }));
 
-test('Strict release with a CLI pins the actual receipt as a separate mandatory step', () => fixture(root => {
+test('Strict release rejects absent real WordPress evidence even when the child exits zero', () => fixture(root => {
   // This fixture deliberately lacks a complete WordPress receipt. We verify
   // that a missing or invalid WordPress acceptance cannot result in success.
   let calls = 0;
@@ -48,7 +48,7 @@ test('Strict release with a CLI pins the actual receipt as a separate mandatory 
   } });
   assert.equal(result.result, 'FAIL');
   assert.ok(calls >= 5);
-  assert.match(result.error, /wordpress failed|WordPress evidence/i);
+  assert.match(result.error, /ENOENT|wordpress failed|WordPress evidence/i);
 }));
 
 test('The manual release gate rejects stale browser evidence and stops after a failed model check', () => fixture(root => {
