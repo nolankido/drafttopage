@@ -31,6 +31,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     word: { id: 'download-word', label: 'Download Word' },
     other: { id: 'copy-body', label: 'Copy article body' }
   })[$('publishing-destination').value] || null;
+  const exportUnavailable = target => !target || target.disabled || target.getAttribute?.('aria-disabled') === 'true';
   const destination = () => ({ wordpress: 'WordPress', markdown: 'Markdown', html: 'HTML source', word: 'Word', other: 'another export' })[$('publishing-destination').value] || 'your export';
   function update() {
     const draft = getDraft(), hasBody = Boolean(draft.body.trim()), pending = getImportState(), busy = isBusy();
@@ -64,7 +65,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
     const action = actionForDestination(), target = action ? $(action.id) : null;
     const shortcut = $('approved-export-shortcut'), jump = $('jump-to-primary-export');
     shortcut.hidden = !hasBody || Boolean(pending.pending);
-    jump.disabled = busy || !hasBody || Boolean(pending.pending) || !$('reviewed').checked || !target || target.disabled;
+    jump.disabled = busy || !hasBody || Boolean(pending.pending) || !$('reviewed').checked || exportUnavailable(target);
     if (action) {
       jump.textContent = 'Go to ' + action.label;
       jump.setAttribute('aria-controls', action.id);
@@ -120,7 +121,7 @@ export function installWorkflowNavigation({ getDraft, getImportState = () => ({}
   $('continue-to-export').addEventListener('click', handoff);
   $('jump-to-primary-export').addEventListener('click', () => {
     const action = actionForDestination(), target = action ? $(action.id) : null;
-    if (isBusy() || getImportState().pending || !getDraft().body.trim() || !$('reviewed').checked || !target || target.disabled) return;
+    if (isBusy() || getImportState().pending || !getDraft().body.trim() || !$('reviewed').checked || exportUnavailable(target)) return;
     select('export');
     navigate(target);
     report('Moved to ' + action.label + '. Activate that control to copy or download the reviewed article. Nothing was copied or published by this shortcut.');

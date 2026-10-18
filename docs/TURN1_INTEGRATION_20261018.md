@@ -19,3 +19,7 @@ Date: 2026-10-18.
 4. Confirm the exact production main commit and Cloudflare deployment after any authorized merge. Hosted WordPress installations, source-app captures, physical devices and actual human study need separate evidence.
 
 No GitHub Actions or cron is to be enabled. Cloudflare's existing native Git deployment is unchanged.
+
+## Review follow-up
+
+The first combined review found a real clipboard-pending shortcut issue: the WordPress copy button remains keyboard-focusable with `aria-disabled=true` while copying. The integrated navigation now respects that attribute, and the existing export-copy-state callback explicitly refreshes the shortcut. A new regression tests busy ARIA state, no-op clicks, and recovery after completion. These claims require fresh tests and browser evidence on the updated commit.

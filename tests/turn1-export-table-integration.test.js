@@ -29,6 +29,9 @@ test('integrated styles retain current-draft navigation and new review shortcut'
 test('combined experience keeps export action separate from navigation', async () => {
   const workflow = await read('public/workflow-navigation.js');
   assert.ok(workflow.includes('navigate(target)'));
+  assert.ok(workflow.includes("getAttribute?.('aria-disabled')"));
+  const desk = await read('public/desk.js');
+  assert.ok(desk.includes('updateExitWarning(); workflow?.update();'));
   assert.match(workflow, /Nothing was copied or published by this shortcut/);
   const table = await read('scripts/table-editor.html.inc');
   assert.match(table, /Only prepared cells change/);

@@ -11,6 +11,7 @@ class Node {
   setAttribute(name,value) { this.attrs[name]=value; }
   removeAttribute(name) { delete this.attrs[name]; }
   hasAttribute(name) { return Object.hasOwn(this.attrs,name); }
+  getAttribute(name) { return this.attrs[name] ?? null; }
   focus(options) { this.focuses.push(options); }
   scrollIntoView(options) { this.moves.push(options); }
   getBoundingClientRect() { return {height:93.4}; }
@@ -175,6 +176,22 @@ test('Export shortcut honors approvals, pending imports, file busy state, and a 
   setBusy(false);ui.update();assert.equal(jump.disabled,false);
   $('reviewed').checked=false;ui.update();jump.fire();assert.equal(moves.length,0);
   assert.equal($('body').value,'Keep the current writing.');
+}));
+
+test('A pending WordPress clipboard request is not represented as an available shortcut',()=>withUI(({$,ui,moves})=>{
+  $('body').value='Approved fictional article';$('reviewed').checked=true;ui.update();
+  const jump=$('jump-to-primary-export'),copy=$('copy-wordpress');
+  assert.equal(jump.disabled,false);
+  copy.setAttribute('aria-disabled','true');ui.update();
+  assert.equal(copy.disabled,false);
+  assert.equal(jump.disabled,true);
+  assert.match($('approved-export-hint').textContent,/Finish any required export checks/);
+  const count=moves.length;jump.fire();assert.equal(moves.length,count);
+  copy.setAttribute('aria-disabled','false');ui.update();
+  assert.equal(jump.disabled,false);
+  jump.fire();assert.deepEqual(moves.at(-1),['copy-wordpress','copy-wordpress']);
+  assert.equal($('body').value,'Approved fictional article');
+  assert.equal($('reviewed').checked,true);
 }));
 
 test('The shortcut opens collapsed export options before focusing its real action',()=>withUI(({$,ui,moves})=>{
