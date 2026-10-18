@@ -832,3 +832,61 @@ test('Ambiguous or oversized HTML definition lists fail closed rather than silen
   assert.throws(() => convert(lots), /200 terms and descriptions/);
   assert.throws(() => convert(dl(element('dt', ['Hidden'], { hidden: '' }), element('dd', ['Orphan']))), /definition needs a preceding term/);
 });
+
+
+test('Definition-list boundaries cannot silently flatten inside list items and table cells', () => {
+  const nested = element('dl', [element('dt', ['Term']), element('dd', ['Description'])]);
+  const insideList = element('ul', [element('li', ['Before ', nested, ' after'])]);
+  const insideCell = element('table', [
+    element('tr', [element('th', ['Header'])]),
+    element('tr', [element('td', ['Before ', nested, ' after'])])
+  ]);
+  for (const source of [insideList, insideCell]) {
+    const original = JSON.stringify(source);
+    assert.throws(() => convert(source), /definition lists/);
+    assert.equal(JSON.stringify(source), original);
+  }
+  assert.throws(() => convert(element('table', [
+    element('tr', [element('th', ['Header'])]),
+    element('tr', [element('td', [element('span', [element('dt', ['Bare term'])])])])
+  ])), /definition lists/);
+});
+
+test('Hidden terms never let following visible definitions attach to earlier terms', () => {
+  const list = (...entries) => element('dl', entries);
+  assert.throws(() => convert(list(
+    element('dt', ['Visible A']), element('dd', ['A answer']),
+    element('dt', ['Hidden B'], { hidden: '' }), element('dd', ['B answer'])
+  )), /definition needs a preceding term/);
+  assert.throws(() => convert(list(
+    element('dt', ['Unanswered visible term']),
+    element('dt', ['Hidden replacement'], { style: 'display:none' }),
+    element('dd', ['Answer for hidden replacement'])
+  )), /visible definition term lost its description/);
+  assert.throws(() => convert(list(
+    element('dt', ['Visible term']),
+    element('dd', ['Hidden answer'], { 'aria-hidden': 'true' })
+  )), /visible definition term has a hidden description/);
+  const valid = convert(list(
+    element('dt', ['Visible A']), element('dd', ['A answer']),
+    element('dt', ['Hidden B'], { hidden: '' }),
+    element('dt', ['Visible C']), element('dd', ['C answer'])
+  ));
+  assert.doesNotMatch(valid.markdown, /Hidden B/);
+  assert.match(valid.markdown, /Visible A/);
+  assert.match(valid.markdown, /Visible C/);
+});
+
+test('Hidden nested structures in definitions are omitted without rejecting visible writing', () => {
+  const source = element('dl', [
+    element('dt', ['Safe term']),
+    element('dd', ['Visible answer.', element('div', [element('ul', [element('li', ['HIDDEN NESTED LIST'])])], { hidden: '' })])
+  ]);
+  const result = convert(source);
+  assert.match(result.markdown, /\*\*Definition:\*\* Visible answer\\\./);
+  assert.doesNotMatch(result.markdown, /HIDDEN/);
+  assert.ok(result.warnings.some(message => message.includes('hidden content')));
+  const html = createHTMLSource({ body: result.markdown });
+  assert.match(html, /Visible answer\./);
+  assert.doesNotMatch(html, /HIDDEN|<ul|<li/);
+});
