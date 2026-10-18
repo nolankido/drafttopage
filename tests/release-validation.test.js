@@ -151,6 +151,23 @@ test('A checkout without Git metadata cannot produce a green release receipt', (
   assert.equal(JSON.parse(readFileSync(join(root, 'test-results', 'release-results.json'))).result, 'FAIL');
 }));
 
+test('Git assume-unchanged and skip-worktree flags cannot hide changed source from the release gate', () => {
+  for (const flag of ['--assume-unchanged', '--skip-worktree']) fixture(root => {
+    execFileSync('git', ['update-index', flag, 'tests/fixture.test.js'], { cwd: root });
+    writeFileSync(join(root, 'tests/fixture.test.js'), '// Tracked source was changed, but Git status may hide it.\n');
+    const expectedFlag = flag === '--assume-unchanged' ? 'h ' : 'S ';
+    const index = execFileSync('git', ['ls-files', '-v', '-z'], {cwd:root, encoding:'utf8'});
+    assert.ok(index.includes(expectedFlag + 'tests/fixture.test.js'));
+    let calls = 0;
+    const result = verifyRelease({ root, env: {}, run: () => { calls++; return {status:0}; } });
+    assert.equal(result.result, 'FAIL');
+    assert.equal(calls, 0);
+    assert.deepEqual(result.steps, []);
+    assert.match(result.error, /assume-unchanged and skip-worktree/);
+    assert.equal(existsSync(join(root, 'test-results/browser-results.json')), false);
+  });
+});
+
 test('Untracked source created during validation invalidates the same running receipt', () => fixture(root => {
   let calls = 0;
   const result = verifyRelease({ root, env: {}, run: () => {

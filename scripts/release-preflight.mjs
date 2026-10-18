@@ -44,9 +44,15 @@ export function checkReleasePreflight({
     const dirty = command('git', ['status', '--porcelain', '--untracked-files=normal']);
     add('Clean checkout', dirty.ok && dirty.stdout === '' ? 'PASS' : 'BLOCKED',
       dirty.ok ? dirty.stdout === '' ? 'Tracked and untracked source files are clean.' : 'Commit or discard source changes before qualification.' : 'Cannot inspect local Git status.');
+    const index = command('git', ['ls-files', '-v', '-z']);
+    const completeIndex = index.ok && !index.stdout.split('\0').some(entry => /^[hSs] /.test(entry));
+    add('Complete Git index', completeIndex ? 'PASS' : 'BLOCKED', completeIndex ?
+      'No assume-unchanged or skip-worktree flags hide tracked source.' :
+      'Remove assume-unchanged or skip-worktree flags, or use a fresh complete checkout.');
   } else {
     add('Git commit', 'BLOCKED', 'No verified repository checkout.');
     add('Clean checkout', 'BLOCKED', 'No verified repository checkout.');
+    add('Complete Git index', 'BLOCKED', 'No verified repository checkout.');
   }
   const python = command(env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['-c', browserProbe]);
   add('Playwright Chromium', python.ok ? 'PASS' : 'BLOCKED', python.ok ?

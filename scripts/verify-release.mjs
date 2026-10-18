@@ -102,6 +102,12 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
     role: 'author' };
 }
 
+// Git status can hide changed source behind index flags. Complete release
+// qualification must refuse these states, even if source snapshots match.
+const hasHiddenIndexFlags = git => git(['ls-files', '-v', '-z']).split('\0').some(
+  entry => /^[hSs] /.test(entry)
+);
+
 // A deliberately invoked local gate. It never installs tools, starts Actions,
 // deploys, activates the pilot, or retries a failed check.
 export function verifyRelease({ root = process.cwd(), run = spawnSync, env = process.env, requireWordPress = false } = {}) {
@@ -157,6 +163,8 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
     // cannot certify local edits, staged changes or untracked source files.
     if (git(['status', '--porcelain', '--untracked-files=normal']).trim())
       throw new Error('Release validation requires a clean Git checkout. Commit or discard source changes before rerunning the complete gate.');
+    if (hasHiddenIndexFlags(git))
+      throw new Error('Release validation requires a complete Git index: remove assume-unchanged and skip-worktree flags before qualification.');
     if (!tests.length) throw new Error('No regression tests were found.');
     for (const [name, command, args] of steps) {
       const entry = { name, result: 'RUNNING' }; report.steps.push(entry); save();
@@ -182,7 +190,7 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
     }
     const matchingHead = report.head === git(['rev-parse', 'HEAD']).trim();
     const matches = report.sourceSha256 === sourceDigest();
-    const clean = git(['status', '--porcelain', '--untracked-files=normal']).trim() === '';
+    const clean = git(['status', '--porcelain', '--untracked-files=normal']).trim() === '' && !hasHiddenIndexFlags(git);
     const stable = matchingHead && matches && clean;
     report.steps.push({ name: 'source snapshot', result: stable ? 'PASS' : 'FAIL' });
     if (!stable) throw new Error('Repository commit or source changed during validation. Run the complete gate again against stable source.');

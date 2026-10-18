@@ -66,7 +66,9 @@ export function examineAlphaRelease({
   const command = args => { try { return String(git(args)).trim(); } catch { return ''; } };
   const currentHead = command(['rev-parse', 'HEAD']);
   const branch = command(['branch', '--show-current']);
-  const clean = command(['status', '--porcelain', '--untracked-files=normal']) === '';
+  const index = command(['ls-files', '-v', '-z']);
+  const completeIndex = Boolean(index) && !index.split('\0').some(entry => /^[hSs] /.test(entry));
+  const clean = completeIndex && command(['status', '--porcelain', '--untracked-files=normal']) === '';
   let sourceSha256 = null;
   try { sourceSha256 = snapshot(root); } catch { /* Missing snapshot is an explicit blocker. */ }
   const decision = evaluateAlphaRelease({
