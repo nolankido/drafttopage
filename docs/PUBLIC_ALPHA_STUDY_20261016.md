@@ -2,7 +2,7 @@
 
 Status: **prepared, NOT_RUN**. No participants have been recruited, contacted, observed, or counted. This kit is for the free public converters and writing workspace. The private AI pilot stays inactive and is outside this study. No paid service, provider key, tracking, signup form, or automated outreach is needed.
 
-The next product question is whether writers can complete a useful conversion in their normal workflow without a developer beside them. Automated fixtures establish bounded implementation contracts. They do not establish usability, willingness to return, or demand.
+The next product question is whether writers can complete a useful conversion in their normal workflow without a developer beside them. For fair comparisons with the native WordPress editor, use the [paired control protocol](alpha/PAIRED_NATIVE_WORDPRESS_TURN3.md) and record independent save/reopen evidence for both methods; missing observations cannot establish savings. Automated fixtures establish bounded implementation contracts. They do not establish usability, willingness to return, or demand.
 
 ## Cohort and setup
 
