@@ -152,3 +152,14 @@
 .wordpress-destination-check .check input{flex:none;margin-top:.3rem}
 .wordpress-destination-ending{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;padding:.65rem;background:var(--soft);font:.8rem/1.5 ui-monospace,monospace}
 #wordpress-destination-status{border-left:3px solid var(--line);padding-left:.7rem}
+
+/* Mobile/high-text-zoom controls stay usable without hiding their action labels. */
+@media(max-width:600px){
+  .desk-main .actions > button,.desk-main .actions > a{min-height:2.75rem;max-width:100%;white-space:normal;overflow-wrap:anywhere}
+  .import-panel select,.import-panel input[type=file],.import-panel textarea,
+  .desk-main .conversion-results textarea{box-sizing:border-box;max-width:100%;min-width:0}
+  #wordpress-code-preview{max-height:45vh;overflow:auto}
+}
+@media(hover:none) and (pointer:coarse){
+  .desk-main summary,.desk-main .workflow-step{min-height:2.75rem}
+}

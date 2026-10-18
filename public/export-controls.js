@@ -12,6 +12,7 @@ import { installMarkdownHandoff } from './markdown-handoff-controls.js';
 import { installExportReview } from './export-review-controls.js';
 import { installExportPreview } from './export-preview-controls.js';
 import { createCopyActions } from './copy-actions.js';
+import { focusWorkflowTarget } from './workflow-navigation.js';
 
 export function installPublishingExports({ getDraft, approved, changed, report, isBusy = () => false, getWordPressOptions = () => ({}), getCopySnapshot = getDraft, copyChanged = () => {}, openFinding = null, defaultDestination = 'wordpress', compact = false, prepareWordPressBlocks = createWordPressArticle, prepareGeneralKitFiles = publishingKitManifest }) {
   const $ = id => document.getElementById(id);
@@ -113,6 +114,16 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
       return navigator.clipboard.writeText(article.html);
     }, success: 'WordPress blocks copied without a title or page fields. In a new, empty WordPress draft, click the empty paragraph below the title in Visual editor and paste normally with Ctrl+V or Command+V. Inspect the blocks, save as a draft, then close and reopen it. Selected linked image URLs can load there. Nothing was published.', fallback: 'WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks.' });
     if (copied && $('wordpress-instructions')) $('wordpress-instructions').open = true;
+    else if (!copied && copies.state().outcome === 'failure' && !isBusy() && $('publishing-destination').value === 'wordpress' && $('reviewed').checked) {
+      // A failed clipboard write is not a failed export. Reveal the approved
+      // exact source and move keyboard focus to its disclosure, not the editor.
+      const panel = $('wordpress-code-panel');
+      panel.open = true;
+      update();
+      const summary = panel.querySelector?.('summary');
+      if (summary) focusWorkflowTarget(summary, { bar: $('workflow-steps') });
+      else $('wordpress-code-preview').focus?.();
+    }
   });
   $('download-wordpress').addEventListener('click', () => {
     if (isBusy() || $('publishing-destination').value !== 'wordpress') return;
