@@ -1,71 +1,62 @@
-// Temporary preview-only validation probe. Never merge while this probe
-// replaces a fail-closed build gate. Publishes no raw test output or test data.
+// Temporary, diagnostic-only Cloudflare preview probe. Never merge into main.
+// Captures only synthetic public test names and bounded statistics; no raw logs.
 import { readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
-const files=readdirSync('tests').filter(s=>s.endsWith('.test.js')).sort().map(s=>'tests/'+s);
-const start=performance.now();
-let result;
+
+const files = readdirSync('tests').filter(name => name.endsWith('.test.js')).sort().map(name => 'tests/' + name);
+const started = performance.now();
+let run;
 try {
-  result=spawnSync(process.execPath,['--test','--test-reporter=tap','--test-concurrency=4',...files],{
-    shell:false,encoding:'utf8',maxBuffer:48*1024*1024,
-    timeout:480000,env:process.env
-  });
-}catch{ result={status:null,stdout:'',stderr:'',error:new Error('runner unavailable')}; }
-const output=String(result.stdout||'');
-const err=String(result.stderr||'');
-const marker=n=>{const m=output.match(new RegExp('^# '+n+' (\\d+)\\s*);return m?Number(m[1]):null;};
-const failedNames=[...output.matchAll(/^not ok \d+ - ([^\r\n]+)$/gm)]
-  .map(x=>x[1].replace(/[^a-zA-Z0-9 _.,\/()'":-]/g,'').slice(0,100))
-  .slice(0,35);
-const errorClass=result.error ? result.error.code === 'ETIMEDOUT' ? 'TIMEOUT' : 'RUNNER_ERROR' : null;
-const categoryFlags=Object.fromEntries([
-  ['module_missing',/MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|Cannot find module/.test(output+err)],
-  ['python_missing',/python3.*ENOENT|python3.*not found/i.test(output+err)],
-  ['playwright_missing',/No module named.*playwright|Cannot find.*playwright/i.test(output+err)],
-  ['signal_failure',/SIGKILL|SIGTERM|process.*killed/i.test(output+err)],
-  ['node_runner_error',/ERR_TEST_FAILURE|test failed/.test(output+err)]
-]);
-const safeSample=value=>value.split(/\r?\n/).filter(line=>
-   /^(?:TAP version|# (?:tests|pass|fail|cancelled|duration_ms)|not ok |Error:|node:|Could not|Unknown option)/.test(line))
-  .slice(0,18).map(line=>line.replace(/[a-zA-Z0-9_./=-]{28,}/g,'[redacted]').slice(0,125));
-const summary={
-  format:'drafttopage-preview-node-probe',version:1,
-  scope:'Feature preview synthetic Node regression suite; not production or full browser/WordPress acceptance',
-  testFileCount:files.length,nodeVersion:process.version,
-  status:result.status===0&&!result.error?'PASS':'FAIL',
-  runnerExitCode:result.status??null,runnerErrorClass:errorClass,
-  testCount:marker('tests'),passed:marker('pass'),failed:marker('fail'),
-  cancelled:marker('cancelled'),skipped:marker('skipped'),
-  durationSeconds:Math.round((performance.now()-start)/1000),
-  failedTestNames:failedNames,
-  stderrBytes:err.length, stdoutBytes:output.length,
-  categoryFlags, diagnosticLines:safeSample(output).concat(safeSample(err)).slice(0,25),
-  stdoutHash:createHash('sha256').update(output).digest('hex')
+  run = spawnSync(process.execPath,
+    ['--test', '--test-reporter=tap', '--test-concurrency=4', ...files],
+    { shell: false, encoding: 'utf8', maxBuffer: 48 * 1024 * 1024, timeout: 480000, env: process.env });
+} catch {
+  run = { status: null, stdout: '', stderr: '', error: new Error('runner unavailable') };
+}
+const output = String(run.stdout || '');
+const stderr = String(run.stderr || '');
+const metric = name => {
+  const matches = [...output.matchAll(new RegExp('^# ' + name + '\\s+(\\d+)\\s*$', 'gm'))];
+  return matches.length ? Number(matches.at(-1)[1]) : null;
 };
-writeFileSync('public/turn14-node-probe.json',JSON.stringify(summary,null,2)+'\n');
-// Probe is intentionally diagnostic-only: fail details would otherwise block
-// preview publication. Its report, not the Cloudflare check, is authoritative.
-console.log('Turn 14 diagnostic suite completed:',summary.status,summary.testCount,'tests,',summary.failed,'failed');
-,'m'));return m?Number(m[1]):null;};
-const failedNames=[...output.matchAll(/^not ok \d+ - ([^\r\n]+)$/gm)]
-  .map(x=>x[1].replace(/[^a-zA-Z0-9 _.,\/()'":-]/g,'').slice(0,100))
-  .slice(0,35);
-const errorClass=result.error ? result.error.code === 'ETIMEDOUT' ? 'TIMEOUT' : 'RUNNER_ERROR' : null;
-const summary={
-  format:'drafttopage-preview-node-probe',version:1,
-  scope:'Feature preview synthetic Node regression suite; not production or full browser/WordPress acceptance',
-  testFileCount:files.length,nodeVersion:process.version,
-  status:result.status===0&&!result.error?'PASS':'FAIL',
-  runnerExitCode:result.status??null,runnerErrorClass:errorClass,
-  testCount:marker('tests'),passed:marker('pass'),failed:marker('fail'),
-  cancelled:marker('cancelled'),skipped:marker('skipped'),
-  durationSeconds:Math.round((performance.now()-start)/1000),
-  failedTestNames:failedNames,
-  stdoutHash:createHash('sha256').update(output).digest('hex')
+const failedTestNames = [...output.matchAll(/^not ok \d+ - ([^\r\n]+)$/gm)]
+  .map(item => item[1].replace(/[^a-zA-Z0-9 _.,\/()'":-]/g, '').slice(0, 100))
+  .slice(0, 35);
+const safeLines = value => value.split(/\r?\n/)
+  .filter(line => /^(?:TAP version|# (?:tests|pass|fail|cancelled|duration_ms)|not ok |Error:|node:|Could not|Unknown option)/.test(line))
+  .slice(0, 18)
+  .map(line => line.replace(/[a-zA-Z0-9_./=-]{28,}/g, '[redacted]').slice(0, 125));
+const categories = {
+  missingModule: /MODULE_NOT_FOUND|ERR_MODULE_NOT_FOUND|Cannot find module/.test(output + stderr),
+  missingPython: /python3.*ENOENT|python3.*not found/i.test(output + stderr),
+  missingPlaywright: /No module named.*playwright|Cannot find.*playwright/i.test(output + stderr),
+  killed: /SIGKILL|SIGTERM|process.*killed/i.test(output + stderr),
+  testFailure: /ERR_TEST_FAILURE|test failed/.test(output + stderr)
 };
-writeFileSync('public/turn14-node-probe.json',JSON.stringify(summary,null,2)+'\n');
-// Probe is intentionally diagnostic-only: fail details would otherwise block
-// preview publication. Its report, not the Cloudflare check, is authoritative.
-console.log('Turn 14 diagnostic suite completed:',summary.status,summary.testCount,'tests,',summary.failed,'failed');
+const evidence = {
+  format: 'drafttopage-temporary-node-probe',
+  version: 2,
+  scope: 'Feature-preview synthetic Node regression; not a public release gate or browser/WordPress acceptance',
+  testFileCount: files.length,
+  nodeVersion: process.version,
+  result: run.status === 0 && !run.error ? 'PASS' : 'FAIL',
+  exitCode: run.status ?? null,
+  errorClass: run.error ? run.error.code === 'ETIMEDOUT' ? 'TIMEOUT' : 'RUNNER_ERROR' : null,
+  testCount: metric('tests'),
+  passed: metric('pass'),
+  failed: metric('fail'),
+  cancelled: metric('cancelled'),
+  skipped: metric('skipped'),
+  durationSeconds: Math.round((performance.now() - started) / 1000),
+  stdoutBytes: output.length,
+  stderrBytes: stderr.length,
+  failedTestNames,
+  categories,
+  sanitizedLines: [...safeLines(output), ...safeLines(stderr)].slice(0, 25),
+  stdoutSha256: createHash('sha256').update(output).digest('hex')
+};
+writeFileSync('public/turn14-node-probe.json', JSON.stringify(evidence, null, 2) + '\n');
+// Intentionally do not fail the preview build. The result field is authoritative.
+console.log('Temporary Node test probe:', evidence.result, evidence.testCount, 'cases,', evidence.failed, 'failed');
