@@ -47,3 +47,11 @@ The existing [alpha release operations](RELEASE_OPERATIONS.md) and [Turn 10 cons
 A paired result is never a substitute for physical-device, screen-reader, fresh Word/Google Docs source, or hosted WordPress acceptance. Stop new invitations for writing loss, private exports, missing article ending, unintended persistence, publication or unexpected network requests. Preserve only a minimal fictional reproduction in the public repository. Do not install GitHub Actions.
 
 **What success would mean:** a documented, consented set of real paired tasks producing an exploratory completion/fidelity/effort comparison with competing free publishing workflows. Until that happens, the truthful outcome is **NOT_RUN**, regardless of how many synthetic tests pass.
+
+## Exact destination categories and conservative analysis
+
+For native WordPress comparison records, enter one category only in `destination_type`: `WordPress`, `WordPress block editor`, `WordPress Gutenberg`, `WordPress.com`, or `WordPress self-hosted`. Case and surrounding spaces do not matter, but text such as `Not WordPress`, another CMS, a site URL or customer name is not a WordPress category.
+
+An observed saved/reopened result of `false` means a confirmed method failure. Record that method as `FAIL`, not `PASS_UNAIDED` or `PASS_ASSISTED`. A task that was declined or not attempted has a `null` destination observation. True requires an actually completed method. Do not force a legacy or uncertain value to true or false.
+
+Descriptive absolute medians are withheld below **five verified comparable pairs**. An overall median is withheld when different baseline categories are mixed rather than representing them as one method. Percent medians additionally require five non-null percentages; a usual-method duration of zero gives no percentage even when both methods finished. Never present the report as proof of speed, human preference, or demand without genuine consented participant evidence.
