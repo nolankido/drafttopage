@@ -10,6 +10,7 @@ import { createWordPressArticle } from '../public/wordpress-export.js';
 import { installArticleImport } from '../public/import-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from '../public/copied-writing.js';
 import { HTML_SOURCE_SAMPLE } from '../public/html-source-sample.js';
+import { MAX_IMPORT_BYTES } from '../public/writing-limits.js';
 
 const text = value => ({ nodeType: 3, nodeValue: value, childNodes: [] });
 function element(name, nodes = [], attributes = {}) {
@@ -207,16 +208,17 @@ function withDOM(run, options = {}) {
   const previous = globalThis.document, priorConfirm = globalThis.confirm;
   const nodes = new Map(), $ = id => { if (!nodes.has(id)) nodes.set(id, new Control()); return nodes.get(id); };
   let parseTree = tree(element('h1', ['Fictional title.']), element('p', ['Keep this body.'])), assigned = 0;
+  const parsedSources = [];
   globalThis.document = { getElementById: $, createTextNode: text, createDocumentFragment: () => new Control(), createElement: name => {
     const node = new Control(name);
-    if (name === 'template') Object.defineProperty(node, 'innerHTML', { set() { node.content = parseTree; assigned++; } });
+    if (name === 'template') Object.defineProperty(node, 'innerHTML', { set(source) { node.content = parseTree; assigned++; parsedSources.push(source); } });
     return node;
   } };
   let confirmValue = true, busy = false, applications = [], intents = [], message = '', fail = false;
   globalThis.confirm = () => confirmValue;
   $('import-format').value = 'auto';
   const ui = installArticleImport({ hasArticle: () => true, isBusy: () => busy, busyChanged: () => {}, report: text => { message = text; }, apply: (draft, intent) => { if (fail) throw new Error('Checkpoint refused'); applications.push(draft); intents.push(intent); }, ...options });
-  return Promise.resolve().then(() => run({ $, ui, message: () => message, applications, intents, assigned: () => assigned, parse: root => { parseTree = root; }, confirm: value => { confirmValue = value; }, busy: value => { busy = value; }, fail: () => { fail = true; } })).finally(() => { globalThis.document = previous; globalThis.confirm = priorConfirm; });
+  return Promise.resolve().then(() => run({ $, ui, message: () => message, applications, intents, assigned: () => assigned, parsedSources, parse: root => { parseTree = root; }, confirm: value => { confirmValue = value; }, busy: value => { busy = value; }, fail: () => { fail = true; } })).finally(() => { globalThis.document = previous; globalThis.confirm = priorConfirm; });
 }
 test('HTML parsing is explicit, preflighted, detached, and title escaping is decoded', () => withDOM(({ assigned }) => {
   assert.equal(parseArticleImport('<h1>Literal</h1>').draft.body, '<h1>Literal</h1>'); assert.equal(assigned(), 0);
@@ -528,3 +530,164 @@ test('Public pages explain explicit HTML capture, losses, bounds, and data handl
   const help = await readFile('public/help/article-import/index.html', 'utf8'); assert.match(help, /tracked changes/); assert.match(help, /Original source nodes are never attached/); assert.match(help, /60,000/);
   const privacy = await readFile('public/privacy/index.html', 'utf8'); assert.match(privacy, /user-initiated paste/); assert.match(privacy, /Raw import text, pending previews, and import choices/);
 });
+
+function formattedImportState($) {
+  return {
+    article: $('body').value, title: $('title').value, notes: $('notes').value,
+    approved: $('reviewed').checked, format: $('import-format').value,
+    source: $('import-text').value, sourceURL: $('import-source-url').value,
+    preview: $('import-body-preview').value, summary: $('import-summary').textContent,
+    previewHidden: $('import-preview').hidden, acknowledged: $('import-changes-ok').checked,
+    applyDisabled: $('apply-import').disabled, revisionChoice: $('import-word-revisions').value,
+    revisionSummary: $('word-revision-summary').textContent, fileStatus: $('import-file-status').textContent
+  };
+}
+
+test('Article formatted paste stages the shared conversion without changing writing or export approval, then requires explicit acknowledgement and apply', () => withDOM(async ({ $, ui, parse, parsedSources, applications, intents }) => {
+  const raw = '<h1>Fictional new title</h1><p>A <strong>formatted</strong> paragraph.</p><p>UNIQUE_END</p>';
+  parse(tree(element('h1', ['Fictional new title']), element('p', ['A ', element('strong', ['formatted']), ' paragraph.']), element('p', ['UNIQUE_END'])));
+  $('body').value = 'Keep the existing *article* and its ending.';
+  $('title').value = 'Existing title'; $('notes').value = 'Private source notes'; $('reviewed').checked = true;
+  const current = { body: $('body').value, title: $('title').value, notes: $('notes').value };
+  assert.equal(ui.canPreviewFormatted(), true);
+  assert.equal(ui.previewFormatted({ format: 'html', text: raw }), true);
+  assert.equal(ui.canPreviewFormatted(), false);
+  assert.deepEqual(parsedSources, [raw]);
+  assert.deepEqual({ body: $('body').value, title: $('title').value, notes: $('notes').value }, current);
+  assert.equal($('reviewed').checked, true);
+  assert.equal($('import-format').value, 'html'); assert.equal($('import-text').value, '');
+  assert.equal(ui.pending(), true); assert.equal(ui.staged(), true);
+  assert.match($('import-body-preview').value, /A \*\*formatted\*\* paragraph\\\./);
+  assert.match($('import-body-preview').value, /UNIQUE\\_END$/);
+  assert.equal($('import-changes-ok').checked, false); assert.equal($('apply-import').disabled, true);
+  await $('apply-import').fire(); assert.equal(applications.length, 0);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+  assert.equal($('apply-import').disabled, false);
+  await $('apply-import').fire();
+  assert.equal(applications.length, 1); assert.deepEqual(intents, [{ continueToExport: false }]);
+  assert.equal(applications[0].title, 'Fictional new title');
+  assert.match(createWordPressArticle(applications[0]).html, /<strong>formatted<\/strong>/);
+  assert.match(createWordPressArticle(applications[0]).html, /UNIQUE_END/);
+  assert.equal(ui.pending(), false); assert.equal($('import-body-preview').value, '');
+  assert.equal(ui.canPreviewFormatted(), true);
+}));
+
+test('Article formatted paste rejects unsupported conversion and source bounds without replacing article, options or preparation', () => withDOM(({ $, ui, parse, assigned, message, applications }) => {
+  $('body').value = 'Original article. UNIQUE_END'; $('notes').value = 'Keep private notes'; $('reviewed').checked = true;
+  const before = formattedImportState($);
+  parse(tree(element('table', [element('tr', [element('th', ['Header'])]), element('tr', [element('td', ['Merged'], { colspan: '2' })])])));
+  assert.equal(ui.previewFormatted({ format: 'html', text: '<table><tr><th>Header</th></tr><tr><td colspan="2">Merged</td></tr></table>' }), false);
+  assert.match(message(), /Merged table cells/);
+  assert.deepEqual(formattedImportState($), before); assert.equal(ui.pending(), false); assert.equal(ui.canPreviewFormatted(), true);
+  const parsed = assigned();
+  for (const source of [
+    { format: 'html', text: 'x'.repeat(MAX_IMPORT_BYTES + 1) },
+    { format: 'html', text: '界'.repeat(Math.floor(MAX_IMPORT_BYTES / 3) + 1) },
+    { format: 'html', text: 'bad\u0000source' },
+    { format: 'html', text: '' },
+    { format: 'unknown', text: '<p>Writing</p>' }
+  ]) {
+    assert.equal(ui.previewFormatted(source), false);
+    assert.deepEqual(formattedImportState($), before);
+    assert.equal(ui.pending(), false); assert.equal(assigned(), parsed, 'Preflight rejection does not construct an HTML tree.');
+  }
+  assert.equal(applications.length, 0);
+}));
+
+test('Article formatted paste refuses busy work and raw pending inputs before parsing them', () => withDOM(({ $, ui, busy, assigned, applications }) => {
+  $('body').value = 'Current article and ending'; $('reviewed').checked = true;
+  const source = { format: 'html', text: '<p>New source</p>' };
+  busy(true);
+  const beforeBusy = formattedImportState($);
+  assert.equal(ui.canPreviewFormatted(), false); assert.equal(ui.previewFormatted(source), false);
+  assert.deepEqual(formattedImportState($), beforeBusy); assert.equal(assigned(), 0);
+  busy(false); assert.equal(ui.canPreviewFormatted(), true);
+  for (const [id, value] of [['import-text', 'A pending article source'], ['import-source-url', 'https://example.com/original']]) {
+    $(id).value = value;
+    const before = formattedImportState($);
+    assert.equal(ui.canPreviewFormatted(), false); assert.equal(ui.previewFormatted(source), false);
+    assert.deepEqual(formattedImportState($), before); assert.equal(assigned(), 0);
+    $(id).value = '';
+  }
+  assert.equal(ui.canPreviewFormatted(), true); assert.equal(applications.length, 0);
+}));
+
+test('Article formatted paste cannot replace an acknowledged earlier conversion or its retained original source', () => withDOM(async ({ $, ui, parse, parsedSources, applications }) => {
+  const first = '<p>Keep the first formatted source.</p>';
+  parse(tree(element('p', ['Keep the first formatted source.'])));
+  $('body').value = 'Current article'; $('reviewed').checked = true;
+  assert.equal(ui.previewFormatted({ format: 'html', text: first }), true);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+  const before = formattedImportState($);
+  for (const second of ['<p>Do not replace the preview</p>', 'x'.repeat(MAX_IMPORT_BYTES + 1)]) {
+    assert.equal(ui.previewFormatted({ format: 'html', text: second }), false);
+    assert.deepEqual(formattedImportState($), before);
+    assert.deepEqual(parsedSources, [first]);
+  }
+  await $('preview-import').fire();
+  assert.deepEqual(parsedSources, [first, first]);
+  assert.equal($('import-body-preview').value, before.preview);
+  assert.equal($('import-changes-ok').checked, false);
+  assert.equal(applications.length, 0); assert.equal($('reviewed').checked, true);
+}));
+
+test('Article formatted paste retains exact copied HTML for header-choice re-preview with renewed acknowledgement', () => withDOM(async ({ $, ui, parse, parsedSources, applications }) => {
+  const raw = '<table><tr><td>Name</td></tr><tr><td>Fictional value</td></tr></table>';
+  parse(tree(element('table', [element('tr', [element('td', ['Name'])]), element('tr', [element('td', ['Fictional value'])])])));
+  $('body').value = 'Current article'; $('reviewed').checked = true;
+  $('import-first-row-headers').checked = true;
+  assert.equal(ui.previewFormatted({ format: 'html', text: raw }), true);
+  const preview = $('import-body-preview').value;
+  assert.match(preview, /\| Name \|/);
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+  $('import-first-row-headers').checked = false; await $('import-first-row-headers').fire('change');
+  assert.equal(ui.pending(), true); assert.equal($('import-changes-ok').checked, false); assert.equal($('import-text').value, '');
+  await $('preview-import').fire(); assert.equal($('apply-import').disabled, true);
+  await $('apply-import').fire(); assert.equal(applications.length, 0);
+  $('import-first-row-headers').checked = true; await $('import-first-row-headers').fire('change');
+  await $('preview-import').fire();
+  assert.deepEqual(parsedSources, [raw, raw, raw]);
+  assert.equal($('import-body-preview').value, preview); assert.equal($('import-changes-ok').checked, false);
+  assert.equal($('body').value, 'Current article'); assert.equal($('reviewed').checked, true);
+}));
+
+test('Reopening either formatted source control selects copied mode while preserving pending HTML, context and acknowledgement', () => withDOM(async ({ $, ui, parse, parsedSources, applications }) => {
+  const raw = '<p><a href="/guide">Guide</a></p>';
+  parse(tree(element('p', [element('a', ['Guide'], { href: '/guide' })])));
+  $('body').value = 'Existing article'; $('reviewed').checked = true;
+  $('import-format').value = 'html-source'; await $('import-format').fire('change');
+  $('import-text').value = raw; $('import-source-url').value = 'https://example.com/page';
+  await $('preview-import').fire();
+  $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+  const before = formattedImportState($);
+  for (const open of [ui.openFormatted, ui.openCopied, ui.openFormatted]) {
+    open(); assert.deepEqual(formattedImportState($), { ...before, format: 'html' });
+    assert.equal(ui.pending(), true); assert.equal(ui.staged(), true); assert.equal($('apply-import').disabled, false);
+  }
+  assert.deepEqual(parsedSources, [raw]); assert.equal(applications.length, 0);
+  await $('preview-import').fire(); assert.deepEqual(parsedSources, [raw, raw]);
+  assert.equal($('import-body-preview').value, '[Guide](https://example.com/guide)');
+}));
+
+test('Reopening copied controls preserves a selected Word file and its proposed-version choice, including retry after rejection', () => withDOM(async ({ $, ui, applications, message, assigned }) => {
+  const bytes = new Uint8Array(22); let reads = 0;
+  $('body').value = 'Existing article'; $('reviewed').checked = true;
+  $('import-file').files = [{ name: 'fictional-needs-repair.docx', size: bytes.length, arrayBuffer: async () => { reads++; return bytes.buffer; } }];
+  await $('import-file').fire('change');
+  assert.match(message(), /Word archive is damaged/);
+  assert.equal(ui.pending(), true); assert.equal($('import-word-options').hidden, false);
+  assert.equal($('import-word-revisions').value, 'require-clean');
+  $('import-word-revisions').value = 'proposed'; await $('import-word-revisions').fire('change');
+  const before = formattedImportState($);
+  for (const open of [ui.openFormatted, ui.openCopied]) {
+    open(); assert.deepEqual(formattedImportState($), { ...before, format: 'html' });
+    assert.equal($('import-word-options').hidden, false); assert.equal(ui.canPreviewFormatted(), false);
+  }
+  assert.equal(ui.previewFormatted({ format: 'html', text: '<p>Cannot replace the Word source</p>' }), false);
+  assert.deepEqual(formattedImportState($), { ...before, format: 'html' });
+  await $('preview-import').fire();
+  assert.match(message(), /Word archive is damaged/, 'Retry still reads the retained Word package rather than an empty copied source.');
+  assert.equal(reads, 1); assert.equal(assigned(), 0);
+  assert.equal($('import-word-revisions').value, 'proposed'); assert.equal(ui.pending(), true);
+  assert.equal($('body').value, 'Existing article'); assert.equal($('reviewed').checked, true); assert.equal(applications.length, 0);
+}));

@@ -82,8 +82,9 @@ test('Paste errors have one announcing status and retain field-level description
   assert.match(desk,/id="desk-status"[^>]+role="status"/);
   assert.match(desk,/aria-describedby="body-help body-count body-error body-paste-status"/);
   assert.match(importPanel,/aria-describedby="import-file-help import-html-help import-paste-status"/);
-  assert.doesNotMatch(desk,/id="body-paste-status"[^>]*aria-live/);
+  assert.doesNotMatch(desk,/id="body-paste-status"[^>]*(?:aria-live|role="(?:status|alert|log)")/);
   assert.doesNotMatch(importPanel,/id="import-paste-status"[^>]*role="status"/);
+  assert.doesNotMatch(importPanel,/id="import-file-status"[^>]*(?:aria-live|role="(?:status|alert|log)")/);
 });
 
 test('Import preview focus and mobile paste help are shared by every workspace',async()=>{

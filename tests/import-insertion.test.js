@@ -183,6 +183,39 @@ test('The article insertion shortcut preserves an existing candidate and contrib
   await stage(); const changes = state().workChanges; controller.openInsertion(); assert.equal($('import-destination').value, 'append'); assert.equal($('import-body-preview').value, 'Additional **writing**.'); assert.equal($('import-preview').hidden, false);
   assert.equal(controller.pending(), true); assert.ok(changes > 0); assert.equal($('import-destination').focused, true); assert.equal($('apply-import').disabled, true);
 }));
+test('A new article has one reviewed import path without insertion choices or replacement confirmation', () => ui(async ({ $, controller, workspace, stage, mode, state }) => {
+  workspace.draft = draft(''); $('body').value = '';
+  assert.equal($('import-join-options').hidden, true);
+  assert.equal($('import-new-article-help').hidden, false);
+  assert.equal($('import-destination').disabled, true);
+  await stage();
+  await mode('append');
+  assert.equal($('import-destination').value, 'replace');
+  assert.equal($('import-insertion-controls').hidden, true);
+  assert.equal($('apply-import').disabled, false);
+  controller.openInsertion();
+  assert.equal($('import-preview-heading').focused, true);
+  assert.equal($('import-destination').focused, undefined);
+  await $('apply-import').fire();
+  assert.equal(state().confirms, 0); assert.equal(state().replacements, 1); assert.equal(state().insertions, 0);
+  assert.equal(workspace.draft.body, 'Additional **writing**.');
+}, { hasArticle: () => false }));
+test('Insertion choices follow existing article work and discard an obsolete plan when the article is cleared', async () => {
+  let existing = false;
+  await ui(async ({ $, controller, stage, mode, state }) => {
+    $('body').value = ''; await stage();
+    assert.equal($('import-join-options').hidden, true);
+    $('body').value = 'Writing added after conversion.'; existing = true; controller.updateBusy();
+    assert.equal($('import-join-options').hidden, false); assert.equal($('import-new-article-help').hidden, true);
+    await mode('append'); await $('preview-insertion').fire();
+    assert.equal($('import-insertion-preview').hidden, false);
+    $('body').value = ''; existing = false; controller.updateBusy();
+    assert.equal($('import-join-options').hidden, true); assert.equal($('import-destination').value, 'replace');
+    assert.equal($('import-insertion-preview').hidden, true); assert.equal($('import-insertion-after').value, '');
+    assert.equal(controller.pending(), true); assert.equal($('import-body-preview').value, 'Additional **writing**.');
+    assert.equal(state().replacements, 0); assert.equal(state().insertions, 0);
+  }, { hasArticle: () => existing });
+});
 test('Unchanged private v1 files include only applied writing, with existing source and review questions', () => ui(async ({ $, workspace, stage, mode }) => {
   await stage(JSON.stringify(draft())); $('import-format').value = 'json'; await $('preview-import').fire(); await mode('append'); await $('preview-insertion').fire();
   const before = parseWorkspaceBackup(createWorkspaceBackup(workspace.source, workspace.draft)); assert.doesNotMatch(before.draft.body, /Additional/); assert.equal(before.source.notes, 'PRIVATE_SOURCE');

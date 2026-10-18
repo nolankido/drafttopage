@@ -83,6 +83,19 @@
 
 .import-panel #import-paste-status[data-result=ready]{color:var(--muted)}
 
+/* Source-specific entry pages put the usable input before optional guidance. */
+.converter-main .desk-intro:is([data-workspace="word-to-wordpress"],[data-workspace="word-to-markdown"],[data-workspace="google-docs"]){margin-bottom:.5rem}
+.converter-main .desk-intro:is([data-workspace="word-to-wordpress"],[data-workspace="word-to-markdown"],[data-workspace="google-docs"]) h1{font-size:clamp(1.8rem,3.7vw,2.65rem);line-height:1.15;margin:.25rem 0 .5rem}
+.converter-main .desk-intro:is([data-workspace="word-to-wordpress"],[data-workspace="word-to-markdown"],[data-workspace="google-docs"])>p:last-child{margin-bottom:.65rem}
+.import-panel:has(#import-entry-help)>summary{margin-bottom:.25rem}
+.import-panel:has(#import-entry-help) #import-fields>label:first-of-type{margin-top:.25rem}
+#import-entry-help{margin:.55rem 0 .65rem;max-width:80ch}
+.import-panel #import-file-status:empty,.import-panel #import-paste-status:empty{display:none}
+.import-entry-details,.import-advanced-options{margin:.55rem 0;padding:.4rem 0;border-top:1px solid var(--line);border-bottom:0}
+.import-entry-details[open]>summary,.import-advanced-options[open]>summary{margin-bottom:.65rem}
+.import-entry-details p:last-child{margin-bottom:.25rem}
+@media(max-width:600px){.import-panel:has(#import-entry-help){padding:.75rem}.import-panel:has(#import-entry-help) #import-text{min-height:6rem;font-size:1rem}}
+
 .preview-navigation{margin-block:1rem;padding:.8rem;background:var(--soft);border:1px solid var(--line);border-radius:5px;min-width:0;overflow-wrap:anywhere}.preview-navigation .check{margin:0}.preview-navigation p{margin:.45rem 0 0}.preview-passage{min-width:0;border-left:2px solid var(--line);padding:.5rem .7rem;margin:.9rem 0;scroll-margin-top:var(--workflow-offset,8rem)}.preview-passage:focus{outline:3px solid var(--accent);outline-offset:3px;background:var(--soft)}.preview-passage-jump{font-size:.75rem;line-height:1.4;text-align:left;white-space:normal;overflow-wrap:anywhere;max-width:100%;min-height:2.75rem;padding:.4rem .6rem}.preview-passage>p:last-child,.preview-passage>ul:last-child,.preview-passage>ol:last-child{margin-bottom:.35rem}#return-to-passage{max-width:100%;white-space:normal;min-height:2.75rem}
 @media(max-width:390px){.preview-navigation{padding:.65rem}.preview-passage{padding:.45rem .55rem;margin:.8rem 0}}
 
