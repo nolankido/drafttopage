@@ -22,6 +22,7 @@
     "check": "node scripts/check.mjs",
     "prepreview:mock": "npm run build",
     "preview:mock": "node scripts/preview.mjs",
+    "study:plan": "node scripts/alpha-session-plan.mjs",
     "study:init": "node scripts/alpha-study.mjs init",
     "study:report": "node scripts/alpha-study.mjs report"
   }

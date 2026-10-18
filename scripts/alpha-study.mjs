@@ -6,6 +6,30 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const template = JSON.parse(readFileSync(resolve(root, 'docs/alpha/session-record-template.json'), 'utf8'));
 const statuses = ['NOT_RUN', 'PASS_UNAIDED', 'PASS_ASSISTED', 'FAIL', 'DECLINED'];
+export const ISSUE_CATEGORIES = Object.freeze(['START','PREVIEW','FIDELITY','HANDOFF','RECOVERY','OTHER']);
+export const ALPHA_SOURCE_COHORTS = Object.freeze(['WORD','GOOGLE_DOCS','MARKDOWN']);
+// Never copy arbitrary source-app or issue note strings into an aggregate.
+function sourceCategory(value) {
+  const source = typeof value === 'string' ? value.toLowerCase().replace(/[ _-]+/g,' ').trim() : '';
+  if (['word','microsoft word','docx'].includes(source)) return 'WORD';
+  if (['google docs','docs'].includes(source)) return 'GOOGLE_DOCS';
+  if (['markdown','plain markdown','md'].includes(source)) return 'MARKDOWN';
+  return 'OTHER_OR_UNRECORDED';
+}
+function categorizedCounts(records) {
+  const result = Object.fromEntries([...ALPHA_SOURCE_COHORTS,'OTHER_OR_UNRECORDED'].map(key => [key,0]));
+  for (const record of records) result[sourceCategory(record.source_cohort)]++;
+  return result;
+}
+export function prioritizeAlphaIssues(counts) {
+  return ISSUE_CATEGORIES.filter(name => counts[name] > 0)
+    .sort((a,b) => counts[b] - counts[a] || ISSUE_CATEGORIES.indexOf(a) - ISSUE_CATEGORIES.indexOf(b))
+    .map(category => ({ category, affected_sessions: counts[category] }));
+}
+function issueCounts(records) {
+  return Object.fromEntries(ISSUE_CATEGORIES.map(key =>
+    [key, records.filter(record => record.issue_categories?.includes(key)).length]));
+}
 const completed = task => ['PASS_UNAIDED', 'PASS_ASSISTED'].includes(task.status);
 const median = values => {
   if (!values.length) return null;
@@ -32,6 +56,13 @@ export function validateSession(record) {
       !['NOT_RUN', 'OBSERVED'].includes(record.status)) invalid('Invalid session format, version or status.');
   if (Object.keys(record).some(key => !Object.hasOwn(template, key))) invalid('Unknown session field. Use the blank template; do not add personal identifiers.');
   if (record.session_id !== null && (!/^P\d{2,3}$/.test(record.session_id || '') || record.session_id.trim() !== record.session_id)) invalid('Use an anonymous session ID such as P01.');
+  // Only predefined, non-identifying tags enter the aggregate. Older version-2
+  // private records without issue_categories remain valid and count as untagged.
+  if (record.issue_categories !== undefined && (!Array.isArray(record.issue_categories) ||
+      record.issue_categories.length > ISSUE_CATEGORIES.length ||
+      new Set(record.issue_categories).size !== record.issue_categories.length ||
+      record.issue_categories.some(item => typeof item !== 'string' || !ISSUE_CATEGORIES.includes(item))))
+    invalid('Issue categories must be unique predefined category names, without writing or identifying details.');
   if (!Array.isArray(record.tasks) || record.tasks.length !== 6 ||
       record.tasks.some((task, index) => !object(task) || task.id !== 'T' + (index + 1) || !taskValid(task))) invalid('Tasks must contain T1 through T6 with consistent outcomes, times and hints.');
   const flags = ['article_ending_retained', 'private_material_in_export', 'unrecoverable_writing_loss',
@@ -56,6 +87,7 @@ export function validateSession(record) {
   if (record.status === 'NOT_RUN') {
     if (record.tasks.some(task => task.status !== 'NOT_RUN') || flags.some(key => record[key] !== null) ||
         record.setup_seconds !== null || record.second_article_delay_hours !== null ||
+        (record.issue_categories?.length ?? 0) !== 0 ||
         record.version === 2 && (record.evidence_type !== null || record.participant_qualified !== null ||
           record.consent_to_record_outcomes !== null || record.publishes_articles_per_month !== null ||
           record.paired_comparison.usual_workflow.status !== 'NOT_RUN' || record.paired_comparison.drafttopage.status !== 'NOT_RUN' ||
@@ -119,6 +151,9 @@ function summarizeRelease(records) {
   const target = (met, unknown = 0) => records.length < 10 ? 'PENDING' : met ? 'MET' : unknown ? 'PENDING' : 'NOT_MET';
   return { release_commit: records[0].release_commit, qualified_observed: records.length, enrolled_target_denominator: denominator,
     tasks, safety, comprehension, wordpress, repeat, paired_comparison: comparison,
+    actual_source_mix: categorizedCounts(records),
+    issue_category_counts: issueCounts(records),
+    issue_priority: prioritizeAlphaIssues(issueCounts(records)),
     targets: {
       first_conversion: target(first.statuses.PASS_UNAIDED >= threshold && first.median_unaided_completion_seconds <= 300, first.statuses.NOT_RUN),
       safety: safety.writing_loss + safety.private_material_exported + safety.article_ending_lost ? 'BLOCKED' : safety.missing_checks ? 'PENDING' : 'NO_INCIDENT_RECORDED',
@@ -137,19 +172,42 @@ export function summarizeSessions(input) {
   const observed = records.filter(record => record.version === 2 && record.status === 'OBSERVED' && record.evidence_type === 'HUMAN_OBSERVATION');
   const qualified = observed.filter(record => record.participant_qualified === true);
   const releases = [...new Set(qualified.map(record => record.release_commit))];
+  const releaseReports = releases.map(release => summarizeRelease(qualified.filter(record => record.release_commit === release)));
+  const critical = {
+    writing_loss: observed.filter(record => record.unrecoverable_writing_loss === true).length,
+    private_material_exported: observed.filter(record => record.private_material_in_export === true).length,
+    article_ending_lost: observed.filter(record => record.article_ending_retained === false).length
+  };
+  const missingSafety = observed.filter(record => record.unrecoverable_writing_loss === null ||
+    record.private_material_in_export === null ||
+    completed(record.tasks[0]) && record.article_ending_retained === null).length;
+  const unsafe = Object.values(critical).some(count => count > 0);
+  const expansion = unsafe ? 'STOP_FOR_SAFETY' : missingSafety ? 'HOLD_SAFETY_CHECKS_INCOMPLETE' :
+    qualified.length < 10 ? 'WAIT_FOR_QUALIFIED_SESSIONS' :
+    !releaseReports.some(report => report.qualified_observed >= 10) ? 'HOLD_NO_SINGLE_RELEASE_COHORT' :
+    !releaseReports.some(report => report.qualified_observed >= 10 &&
+      report.targets.first_conversion === 'MET' &&
+      report.targets.wordpress_save_reopen === 'MET_FOR_ATTEMPTED_CASES' &&
+      report.targets.title_understanding === 'MET' &&
+      report.targets.approval_understanding === 'MET' &&
+      report.targets.manual_publishing_understanding === 'MET' &&
+      report.targets.safety === 'NO_INCIDENT_RECORDED') ? 'HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION' :
+    'OWNER_REVIEW_REQUIRED';
   return { format: 'drafttopage-public-alpha-summary', version: 1,
-    study_status: !observed.length ? 'NOT_RUN' : qualified.length < 10 ? 'PARTIAL' : 'OBSERVATIONS_RECORDED',
+    study_status: !observed.length ? 'NOT_RUN' : !releaseReports.some(report => report.qualified_observed >= 10) ? 'PARTIAL' : 'OBSERVATIONS_RECORDED',
+    expansion_decision: expansion,
+    cohort_target: { WORD: 5, GOOGLE_DOCS: 3, MARKDOWN: 2 },
+    actual_qualified_source_mix: categorizedCounts(qualified),
+    issue_category_counts_qualified: issueCounts(qualified),
+    issue_priority_qualified: prioritizeAlphaIssues(issueCounts(qualified)),
     planned_cohort: 10, records_supplied: records.length, human_observations: observed.length, qualified_human_observations: qualified.length,
     not_run: records.filter(record => record.status === 'NOT_RUN').length,
     excluded_legacy: records.filter(record => record.version === 1 && record.status === 'OBSERVED').length,
     excluded_synthetic: records.filter(record => record.evidence_type === 'SYNTHETIC').length,
     excluded_unqualified: observed.length - qualified.length,
-    critical_incidents_all_human_observations: {
-      writing_loss: observed.filter(record => record.unrecoverable_writing_loss === true).length,
-      private_material_exported: observed.filter(record => record.private_material_in_export === true).length,
-      article_ending_lost: observed.filter(record => record.article_ending_retained === false).length
-    },
-    mixed_releases: releases.length > 1, releases: releases.map(release => summarizeRelease(qualified.filter(record => record.release_commit === release))),
+    critical_incidents_all_human_observations: critical,
+    missing_safety_checks_all_human_observations: missingSafety,
+    mixed_releases: releases.length > 1, releases: releaseReports,
     interpretation: 'Local transcription of recorded observations, not verification that sessions occurred. Missing and synthetic evidence never establish adoption, time savings or willingness to pay. Release cohorts stay separate. No participant notes or identifiers are included.' };
 }
 
