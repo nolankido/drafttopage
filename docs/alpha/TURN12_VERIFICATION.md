@@ -9,3 +9,5 @@ After the existing native Cloudflare production deployment, run npm run build fo
 The production smoke report is written locally to ignored test-results/production-smoke.json. Success proves only public HTTP behavior and a human-readable release label. It does not cryptographically attest Git commit or Worker version and does not perform any Word/Google Docs clipboard test, hosted WordPress save/reopen, device testing or real human study.
 
 The complete Node and routed-browser suites remain NOT_RUN until executed in a complete checkout. No GitHub Actions, new external service, tracking or runtime application requests are added.
+
+Turn 13 review remediation: validate every converter route by its actual `data-workspace` identity, reject broken named preview JavaScript exports and unsupported MIME, parse CSP once and reject duplicate effective directives, and replace stale smoke reports with explicit FAIL on preflight error. Synthetic Git fixture commits use `--no-gpg-sign` to work independently of a maintainer's global signing preference. These are safety fixes to the smoke tool, not a claim that a hosted WordPress save/reopen was run.

@@ -15,7 +15,7 @@ function fixture(run) {
     writeFileSync(join(root, '.gitignore'), 'test-results/\n');
     execFileSync('git', ['init', '--quiet'], { cwd: root });
     execFileSync('git', ['add', '.gitignore', 'package.json', 'tests'], { cwd: root });
-    execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--quiet', '-m', 'Fixture baseline'], { cwd: root });
+    execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--no-gpg-sign', '--quiet', '-m', 'Fixture baseline'], { cwd: root });
     writeFileSync(join(root, 'test-results', 'browser-results.json'), '{"result":"PASS"}');
     return run(root);
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -89,7 +89,7 @@ test('Moving Git HEAD during validation invalidates an otherwise green source di
     if (++calls === 4) {
       writeFileSync(join(root, 'test-results', 'browser-results.json'), JSON.stringify(goodEvidence));
       execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
-        'commit', '--allow-empty', '--quiet', '-m', 'Commit moved while checking'], { cwd: root });
+        'commit', '--no-gpg-sign', '--allow-empty', '--quiet', '-m', 'Commit moved while checking'], { cwd: root });
     }
     return { status: 0 };
   } });
