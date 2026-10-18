@@ -1132,3 +1132,47 @@ test('Visible thematic breaks in caption definition shells fail closed', () => {
   assert.doesNotMatch(hidden.markdown, /<hr|\*\*\*/);
   assert.ok(hidden.warnings.some(w => w.includes('hidden content')));
 });
+
+test('Each supported simple block caption wrapper preserves word and paragraph boundaries', () => {
+  const make = caption => element('table', [
+    caption, element('tr', [element('th', ['Metric'])]),
+    element('tr', [element('td', ['Present'])])
+  ]);
+  for (const name of ['section','article','aside','address','figure','figcaption']) {
+    const source = make(element('caption', [
+      element(name, ['First']),
+      element(name, ['Second'])
+    ]));
+    const original = JSON.stringify(source);
+    const result = convert(source);
+    assert.equal(JSON.stringify(source), original, name + ' source changed');
+    assert.match(result.markdown, /First\n\nSecond/);
+    assert.doesNotMatch(result.markdown, /FirstSecond/);
+    assert.ok(result.warnings.some(w => w.includes('Original caption placement')));
+  }
+  assert.throws(() => convert(make(element('caption', [
+    element('span', [element('section', ['First']), element('section', ['Second'])])
+  ]))), /Nested block wrappers/);
+});
+
+test('Visible empty wrapper boundary survives a separately omitted sibling', () => {
+  const hidden = element('span', ['private'], { hidden: '' });
+  for (const blank of [
+    element('p', [element('span'), hidden]),
+    element('div', [hidden, element('em')]),
+    element('p', [element('span', [element('i')]), hidden]),
+    element('section', [element('span', [' ']), hidden])
+  ]) {
+    const original = JSON.stringify(blank);
+    const result = convert(element('div', ['Before', blank, 'After']));
+    assert.equal(JSON.stringify(blank), original);
+    assert.equal(result.markdown, 'Before\n\nAfter');
+    assert.doesNotMatch(result.markdown, /private/);
+    assert.ok(result.warnings.some(w => w.includes('hidden content')));
+  }
+  const onlyHidden = convert(element('div', [
+    'Before', element('div', [element('span', ['PRIVATE'], { hidden: '' })]), 'After'
+  ]));
+  assert.equal(onlyHidden.markdown, 'BeforeAfter');
+  assert.doesNotMatch(onlyHidden.markdown, /PRIVATE/);
+});

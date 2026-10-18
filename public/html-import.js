@@ -319,7 +319,10 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
         for (const item of children(child)) if (ignoredReason(item)) skip(item);
         continue;
       }
-      if (['p', 'div'].includes(name)) {
+      // All recognized simple block containers delimit visible caption prose.
+      // The scan above rejects complex block semantics. Nested structures
+      // that would flatten ambiguously are still explicitly refused.
+      if (blocks.has(name)) {
         if (blockDescendants.has(child))
           throw new Error('Nested paragraph wrappers inside HTML table captions need review in the source editor before importing.');
         flush();
@@ -530,9 +533,14 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   // Empty rendered output can mean either a genuine blank/break-only
   // visible block or a wrapper around solely omitted content. Preserve
   // real source boundaries without giving hidden content a visible effect.
-  function omittedIn(node) {
-    if (ignoredReason(node)) return true;
-    return children(node).some(omittedIn);
+  // Distinguish a visible empty inline shell from a subtree made entirely of
+  // hidden/omitted content. A hidden sibling cannot cancel an empty block.
+  function hasVisibleSourceShape(node) {
+    if (ignoredReason(node)) return false;
+    if (node.nodeType === 3) return node.nodeValue.length > 0;
+    if (node.nodeType !== 1 && node.nodeType !== 11) return false;
+    const nested = children(node);
+    return !nested.length ? node.nodeType === 1 : nested.some(hasVisibleSourceShape);
   }
   function visibleEmptyBoundary(node) {
     if (ignoredReason(node)) return false;
@@ -540,9 +548,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     const nested = children(node);
     if (!nested.length) return blocks.has(tag(node)) || tag(node) === 'br';
     if (nested.some(visibleEmptyBoundary)) return true;
-    // A visible empty paragraph containing inert inline wrappers still
-    // separates text. Hidden-only descendants must not introduce a break.
-    return blocks.has(tag(node)) && !nested.some(omittedIn);
+    return blocks.has(tag(node)) && nested.some(hasVisibleSourceShape);
   }
   function flow(node, ancestorBold = false) {
     const result = []; let run = [];

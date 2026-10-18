@@ -182,7 +182,7 @@ test('Authored regression probes are explicit, independent of historical source 
       if (['rows', 'listItems', 'listPaths', 'links', 'strikes', 'quotes', 'inlineMarks', 'wordLinks'].some(key => key in item.expect)) withStructure++;
       for (const key of ['quotes', 'wordLinks']) if (key in item.expect) assert.ok(Array.isArray(item.expect[key]));
       if ('wordStructure' in item.expect) {
-        assert.equal(item.kind, 'docx');
+        assert.ok(['docx', 'html'].includes(item.kind));
         assert.equal(item.expect.wordStructure, true);
         assert.ok(item.expect.rows?.length && item.expect.listItems?.length);
       }
@@ -215,6 +215,14 @@ with zipfile.ZipFile(io.BytesIO(a)) as z:
     assert 'word/document.xml' in z.namelist()
     assert 'word/numbering.xml' in z.namelist()
     assert 'word/_rels/document.xml.rels' in z.namelist()
+    content_types=ET.fromstring(z.read('[Content_Types].xml'))
+    types_ns='{http://schemas.openxmlformats.org/package/2006/content-types}'
+    overrides={x.get('PartName'):x.get('ContentType') for x in content_types.findall(types_ns+'Override')}
+    defaults={x.get('Extension'):x.get('ContentType') for x in content_types.findall(types_ns+'Default')}
+    assert overrides['/word/numbering.xml']=='application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml'
+    assert overrides['/word/document.xml']=='application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml'
+    assert defaults['rels']=='application/vnd.openxmlformats-package.relationships+xml'
+    assert defaults['xml']=='application/xml'
     content=ET.fromstring(z.read('word/document.xml'))
     t=''.join((n.text or '') for n in content.iter() if n.tag.endswith('}t'))
     assert 'harbor 924.' in t
