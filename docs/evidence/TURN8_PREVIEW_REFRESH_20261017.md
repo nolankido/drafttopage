@@ -21,3 +21,23 @@ Those parser-only timings omit browser DOM creation, painting, device input queu
 ## Explicitly unverified
 
 Hardware-specific input-to-paint p95, iOS Safari paste and keyboard, Android Chrome, screen-reader focus transitions, and hosted WordPress draft acceptance remain **NOT_RUN** here. Synthetic queue tests prove schedule and state invariants, not physical device responsiveness.
+
+
+## Paired full-controller synthetic evidence from this turn
+
+An additional controlled V8-source simulation loaded the **actual unmodified main** \`public/preview-navigation.js\` at \`de8cdd09449492161e9fc72251c77d320ccf0f46\` and the candidate at \`fdaf53e17725a579c3e0c84fa962a59d8d84f2ec\`, together with the actual dependent \`preview.js\`, Markdown parser and inline-renderer modules. Both ran the same fictional rich 58,833-character body with 1,148 parsed passages against detached DOM-like node objects. A 15-edit burst appended one character at each step. Simulated keystrokes were spaced 7 ms apart, then the candidate's bounded timer was delivered after the burst.
+
+| Synthetic measurement | Prior main | Candidate |
+| --- | ---: | ---: |
+| Initial full reading-preview construction | 40 ms | 41 ms |
+| Sum of 15 synchronous refresh calls | 510 ms | 2 ms |
+| Full preview replacements through edit burst | 16 | 1 |
+| Full replacements after bounded delivery | 16 | 2 |
+| Final 15-character ending present | Yes | Yes |
+| Pending view inaccessible until new render | Not applicable | Yes (inert, aria-busy) |
+
+These **single-run** V8 timings are not ABBA medians or Chromium user-experience measurements. The supplied baseline is the entire old controller, not an invented rendering-only control. They validate that the candidate reduces repeated synchronous DOM construction under the selected source and event sequence. No full viewport layout, paint, device scheduler, clipboard paste, startup network cost, browser extension effects or hardware timings were measured. Only one source type and one burst length were used for this comparison. Do **not** use these numbers as a product p95 claim.
+
+For reruns on a complete repository checkout, \`node scripts/preview-input-benchmark.mjs\` produces a local controlled ordinary/rich same-source report for the checkout's implementation. Run it on the pinned before/after commits with identical Node versions. The script does not contact a website, fake a WordPress save, or assert browser/device budgets.
+
+This turn's direct source-level queue checks additionally confirmed a single callback wins during a burst, a 160 ms cap prevents indefinite deferral, source changes are read at execution rather than captured, and clear/explicit flush cancel pending work. The complete Node suite, full Chromium benchmark, real-device normal-document p95, paste and startup metrics are **NOT_RUN** in this environment.
