@@ -201,3 +201,9 @@
   .site-header .workspace-navigation{gap:.35rem .85rem}
   .site-header .workspace-navigation>a{min-height:2.75rem;align-content:center}
 }
+
+/* Approval-gated export shortcut retains the newer current-draft navigation styling. */
+.approved-export-shortcut{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin:.65rem 0 1rem;min-width:0}
+.approved-export-shortcut[hidden]{display:none}
+.approved-export-shortcut button{max-width:100%;white-space:normal}
+.approved-export-shortcut .small{margin:0;flex:1 1 14rem;overflow-wrap:anywhere}
