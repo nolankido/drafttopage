@@ -11,7 +11,7 @@ Run the deliberately invoked release preflight first on a **clean Git checkout**
     DRAFTTOPAGE_WORDPRESS_CLI=/absolute/existing/cli.js npm run preflight:release:full
     DRAFTTOPAGE_WORDPRESS_CLI=/absolute/existing/cli.js npm run verify:release:full
 
-The **strict full** command refuses to start if the WordPress CLI is not configured. It then runs build, all Node tests, static checks, the routed Playwright browser suite, actual isolated local WordPress paste/save/reopen/Media Library acceptance, and a separate source-bound WordPress receipt check. No earlier green receipt is reused. For a browser-only development check, `npm run verify:release` remains available, but its WordPress result is `NOT_RUN` unless WordPress CLI was supplied. A passing browser-only run must never be described as a full WordPress-qualified release.
+The **strict full** command refuses to start if the WordPress CLI is not configured. It then runs build, all Node tests, static checks, the routed Playwright browser suite, actual isolated local WordPress paste/save/reopen/Media Library acceptance, and a separate source-bound WordPress receipt check. No earlier green receipt is reused. For a browser-only development check, `npm run verify:release` remains available, but its WordPress result is `NOT_RUN` unless WordPress CLI was supplied. When a CLI is supplied, **both commands require** the separate source-bound WordPress receipt step, and the alpha promotion evaluator refuses a legacy report without that step. A passing browser-only run must never be described as a full WordPress-qualified release.
 
 For a faster isolated narrow-layout regression before full qualification, after building run:
 

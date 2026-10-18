@@ -32,6 +32,17 @@ test('Stale head, changed source, branch or uncommitted checkout blocks even wit
     const v=evaluateAlphaRelease({...args(),...extra});assert.equal(v.result,'BLOCKED');
   }
 });
+test('Alpha promotion requires the independent source-bound WordPress receipt even when the WordPress model passes',()=>{
+  const prior={...local,steps:local.steps.filter(step=>step.name!=='wordpress receipt')};
+  const result=evaluateAlphaRelease(args(complete(),prior));
+  assert.equal(result.result,'BLOCKED');
+  assert.ok(result.blockers.includes('fresh_complete_local_validation_required'));
+  for(const removed of ['wordpress', 'browser', 'source snapshot']){
+    const missing={...local,steps:local.steps.filter(step=>step.name!==removed)};
+    assert.ok(evaluateAlphaRelease(args(complete(),missing)).blockers.includes('fresh_complete_local_validation_required'));
+  }
+});
+
 test('Partial browser or WordPress run is never mistaken for complete validation',()=>{
   for(const modified of [{browser:{scope:'desk-only',checks:1,layoutChecks:3}},
     {wordpress:{result:'NOT_RUN'}},{steps:local.steps.filter(x=>x.name!=='browser')},{result:'FAIL'},{head:OLD}]){

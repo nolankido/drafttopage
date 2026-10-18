@@ -133,7 +133,10 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
     ['browser', env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['scripts/browser-smoke.py']]
   ];
   if (env.DRAFTTOPAGE_WORDPRESS_CLI) steps.push(['wordpress', env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['scripts/wordpress_roundtrip.py']]);
-  if (requireWordPress && env.DRAFTTOPAGE_WORDPRESS_CLI)
+  // Any successful WordPress-qualified release, including the older command
+  // with an explicitly set CLI, must carry independent source-bound receipt proof.
+  // A normal release command without a CLI still records WordPress NOT_RUN.
+  if (env.DRAFTTOPAGE_WORDPRESS_CLI)
     steps.push(['wordpress receipt', process.execPath, ['scripts/verify-wordpress-receipt.mjs']]);
   try {
     if (requireWordPress && !env.DRAFTTOPAGE_WORDPRESS_CLI)
