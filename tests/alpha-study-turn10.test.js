@@ -94,7 +94,7 @@ test('Owner review is held until first conversion and real destination checks pa
   for(const record of records.slice(0,3))record.tasks[0]=task('T1','PASS_ASSISTED',400,1);
   assert.equal(summarizeSessions(records).expansion_decision,'HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION');
   for(const record of records.slice(0,3))record.tasks[0]=task('T1');
-  records[0].approval_understood=false;
+  for(const record of records.slice(0,3))record.approval_understood=false;
   assert.equal(summarizeSessions(records).expansion_decision,'HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION');
 });
 test('Ten unrun placeholders yield zero outcomes and no priority claims',()=>{
