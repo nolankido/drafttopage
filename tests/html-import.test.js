@@ -543,6 +543,73 @@ function formattedImportState($) {
   };
 }
 
+test('Successful formatted import clears article paste notices after apply or apply and continue', async () => {
+  for (const action of ['apply-import', 'apply-import-and-continue']) {
+    let pasteNotice = '', continued = 0;
+    await withDOM(async ({ $, ui, applications, message }) => {
+      assert.equal(ui.previewFormatted({ format: 'html', text: '<p>Reviewed writing.</p>' }), true);
+      pasteNotice = 'Copied formatting opened in Import for review.';
+      if (action === 'apply-import-and-continue') {
+        assert.equal(ui.previewFormatted({ format: 'html', text: '<p>Another selection.</p>' }), false);
+        assert.match(pasteNotice, /Finish or clear the current import/);
+      }
+      const pendingNotice = pasteNotice;
+      await $(action).fire();
+      assert.equal(pasteNotice, pendingNotice); assert.equal(ui.pending(), true); assert.equal(applications.length, 0);
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+      await $(action).fire();
+      assert.equal(applications.length, 1); assert.equal(ui.pending(), false); assert.equal(pasteNotice, '');
+      assert.match(message(), /^Article imported locally/);
+      assert.equal(continued, action === 'apply-import-and-continue' ? 1 : 0);
+    }, { reportPaste: value => { pasteNotice = value; }, continueToExport: () => { continued++; } });
+  }
+});
+
+test('Cancelling or explicitly clearing an import clears article paste notices and keeps current writing', async () => {
+  for (const action of ['cancel-import', 'clear']) {
+    let pasteNotice = '';
+    await withDOM(async ({ $, ui, applications }) => {
+      $('body').value = 'Keep the current article.'; $('reviewed').checked = true;
+      assert.equal(ui.previewFormatted({ format: 'html', text: '<p>Pending writing.</p>' }), true);
+      pasteNotice = 'Copied formatting opened in Import for review.';
+      if (action === 'clear') {
+        assert.equal(ui.previewFormatted({ format: 'html', text: '<p>Another selection.</p>' }), false);
+        assert.match(pasteNotice, /Finish or clear the current import/);
+      }
+      if (action === 'clear') ui.clear(); else await $('cancel-import').fire();
+      assert.equal(pasteNotice, ''); assert.equal(ui.pending(), false); assert.equal(ui.staged(), false);
+      assert.equal($('body').value, 'Keep the current article.'); assert.equal($('reviewed').checked, true);
+      assert.equal(applications.length, 0);
+    }, { reportPaste: value => { pasteNotice = value; } });
+  }
+});
+
+test('Refused or failed formatted import keeps its article paste notice and retained preview source', async () => {
+  for (const failure of ['confirmation', 'checkpoint']) {
+    let pasteNotice = '';
+    await withDOM(async ({ $, ui, confirm, fail, applications, parsedSources, message }) => {
+      const source = { format: 'html', text: '<p>Retain this formatted source.</p>' };
+      $('body').value = 'Keep the current article.'; $('reviewed').checked = true;
+      assert.equal(ui.previewFormatted(source), true);
+      pasteNotice = 'Copied formatting opened in Import for review.';
+      if (failure === 'confirmation') confirm(false);
+      else {
+        assert.equal(ui.previewFormatted({ format: 'html', text: '<p>Another selection.</p>' }), false);
+        assert.match(pasteNotice, /Finish or clear the current import/);
+        fail();
+      }
+      $('import-changes-ok').checked = true; await $('import-changes-ok').fire('change');
+      const before = formattedImportState($), pendingNotice = pasteNotice;
+      await $('apply-import').fire();
+      assert.match(message(), failure === 'confirmation' ? /Import cancelled/ : /Checkpoint refused/);
+      assert.equal(pasteNotice, pendingNotice); assert.deepEqual(formattedImportState($), before);
+      assert.equal(ui.pending(), true); assert.equal(applications.length, 0);
+      await $('preview-import').fire();
+      assert.deepEqual(parsedSources, [source.text, source.text]); assert.equal(pasteNotice, pendingNotice);
+    }, { reportPaste: value => { pasteNotice = value; } });
+  }
+});
+
 test('Article formatted paste stages the shared conversion without changing writing or export approval, then requires explicit acknowledgement and apply', () => withDOM(async ({ $, ui, parse, parsedSources, applications, intents }) => {
   const raw = '<h1>Fictional new title</h1><p>A <strong>formatted</strong> paragraph.</p><p>UNIQUE_END</p>';
   parse(tree(element('h1', ['Fictional new title']), element('p', ['A ', element('strong', ['formatted']), ' paragraph.']), element('p', ['UNIQUE_END'])));

@@ -15,6 +15,7 @@ import re
 import shutil
 import subprocess
 import sys
+import time
 from contextlib import contextmanager
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
@@ -41,6 +42,20 @@ report = {'mode':'local routed responses, real ES modules and CSP; no live authe
 source = {'profile':'update','notes':'Fictional source notes, not part of the article.','audience':'Readers','purpose':'Explain the experiment.'}
 draft = {'title':'An edited local article','excerpt':'A brief summary.','description':'A factual description.','slug':'edited-local-article','body':'An article paragraph.\n\n## A heading\n\n- One\n- Two','questions':['Does this preserve uncertainty?']}
 backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':draft}
+
+def wait_for_recovery_body(page, key, expected):
+    # Playwright's wait_for_function uses eval in some versions, which the
+    # production CSP correctly rejects. Poll the actual stored fixture with
+    # ordinary browser evaluation and keep the exact-content assertion.
+    deadline = time.monotonic() + 15
+    while True:
+        raw = page.evaluate('(key)=>localStorage.getItem(key)', key)
+        saved = json.loads(raw) if raw else {}
+        if saved.get('workspace', {}).get('draft', {}).get('body') == expected:
+            return
+        if time.monotonic() >= deadline:
+            raise AssertionError('Browser recovery did not save the exact expected fictional article.')
+        page.wait_for_timeout(25)
 
 @contextmanager
 def static_download_site():
@@ -870,7 +885,8 @@ with sync_playwright() as p:
     assert Path(info.value.path()).read_text()==copied_blocks
     assert page.evaluate('navigator.clipboard.readText()')==copied_blocks
     # A pending clipboard permission must not blur the initiating keyboard
-    # button or pull focus back after the user moves to another action/editor.
+    # button. Success preserves later user focus; denial reveals the approved
+    # read-only source so a keyboard user can complete the manual fallback.
     page.evaluate("""()=>{
       const native=navigator.clipboard.writeText.bind(navigator.clipboard);
       window.focusClipboard={calls:[]};
@@ -898,13 +914,22 @@ with sync_playwright() as p:
         expect(page.locator('#wordpress-action-status')).to_contain_text('Download the blocks' if focus_action=='deny' else 'earlier export' if focus_action=='edit' else 'WordPress blocks copied')
         if focus_action=='tab':expect(page.locator('#download-wordpress')).to_be_focused()
         elif focus_action=='edit':expect(page.locator('#body')).to_be_focused()
+        elif focus_action=='deny':
+            manual_source=page.locator('#wordpress-code-preview')
+            expect(manual_source).to_be_visible()
+            expect(manual_source).to_be_focused()
+            expect(manual_source).to_have_value(copied_blocks)
+            assert manual_source.evaluate('el=>el.readOnly')
+            assert page.locator('#wordpress-code-panel').evaluate('el=>el.open')
+            assert page.locator('#body').input_value()==draft['body'] and page.locator('#reviewed').is_checked()
+            assert page.evaluate('navigator.clipboard.readText()')==copied_blocks
         else:expect(copy_button).to_be_focused()
         assert instructions.evaluate('el=>el.open')==(focus_action in ['stay','tab'])
         assert copy_button.evaluate('el=>el.disabled')==(focus_action=='edit')
         if focus_action!='edit':assert copy_button.get_attribute('aria-disabled')=='false'
         if focus_action!='deny':assert page.evaluate('navigator.clipboard.readText()')==copied_blocks
     layout(page,'wordpress-visual-paste');assert state['api']==[];context.close()
-    report['checks'].append('Direct WordPress handoff UI: native keyboard copy and clipboard bytes, success opens Visual-paste steps below stationary section controls, pending/success/denial focus retention, duplicate-key exclusion, later Tab/editor focus preserved, stale edits unapproved, keyboard Code-editor fallback, exact downloaded source, private-field exclusions, and narrow layouts')
+    report['checks'].append('Direct WordPress handoff UI: native keyboard copy and clipboard bytes, success opens Visual-paste steps below stationary section controls, pending/success focus retention, denial focuses exact approved read-only source, duplicate-key exclusion, later Tab/editor focus preserved on success, stale edits unapproved, keyboard Code-editor fallback, exact downloaded source, private-field exclusions, and narrow layouts')
     # A complete held Enter must finish before restore can hand focus to writing.
     for recovery_route in ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']:
         page,context,state=open_page('/'+recovery_route+'/')
@@ -992,7 +1017,7 @@ with sync_playwright() as p:
     expect(page.locator('#body')).to_have_value('Fictional keyboard recovery article.')
     assert not page.locator('#reviewed').is_checked() and page.locator('#checkpoint-select option').count()==1
     page.locator('#body').focus();page.keyboard.press('End');page.keyboard.type(' Saved automatically.')
-    page.wait_for_function('(key)=>JSON.parse(localStorage.getItem(key)).workspace.draft.body.endsWith(" Saved automatically.")',arg=recovery_key)
+    wait_for_recovery_body(page,recovery_key,'Fictional keyboard recovery article. Saved automatically.')
     expect(page.locator('#body')).to_be_focused()
     other=context.new_page();other.on('pageerror',lambda error:report['errors'].append(str(error)));other.goto(origin+'/write/')
     other.evaluate('(key)=>{const value=JSON.parse(localStorage.getItem(key));value.savedAt=new Date(Date.now()+1000).toISOString();localStorage.setItem(key,JSON.stringify(value));}',recovery_key)
@@ -1056,7 +1081,7 @@ with sync_playwright() as p:
     page.click('#preview-import')
     expect(page.locator('#import-preview')).to_be_visible()
     page.fill('#body','Newest fictional recovery article.')
-    page.wait_for_function('(key)=>JSON.parse(localStorage.getItem(key)).workspace.draft.body==="Newest fictional recovery article."',arg=recovery_key)
+    wait_for_recovery_body(page,recovery_key,'Newest fictional recovery article.')
     expect(page.locator('#article-save-status')).to_contain_text('Current writing saved in this browser')
     assert 'PENDING_IMPORT_ONLY' not in page.evaluate('(key)=>localStorage.getItem(key)',recovery_key)
     expect(page.locator('#import-preview')).to_be_visible()
@@ -2278,6 +2303,8 @@ with sync_playwright() as p:
     with page.expect_file_chooser() as choice: page.click('#start-word-file')
     choice.value.set_files({'name':'fictional-images.docx','mimeType':'application/vnd.openxmlformats-officedocument.wordprocessingml.document','buffer':image_docx})
     expect(page.locator('#import-summary')).to_contain_text('Word document')
+    expect(page.locator('#apply-import')).to_be_disabled()
+    page.check('#word-image-choice-kit')
     page.click('#prepare-word-images');expect(page.locator('#word-image-kit-review')).to_be_visible()
     page.check('#word-image-private-ok')
     with page.expect_download() as info:page.click('#download-word-images')
@@ -2287,7 +2314,13 @@ with sync_playwright() as p:
         assert json.loads(image_map)['placements'][2]['filename']=='word-image-001.png'
         with zipfile.ZipFile(io.BytesIO(image_docx)) as original:
             assert z.read('word-image-001.png')==original.read('word/media/one.png')
-    page.check('#import-changes-ok');page.click('#apply-import')
+    page.check('#import-changes-ok')
+    expect(page.locator('#apply-import')).to_be_disabled()
+    expect(page.locator('#word-image-saved-ok')).to_be_visible()
+    expect(page.locator('#word-image-saved-ok')).not_to_be_checked()
+    page.check('#word-image-saved-ok')
+    expect(page.locator('#apply-import')).to_be_enabled()
+    page.click('#apply-import')
     image_article=page.locator('#body').input_value();page.check('#reviewed')
     open_details(page,'#editing-tools');page.click('#start-image-editor');page.click('#image-use-placeholder')
     open_details(page,'#image-map-panel')

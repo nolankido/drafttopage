@@ -69,7 +69,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
   };
   const clear = () => { clearPreview(); wordFile = null; copiedSource = null; copiedFailed = false; if ($('import-word-options')) $('import-word-options').hidden = true; if ($('import-word-revisions')) $('import-word-revisions').value = 'require-clean'; $('import-file-status').textContent = ''; workChanged(); };
   const clearAll = () => { resetSourceURL(); clear(); };
-  const discardImport = () => { $('import-text').value = ''; sourceName = ''; clearAll(); };
+  const discardImport = () => { $('import-text').value = ''; sourceName = ''; clearAll(); reportPaste(''); };
   function previewCopied(source) {
     let result; const options = htmlOptions(), key = JSON.stringify(options);
     try { result = parseCopiedWriting(source, options); }
