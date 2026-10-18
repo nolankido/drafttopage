@@ -298,6 +298,67 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     const line = row => '| ' + row.map(cell => skip(cell) ? '' : flattened(children(cell))).join(' | ') + ' |';
     return [...captions.filter(Boolean), line(cells[0]), '| ' + align.map(value => value === 'center' ? ':---:' : value === 'right' ? '---:' : value === 'left' ? ':---' : '---').join(' | ') + ' |', ...cells.slice(1).map(line)].join('\n');
   }
+  function quote(node, ancestorBold) {
+    const softBreak = Symbol('quote block boundary'), lineBreak = Symbol('quote line break');
+    const tableParts = new Set('caption thead tbody tfoot tr th td'.split(' '));
+    const simplifiedBlocks = new Set('blockquote ul ol li table pre hr h1 h2 h3 h4 h5 h6 dl dt dd'.split(' '));
+    let simplified = false;
+    // Split at source boundaries before serializing. Each detached fragment
+    // retains its inline ancestors, so links and explicit normal-weight resets
+    // survive even when their wrappers span more than one quoted paragraph.
+    const fragment = (source, childNodes) => ({
+      nodeType: 1, localName: tag(source), childNodes,
+      getAttribute: name => attr(source, name),
+      hasAttribute: name => source.hasAttribute(name)
+    });
+    const isBreak = token => token === softBreak || token === lineBreak;
+    function tokens(container, inPre = false) {
+      const result = [];
+      for (const child of children(container)) {
+        if (skip(child)) continue;
+        rejectFlattenedChecklist(child);
+        if (child.nodeType === 3) {
+          const lines = inPre ? child.nodeValue.replace(/\r\n?/g, '\n').split('\n') : [child.nodeValue];
+          lines.forEach((nodeValue, index) => {
+            if (index) result.push(lineBreak);
+            result.push({ nodeType: 3, nodeValue, childNodes: [] });
+          });
+          continue;
+        }
+        if (child.nodeType !== 1) continue;
+        const name = tag(child);
+        if (name === 'br') { result.push(lineBreak); continue; }
+        if (simplifiedBlocks.has(name) || tableParts.has(name)) simplified = true;
+        const boundary = blocks.has(name) || tableParts.has(name) || ['dl', 'dt', 'dd'].includes(name);
+        if (boundary) result.push(softBreak);
+        let run = [];
+        const flush = () => { if (run.length) result.push(fragment(child, run)); run = []; };
+        const contents = tokens(child, inPre || name === 'pre');
+        if (!contents.length) result.push(fragment(child, []));
+        for (const token of contents) {
+          if (isBreak(token)) { flush(); result.push(token); }
+          else run.push(token);
+        }
+        flush();
+        if (boundary) result.push(softBreak);
+      }
+      return result;
+    }
+    const lines = []; let run = [];
+    const flush = explicitBreak => {
+      const value = run.length ? inheritedInline(fragment(node, run), ancestorBold).trim() : '';
+      if (value || explicitBreak) lines.push(value);
+      run = [];
+    };
+    for (const token of tokens(node)) {
+      if (isBreak(token)) flush(token === lineBreak);
+      else run.push(token);
+    }
+    flush(false);
+    if (simplified) warn('Nested block structure inside a quote was flattened to quoted text. Lists, tables, headings, nested quotes, and code blocks do not keep their block structure. Inspect the resulting line breaks.');
+    const quoted = lines.join('\n').replace(/^\n+|\n+$/g, '');
+    return quoted ? quoted.split('\n').map(line => '> ' + line).join('\n') : '';
+  }
   function render(node, ancestorBold = false) {
     if (skip(node)) return '';
     const name = tag(node), currentBold = boldWithin(node, ancestorBold);
@@ -317,11 +378,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       const fence = '`'.repeat(fenceLength);
       return fence + '\n' + text + (text.endsWith('\n') ? '' : '\n') + fence;
     }
-    if (name === 'blockquote') {
-      warn('Blockquote structure was simplified to quoted text.');
-      const quoted = children(node).map(child => plain(child) + (blocks.has(tag(child)) ? '\n' : '')).join('').trim();
-      return quoted.split('\n').map(line => '> ' + escapeText(whitespace(line))).join('\n');
-    }
+    if (name === 'blockquote') return quote(node, currentBold);
     if (name === 'hr') return '***';
     if (name === 'li') throw new Error('A list item is outside its list. Correct the source before importing.');
     if (blockDescendants.has(node)) return flow(node, currentBold);

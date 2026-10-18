@@ -1,7 +1,7 @@
 {
   "version": 1,
   "origin": "authored-synthetic",
-  "scope": "Locally authored fictional Markdown input cases. These are not application-origin captures, real user documents, device tests, or compatibility evidence.",
+  "scope": "Locally authored fictional Markdown and HTML input cases. These are not application-origin captures, real user documents, device tests, or compatibility evidence.",
   "cases": [
     {
       "id": "authored-cjk",
@@ -281,6 +281,107 @@
         "error": "lowercase letters"
       },
       "reason": "Unsafe slug values must reject rather than being silently rewritten."
+    },
+    {
+      "id": "authored-html-quote-inline-citation",
+      "kind": "html",
+      "source": "<blockquote><p>Keep <strong>bold</strong>, <em>italic</em>, <code>sample()</code>, and <s>old</s>.</p><p>Read <a href=\"https://example.com/research?view=quote&amp;edition=1\"><strong>the source</strong></a>.</p></blockquote><p>Final quote sentinel: lantern 418.</p>",
+      "expect": {
+        "category": "preserved",
+        "text": "Keep bold, italic, sample(), and old. Read the source. Final quote sentinel: lantern 418.",
+        "quotes": [
+          "Keep bold, italic, sample(), and old. Read the source."
+        ],
+        "inlineMarks": {
+          "strong": [
+            "bold",
+            "the source"
+          ],
+          "em": [
+            "italic"
+          ],
+          "code": [
+            "sample()"
+          ]
+        },
+        "strikes": [
+          "old"
+        ],
+        "links": [
+          {
+            "text": "the source",
+            "href": "https://example.com/research?view=quote&edition=1"
+          }
+        ],
+        "wordLinks": [
+          {
+            "text": "the source",
+            "href": "https://example.com/research?view=quote&edition=1"
+          }
+        ],
+        "forbiddenWarnings": [
+          "Nested block structure inside a quote",
+          "Blockquote structure was simplified to quoted text."
+        ]
+      },
+      "reason": "A fictional multi-paragraph quote must preserve its citation, each supported inline mark, quote structure, and final paragraph in actual HTML and Word output.",
+      "ui": true
+    },
+    {
+      "id": "authored-html-quote-nested-disclosure",
+      "kind": "html",
+      "source": "<blockquote><p>Opening note.</p><h3>Section label</h3><ul><li>First nested item</li><li>Second nested item</li></ul><blockquote><p>Inner quoted line.</p></blockquote><p>Closing note.</p></blockquote><p>Final flattened sentinel: stone 620.</p>",
+      "expect": {
+        "category": "disclosed",
+        "text": "Opening note. Section label First nested item Second nested item Inner quoted line. Closing note. Final flattened sentinel: stone 620.",
+        "quotes": [
+          "Opening note. Section label First nested item Second nested item Inner quoted line. Closing note."
+        ],
+        "rows": [],
+        "listItems": [],
+        "warnings": [
+          "Nested block structure inside a quote was flattened to quoted text. Lists, tables, headings, nested quotes, and code blocks do not keep their block structure. Inspect the resulting line breaks."
+        ]
+      },
+      "reason": "Nested fictional quote content must keep all visible text while disclosing the loss of list, heading, and nested-quote block structure before replacement.",
+      "ui": true
+    },
+    {
+      "id": "authored-html-quote-hidden-unsafe",
+      "kind": "html",
+      "source": "<blockquote><p>Visible <span hidden>HIDDEN_QUOTE_519</span><span style=\"display:none\">HIDDEN_STYLE_519</span><script>SCRIPT_QUOTE_519</script><a href=\"javascript:alert(1)\">unsafe label</a> remains.</p></blockquote><p>Final privacy sentinel: cedar 519.</p>",
+      "expect": {
+        "category": "disclosed",
+        "text": "Visible unsafe label remains. Final privacy sentinel: cedar 519.",
+        "quotes": [
+          "Visible unsafe label remains."
+        ],
+        "links": [],
+        "wordLinks": [],
+        "forbidden": [
+          "HIDDEN_QUOTE_519",
+          "HIDDEN_STYLE_519",
+          "SCRIPT_QUOTE_519"
+        ],
+        "warnings": [
+          "Explicitly hidden content was omitted.",
+          "Embedded, interactive, or document-only content was omitted.",
+          "Unsafe, unresolved relative, missing, or nested link targets were omitted; their text was kept."
+        ]
+      },
+      "reason": "A fictional quote must omit explicitly hidden and active content while retaining an unsafe link label as inert text and disclosing every loss.",
+      "ui": true
+    },
+    {
+      "id": "authored-html-quote-checklist-rejected",
+      "kind": "html",
+      "source": "<blockquote><ul><li role=\"checkbox\" aria-checked=\"true\">Keep checked state</li></ul></blockquote><p>Final rejected quote sentinel: pine 731.</p>",
+      "expect": {
+        "category": "rejected",
+        "error": "Checklist items inside this container cannot be preserved."
+      },
+      "reason": "Visible checkbox state inside a quote cannot be flattened silently and must reject without replacing the writer's existing article or approval.",
+      "ui": true
     }
   ]
 }

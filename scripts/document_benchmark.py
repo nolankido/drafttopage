@@ -1,7 +1,8 @@
 """Offline corpus checks using the product's real browser modules and import UI.
 
-Source files are pinned upstream artifacts. Expectations are reviewed from source
-text and the documented conversion contract, never regenerated from our output.
+Pinned upstream artifacts and separately labeled fictional Markdown/HTML probes
+use expectations reviewed from source text and the documented conversion contract,
+never regenerated from our output.
 """
 import base64
 import hashlib
@@ -28,6 +29,8 @@ class ArticleHTML(HTMLParser):
         self.items = []
         self.links = []
         self.strikes = []
+        self.quotes = []
+        self.inline_marks = {name: [] for name in ['strong', 'em', 'code']}
         self.active = []
         self.unsafe = []
         self.images = 0
@@ -60,9 +63,12 @@ class ArticleHTML(HTMLParser):
             self.images += 1
         if tag in ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'th', 'td', 'pre', 'br']:
             self.text.append(' ')
+            for node in self.active:
+                if node['tag'] == 'blockquote':
+                    node['text'].append(' ')
         if tag == 'tr':
             self.rows.append([])
-        if tag in ['th', 'td', 'li', 'a', 's']:
+        if tag in ['th', 'td', 'li', 'a', 's', 'blockquote', 'strong', 'em', 'code']:
             self.active.append({'tag': tag, 'text': [], 'href': attrs.get('href')})
 
     def handle_data(self, text):
@@ -80,6 +86,9 @@ class ArticleHTML(HTMLParser):
             self.list_stack.pop()
         if tag in ['p', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'th', 'td', 'pre']:
             self.text.append(' ')
+            for node in self.active:
+                if node['tag'] == 'blockquote':
+                    node['text'].append(' ')
         for i in range(len(self.active) - 1, -1, -1):
             node = self.active[i]
             if node['tag'] != tag:
@@ -91,6 +100,10 @@ class ArticleHTML(HTMLParser):
                 self.items.append(text)
             elif tag == 's':
                 self.strikes.append(text)
+            elif tag == 'blockquote':
+                self.quotes.append(text)
+            elif tag in self.inline_marks:
+                self.inline_marks[tag].append(text)
             elif tag == 'a':
                 self.links.append({'text': text, 'href': node['href']})
             self.active.pop(i)
@@ -110,6 +123,65 @@ def word_text(encoded):
                 return ' '
             return ''.join(text(child) for child in node) + (' ' if node.tag == ns + 'p' else '')
         return normalized(text(root))
+
+
+def check_word_quote_fidelity(encoded, wanted):
+    """Inspect only explicitly requested quote, inline-mark, and hyperlink fields."""
+    checked = {}
+    with zipfile.ZipFile(io.BytesIO(base64.b64decode(encoded))) as archive:
+        document = ET.fromstring(archive.read('word/document.xml'))
+        ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+        relationships = '{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
+        package = '{http://schemas.openxmlformats.org/package/2006/relationships}'
+
+        def text(node):
+            return normalized(''.join(' ' if child.tag in [ns + 'br', ns + 'tab'] else child.text or ''
+                                      for child in node.iter() if child.tag in [ns + 't', ns + 'br', ns + 'tab']))
+
+        if 'quotes' in wanted:
+            quotes = []
+            for paragraph in document.iter(ns + 'p'):
+                style = paragraph.find(ns + 'pPr/' + ns + 'pStyle')
+                if style is not None and style.get(ns + 'val') == 'Quote':
+                    quotes.append(text(paragraph))
+            assert quotes == wanted['quotes'], 'Word quote paragraph structure changed'
+            checked['quotes'] = 'independent HTML blockquotes and Word Quote paragraphs checked'
+
+        if 'inlineMarks' in wanted:
+            marks = {name: [] for name in ['strong', 'em', 'code']}
+            for run in document.iter(ns + 'r'):
+                properties = run.find(ns + 'rPr')
+                if properties is None:
+                    continue
+                for name, property_name in [('strong', 'b'), ('em', 'i')]:
+                    prop = properties.find(ns + property_name)
+                    if prop is not None and prop.get(ns + 'val', 'true') not in ['0', 'false', 'off']:
+                        marks[name].append(text(run))
+                style = properties.find(ns + 'rStyle')
+                fonts = properties.find(ns + 'rFonts')
+                if ((style is not None and style.get(ns + 'val') == 'CodeChar') or
+                        (fonts is not None and fonts.get(ns + 'ascii') == fonts.get(ns + 'hAnsi') == 'Courier New')):
+                    marks['code'].append(text(run))
+            for name, expected in wanted['inlineMarks'].items():
+                assert name in marks, 'Unknown inline mark expectation: ' + name
+                assert marks[name] == expected, 'Word ' + name + ' inline mark changed'
+            checked['inlineMarks'] = 'independent HTML tags and Word run properties checked'
+
+        if 'wordLinks' in wanted:
+            relationship_root = ET.fromstring(archive.read('word/_rels/document.xml.rels'))
+            targets = {node.get('Id'): node for node in relationship_root.findall(package + 'Relationship')}
+            links = []
+            for hyperlink in document.iter(ns + 'hyperlink'):
+                relation = targets.get(hyperlink.get(relationships + 'id'))
+                assert relation is not None, 'Word hyperlink relationship is missing'
+                assert relation.get('Type') == relationships[1:-1] + '/hyperlink', 'Word hyperlink relationship type changed'
+                assert relation.get('TargetMode') == 'External', 'Word hyperlink external target mode changed'
+                target = relation.get('Target', '')
+                assert re.match(r'^https?://', target, re.I), 'Word hyperlink target is unsafe'
+                links.append({'text': text(hyperlink), 'href': target})
+            assert links == wanted['wordLinks'], 'Word hyperlink labels or targets changed'
+            checked['wordLinks'] = 'independent Word hyperlink labels and external relationships checked'
+    return checked
 
 
 def check_conversion(result, wanted):
@@ -136,9 +208,14 @@ def check_conversion(result, wanted):
         assert not any(warning in text for text in result['warnings']), 'Unexpected loss disclosure: ' + warning
     for article in articles:
         assert not article.unsafe and not article.images, 'Unexpected active HTML or image load'
-        for key, actual in [('rows', article.rows), ('listItems', article.items), ('listPaths', article.list_paths), ('links', article.links), ('strikes', article.strikes)]:
+        for key, actual in [('rows', article.rows), ('listItems', article.items), ('listPaths', article.list_paths), ('links', article.links), ('strikes', article.strikes), ('quotes', article.quotes)]:
             if key in wanted:
                 assert actual == wanted[key], key + ' structure changed'
+        for mark, expected in wanted.get('inlineMarks', {}).items():
+            assert mark in article.inline_marks, 'Unknown inline mark expectation: ' + mark
+            assert article.inline_marks[mark] == expected, 'HTML ' + mark + ' inline mark changed'
+    if any(key in wanted for key in ['quotes', 'inlineMarks', 'wordLinks']):
+        checked.update(check_word_quote_fidelity(result['word'], wanted))
     if 'listPaths' in wanted:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
             document = ET.fromstring(archive.read('word/document.xml'))
@@ -227,13 +304,13 @@ def run_document_benchmark(open_page, root, out):
                 digest = hashlib.sha256(source).hexdigest()
                 assert digest == fixtures[case['file']]['sha256'], 'Fixture bytes differ from the pinned corpus'
             else:
-                assert case['kind'] == 'md' and case['id'].startswith('authored-'), 'Unknown authored case format'
+                assert case['kind'] in ['md', 'html'] and case['id'].startswith('authored-'), 'Unknown authored case format'
                 source = case['source'].encode('utf-8')
                 assert len(source) <= 512 * 1024, 'Authored source exceeds import limit'
-                kind = 'md'
+                kind = case['kind']
                 digest = hashlib.sha256(source).hexdigest()
-                source_ref = 'Locally authored fictional Markdown test input, not an application capture'
-            entry.update({'sourceSha256': digest, 'source': source_ref})
+                source_ref = 'Locally authored fictional ' + ('HTML' if kind == 'html' else 'Markdown') + ' test input, not an application capture'
+            entry.update({'sourceSha256': digest, 'source': source_ref, 'kind': kind})
             page, context, state = open_page('/write/')
             expect(page.locator('#desk-status')).to_contain_text('ready')
             page.fill('#title', 'Existing benchmark writing')
@@ -262,7 +339,8 @@ def run_document_benchmark(open_page, root, out):
                     page.locator('#import-file').set_input_files(str(path))
                 else:
                     page.locator('#import-file').set_input_files({
-                        'name': case['id'] + '.md', 'mimeType': 'text/markdown', 'buffer': source
+                        'name': case['id'] + '.' + kind,
+                        'mimeType': 'text/html' if kind == 'html' else 'text/markdown', 'buffer': source
                     })
                 if case.get('options', {}).get('firstRowHeaders'):
                     expect(page.locator('#desk-status')).to_contain_text('no explicit header row')
@@ -275,6 +353,7 @@ def run_document_benchmark(open_page, root, out):
                     expect(page.locator('#reviewed')).to_be_checked()
                 else:
                     expect(page.locator('#import-preview')).to_be_visible()
+                    expect(page.locator('#import-body-preview')).to_have_value(result['draft']['body'])
                     expect(page.locator('#body')).to_have_value('Keep this existing article until reviewed.')
                     expect(page.locator('#reviewed')).to_be_checked()
                     if page.locator('#import-changes-ok').is_visible():

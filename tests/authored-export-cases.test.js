@@ -21,11 +21,19 @@ for case in cases:
 print(str(len(cases))+' independent 3-format export comparisons passed')
 `;
 
-test('Authored probes execute the actual Markdown importer and independently check the three export formats', () => {
+test('Every authored Markdown probe executes its importer and independently checks the three export formats', () => {
   assert.equal(authored.origin, 'authored-synthetic');
   const accepted = [];
-  let rejected = 0;
+  let rejected = 0, htmlCases = 0;
   for (const item of authored.cases) {
+    assert.ok(['md', 'html'].includes(item.kind), item.id + ' must declare a supported source format');
+    if (item.kind === 'html') {
+      // The browser corpus uses the actual detached HTML parser and native file
+      // input. Never reinterpret an HTML probe as Markdown in this Node loop.
+      assert.equal(item.ui, true, item.id + ' must run HTML import review or rejection in the browser corpus');
+      htmlCases++;
+      continue;
+    }
     if (item.expect.category === 'rejected') {
       assert.throws(
         () => parseArticleImport(item.source, item.id + '.md', 'markdown'),
@@ -49,9 +57,34 @@ test('Authored probes execute the actual Markdown importer and independently che
   }
   assert.equal(accepted.length, 17);
   assert.equal(rejected, 5);
+  assert.equal(htmlCases, 4);
   const report = execFileSync('python3', ['-c', VERIFY], {
     input: JSON.stringify(accepted), encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024, timeout: 45000
   });
   assert.match(report.trim(), /^17 independent 3-format export comparisons passed$/);
+});
+
+test('Authored HTML quote probes explicitly cover preservation, disclosed loss, and review-safe rejection', () => {
+  const htmlCases = authored.cases.filter(item => item.kind === 'html');
+  assert.deepEqual(htmlCases.map(item => item.id), [
+    'authored-html-quote-inline-citation',
+    'authored-html-quote-nested-disclosure',
+    'authored-html-quote-hidden-unsafe',
+    'authored-html-quote-checklist-rejected'
+  ]);
+  for (const item of htmlCases) {
+    assert.equal(item.ui, true);
+    assert.match(item.source, /<blockquote>/);
+    assert.ok(Buffer.byteLength(item.source, 'utf8') < 2048, 'Keep these regression probes small and independently reviewable');
+    if (item.expect.category === 'rejected') assert.match(item.expect.error, /Checklist/);
+    else {
+      assert.ok(item.expect.quotes.length > 0, 'Accepted HTML quote cases need actual quote structure assertions');
+      assert.match(item.expect.text, /Final .* sentinel:/, 'Keep a final paragraph as a truncation guard');
+    }
+  }
+  const fidelity = htmlCases[0].expect;
+  assert.deepEqual(Object.keys(fidelity.inlineMarks).sort(), ['code', 'em', 'strong']);
+  assert.deepEqual(fidelity.wordLinks, fidelity.links);
+  assert.deepEqual(fidelity.strikes, ['old']);
 });

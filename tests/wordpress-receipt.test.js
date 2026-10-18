@@ -140,12 +140,12 @@ test('A complete source-bound synthetic receipt passes the API and CLI, while ch
   const path = join(root, 'test-results/wordpress-results.json');
   writeFileSync(path, JSON.stringify(evidence));
   assert.deepEqual(verifyWordPressReceipt({ root }), {
-    result: 'PASS', version: configuration.wordpress, cases: 13, nativePasteCases: 12, codeEditorCases: 1,
+    result: 'PASS', version: configuration.wordpress, cases: 14, nativePasteCases: 13, codeEditorCases: 1,
     mediaLibraryUploads: 2, mediaLibraryImageBlocks: 3, role: 'author', head, sourceSha256
   });
   const cli = spawnSync(process.execPath, [receiptScript], { cwd: root, encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr);
-  assert.match(cli.stdout, /13 saved\/reopened cases; 2 Media Library uploads; 3 image blocks/);
+  assert.match(cli.stdout, /14 saved\/reopened cases; 2 Media Library uploads; 3 image blocks/);
   assert.ok(cli.stdout.includes(head));
 
   const incomplete = structuredClone(evidence);

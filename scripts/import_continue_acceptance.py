@@ -62,11 +62,18 @@ def run_import_continue_acceptance(open_page, root, out, layout):
                 expect(page.locator('#body')).to_have_value('')
                 page.click('#preview-import')
                 expect(page.locator('#import-changes-ok')).not_to_be_checked()
+                expect(page.locator('#import-join-options')).to_be_hidden()
+                expect(page.locator('#import-destination')).to_be_disabled()
                 # Insertion has its own location review and must keep editor focus.
+                page.fill('#body', 'Fictional existing article for insertion review.')
+                expect(page.locator('#import-destination')).to_be_enabled()
                 page.select_option('#import-destination', 'append')
                 expect(page.locator('#apply-import-and-continue')).to_be_hidden()
                 expect(page.locator('#import-continue-help')).to_be_hidden()
                 page.select_option('#import-destination', 'replace')
+                page.fill('#body', '')
+                expect(page.locator('#import-join-options')).to_be_hidden()
+                expect(page.locator('#import-destination')).to_be_disabled()
 
             expected_body = page.locator('#import-body-preview').input_value()
             assert expected_body
