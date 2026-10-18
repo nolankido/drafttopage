@@ -6,6 +6,7 @@ import { parseArticleImport } from '../public/article-import.js';
 import { inlineTokens, decodeMarkdownEscapes } from '../public/markdown-inline.js';
 import { inlineParts, previewBlocks } from '../public/preview.js';
 import { createHTMLSource } from '../public/html-export.js';
+import { wordDocumentParts } from '../public/word-export.js';
 import { createWordPressArticle } from '../public/wordpress-export.js';
 import { installArticleImport } from '../public/import-controls.js';
 import { copiedWritingSource, parseCopiedWriting } from '../public/copied-writing.js';
@@ -758,3 +759,134 @@ test('Reopening copied controls preserves a selected Word file and its proposed-
   assert.equal($('import-word-revisions').value, 'proposed'); assert.equal(ui.pending(), true);
   assert.equal($('body').value, 'Existing article'); assert.equal($('reviewed').checked, true); assert.equal(applications.length, 0);
 }));
+
+
+test('Definition lists keep terms, descriptions, inline formatting, links, and exact article ending across exports', () => {
+  const root = element('section', [
+    element('h2', ['Project information']),
+    element('dl', [
+      element('dt', ['Start time']),
+      element('dd', ['Check-in at ', element('strong', ['10:00']), '.']),
+      element('dt', ['Parking']),
+      element('dd', ['Use the ', element('a', ['north lot'], { href: 'https://example.com/north?entry=1' }), '.']),
+    ]),
+    element('p', ['KEEP_DEFINITION_ENDING_20261018'])
+  ]);
+  const original = JSON.stringify(root);
+  const result = convert(root), article = parseArticleImport(result.markdown);
+  assert.equal(JSON.stringify(root), original, 'original detached HTML tree must not change');
+  assert.match(result.markdown, /\*\*Term:\*\* Start time/);
+  assert.match(result.markdown, /\*\*Definition:\*\* Check\\-in at \*\*10\\:00\*\*/);
+  assert.match(result.markdown, /\*\*Term:\*\* Parking/);
+  assert.match(result.markdown, /\[north lot\]\(https:\/\/example.com\/north\?entry=1\)/);
+  assert.ok(result.warnings.some(text => text.includes('Definition lists became labeled')));
+  assert.match(result.markdown, /KEEP\\_DEFINITION\\_ENDING\\_20261018$/);
+  for (const output of [createHTMLSource(article.draft), createWordPressArticle(article.draft).html]) {
+    for (const word of ['Start time', 'Check-in at', '10:00', 'Parking', 'north lot', 'KEEP_DEFINITION_ENDING_20261018']) assert.ok(output.includes(word), word);
+    assert.match(output, /<strong>Term:<\/strong>/);
+    assert.match(output, /<strong>Definition:<\/strong>/);
+    assert.match(output, /href="https:\/\/example.com\/north\?entry=1"/);
+    assert.doesNotMatch(output, /<dl|<dt|<dd|<script|<iframe/);
+  }
+  const word = wordDocumentParts(article.draft);
+  const xml = word.find(part => part.name === 'word/document.xml').content;
+  const relationships = word.find(part => part.name === 'word/_rels/document.xml.rels').content;
+  for (const value of ['Start time','Check-in at','10:00','Parking','north lot','KEEP_DEFINITION_ENDING_20261018'])
+    assert.ok(xml.includes(value), 'Word export retained ' + value);
+  assert.ok(xml.indexOf('Start time') < xml.indexOf('Check-in at'));
+  assert.ok(xml.indexOf('Check-in at') < xml.indexOf('Parking'));
+  assert.ok(xml.indexOf('Parking') < xml.indexOf('north lot'));
+  assert.ok(xml.indexOf('north lot') < xml.indexOf('KEEP_DEFINITION_ENDING_20261018'));
+  assert.match(relationships, /https:\/\/example\.com\/north\?entry=1/);
+});
+
+test('Definition entries with ordinary paragraph wrappers keep boundaries without joining adjacent text', () => {
+  const source = element('dl', [
+    element('dt', ['Limit']),
+    element('dd', [element('p', ['First paragraph.']), element('p', ['Second paragraph.'])]),
+    element('dt', ['Single-line term']),
+    element('dd', ['Final answer.'])
+  ]);
+  const result = convert(source);
+  assert.match(result.markdown, /\*\*Definition:\*\* First paragraph\\\.\n\nSecond paragraph\\\./);
+  assert.match(result.markdown, /\*\*Term:\*\* Single\\-line term/);
+  const output = createHTMLSource({ body: result.markdown });
+  assert.ok(output.indexOf('First paragraph') < output.indexOf('Second paragraph'));
+  assert.ok(output.indexOf('Second paragraph') < output.indexOf('Single-line term'));
+  assert.doesNotMatch(output, /First paragraphSecond paragraph|Second paragraphSingle-line/);
+});
+
+test('Ambiguous or oversized HTML definition lists fail closed rather than silently losing content', () => {
+  const dl = (...items) => element('dl', items);
+  for (const broken of [
+    dl(element('dd', ['Orphan description']), element('dt', ['Late term'])),
+    dl(element('dt', ['Trailing term only'])),
+    dl(element('dt', ['Valid']), element('dd', ['First']), element('dt', ['No definition'])),
+    dl(element('dt', ['Term']), element('dd', ['One']), element('div', [element('dd', ['Wrapped and ambiguous'])])),
+    dl(element('dt', ['Term']), element('dd', [element('ul', [element('li', ['Nested item'])])])),
+    dl(element('dt', ['Term']), element('dd', [element('table', [element('tr', [element('th', ['Nested'])])])])),
+    dl(element('dt', ['Term']), element('dd', [''])),
+    element('article', [element('dd', ['Outside list'])])
+  ]) assert.throws(() => convert(broken), /definition|Definition|Nested lists|Empty/);
+  const lots = dl(...Array.from({ length: 101 }, (_, i) => [element('dt', ['Term ' + i]), element('dd', ['Answer ' + i])]).flat());
+  assert.throws(() => convert(lots), /200 terms and descriptions/);
+  assert.throws(() => convert(dl(element('dt', ['Hidden'], { hidden: '' }), element('dd', ['Orphan']))), /definition needs a preceding term/);
+});
+
+
+test('Definition-list boundaries cannot silently flatten inside list items and table cells', () => {
+  const nested = element('dl', [element('dt', ['Term']), element('dd', ['Description'])]);
+  const insideList = element('ul', [element('li', ['Before ', nested, ' after'])]);
+  const insideCell = element('table', [
+    element('tr', [element('th', ['Header'])]),
+    element('tr', [element('td', ['Before ', nested, ' after'])])
+  ]);
+  for (const source of [insideList, insideCell]) {
+    const original = JSON.stringify(source);
+    assert.throws(() => convert(source), /definition lists/);
+    assert.equal(JSON.stringify(source), original);
+  }
+  assert.throws(() => convert(element('table', [
+    element('tr', [element('th', ['Header'])]),
+    element('tr', [element('td', [element('span', [element('dt', ['Bare term'])])])])
+  ])), /definition lists/);
+});
+
+test('Hidden terms never let following visible definitions attach to earlier terms', () => {
+  const list = (...entries) => element('dl', entries);
+  assert.throws(() => convert(list(
+    element('dt', ['Visible A']), element('dd', ['A answer']),
+    element('dt', ['Hidden B'], { hidden: '' }), element('dd', ['B answer'])
+  )), /definition needs a preceding term/);
+  assert.throws(() => convert(list(
+    element('dt', ['Unanswered visible term']),
+    element('dt', ['Hidden replacement'], { style: 'display:none' }),
+    element('dd', ['Answer for hidden replacement'])
+  )), /visible definition term lost its description/);
+  assert.throws(() => convert(list(
+    element('dt', ['Visible term']),
+    element('dd', ['Hidden answer'], { 'aria-hidden': 'true' })
+  )), /visible definition term has a hidden description/);
+  const valid = convert(list(
+    element('dt', ['Visible A']), element('dd', ['A answer']),
+    element('dt', ['Hidden B'], { hidden: '' }),
+    element('dt', ['Visible C']), element('dd', ['C answer'])
+  ));
+  assert.doesNotMatch(valid.markdown, /Hidden B/);
+  assert.match(valid.markdown, /Visible A/);
+  assert.match(valid.markdown, /Visible C/);
+});
+
+test('Hidden nested structures in definitions are omitted without rejecting visible writing', () => {
+  const source = element('dl', [
+    element('dt', ['Safe term']),
+    element('dd', ['Visible answer.', element('div', [element('ul', [element('li', ['HIDDEN NESTED LIST'])])], { hidden: '' })])
+  ]);
+  const result = convert(source);
+  assert.match(result.markdown, /\*\*Definition:\*\* Visible answer\\\./);
+  assert.doesNotMatch(result.markdown, /HIDDEN/);
+  assert.ok(result.warnings.some(message => message.includes('hidden content')));
+  const html = createHTMLSource({ body: result.markdown });
+  assert.match(html, /Visible answer\./);
+  assert.doesNotMatch(html, /HIDDEN|<ul|<li/);
+});

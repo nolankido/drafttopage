@@ -23,3 +23,11 @@ No dependency, paid resource, AI request, persistent state, tracking, account, p
 ## Verification
 
 New checks cover explicit raw-source paste, clipboard-format isolation, size rejection without truncation, acknowledgement invalidation, source example behavior on copied-writing pages, navigation to pending HTML, generated examples, discovery metadata, and the shared workspace contract. Regression route matrices include the new workspace. Publication and live browser/download evidence are recorded in the pull request.
+
+## October 18, 2026: definition-list fidelity repair
+
+A synthetic, independently specified HTML article exposed a loss: `<dl><dt>Start time</dt><dd>Check-in at 10:00.</dd><dt>Parking</dt><dd>Use the north lot.</dd></dl>` became one concatenated paragraph without boundaries. The detached-tree parser now recognizes simple `dl/dt/dd` groups as blocks and converts each term or description into a separate Markdown paragraph with an explicit bold `Term:` or `Definition:` label. Supported inline emphasis and safe links remain in the description, and ordinary paragraph wrappers retain their boundaries. The conversion displays a notice that native definition-list semantics changed.
+
+Malformed or unsupported groups fail before applying: orphan descriptions, unmatched trailing terms, empty entries, nested lists/tables/quotes/headings/code, unexpected direct wrappers and more than 200 entries. This conservative subset is not a promise of full HTML definition-list, accessibility, CSS or browser layout fidelity. The source stays local and inert. No external link is fetched and no article is automatically published.
+
+Regression tests use fictional detached HTML source and confirm the actual HTML/WordPress exported paragraphs, inline formatting, original ending, explicit warning, unchanged source object and fail-closed invalid cases. The original licensed Word/Google Docs corpus and its pinned hashes remain unchanged; this is an authored HTML boundary case, not a new real-application capture. Full isolated Playwright/WordPress/device acceptance remains separate.
