@@ -300,7 +300,7 @@ $('add-question').addEventListener('click', () => {
 });
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
 importer = installArticleImport({
-  focusPreview: wordImportTool || copiedPasteTool || htmlMarkdownTool, pasteFirst: copiedPasteTool,
+  focusPreview: true, pasteFirst: copiedPasteTool,
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
   continueToExport: wordImportTool || copiedPasteTool || htmlMarkdownTool ? () => workflow?.handoff() : undefined,
   workChanged: () => { updateExitWarning(); previewNavigation?.refresh(); referenceLinks?.refresh(); workflow?.update(); browserRecovery?.refresh(); },
