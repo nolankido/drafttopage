@@ -69,7 +69,8 @@ test('Clipboard denial provides an exact-source fallback whose disclosure receiv
   const html=await readFile(new URL('../scripts/writing-desk.html',import.meta.url),'utf8');
   assert.match(code,/copies\.state\(\)\.outcome === 'failure'/);
   assert.match(code,/panel\.open = true;\s+update\(\)/);
-  assert.match(code,/focusWorkflowTarget\(summary/);
+  assert.match(code,/focusWorkflowTarget\(source/);
+  assert.match(code,/Enter\/Space release cannot collapse/);
   assert.match(html,/id="wordpress-code-preview"[^>]*readonly/);
   assert.match(html,/id="wordpress-code-panel"/);
 });

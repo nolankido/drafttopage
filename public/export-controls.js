@@ -115,14 +115,15 @@ export function installPublishingExports({ getDraft, approved, changed, report, 
     }, success: 'WordPress blocks copied without a title or page fields. In a new, empty WordPress draft, click the empty paragraph below the title in Visual editor and paste normally with Ctrl+V or Command+V. Inspect the blocks, save as a draft, then close and reopen it. Selected linked image URLs can load there. Nothing was published.', fallback: 'WordPress copy unavailable. Download the blocks or open Inspect or manually copy the approved blocks.' });
     if (copied && $('wordpress-instructions')) $('wordpress-instructions').open = true;
     else if (!copied && copies.state().outcome === 'failure' && !isBusy() && $('publishing-destination').value === 'wordpress' && $('reviewed').checked) {
-      // A failed clipboard write is not a failed export. Reveal the approved
-      // exact source and move keyboard focus to its disclosure, not the editor.
+      // A failed clipboard write is not a failed export. Reveal and focus
+      // approved read-only code, not the article editor or a clickable summary.
+      // Enter/Space release cannot collapse the panel or modify article text.
       const panel = $('wordpress-code-panel');
       panel.open = true;
       update();
-      const summary = panel.querySelector?.('summary');
-      if (summary) focusWorkflowTarget(summary, { bar: $('workflow-steps') });
-      else $('wordpress-code-preview').focus?.();
+      const source = $('wordpress-code-preview');
+      if (source?.hasAttribute && source?.focus && source?.scrollIntoView) focusWorkflowTarget(source, { bar: $('workflow-steps') });
+      else source?.focus?.();
     }
   });
   $('download-wordpress').addEventListener('click', () => {

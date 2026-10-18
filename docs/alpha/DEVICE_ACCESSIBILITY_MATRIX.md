@@ -32,6 +32,6 @@ For every configuration record: exact versions, source route, use of assistive t
 
 ## Turn 7 implementation boundary
 
-The paste guard accepts a single already-checked native clipboard payload across the browser's paired \`paste\` and data-less \`beforeinput\` events, rejecting unmatched or unverified payloads. The WordPress clipboard failure fallback opens the approved exact-source disclosure and focuses its summary, without moving focus into an editable source. Paste errors are announced through the global live status and described beside the affected field without repeating the same live announcement.
+The paste guard accepts a single already-checked native clipboard payload across the browser's paired \`paste\` and data-less \`beforeinput\` events, rejecting unmatched or unverified payloads. The WordPress clipboard failure fallback opens the approved exact-source disclosure and focuses its read-only text area, avoiding interactive-summary key-release activation and leaving the editable article untouched. Paste errors are announced through the global live status and described beside the affected field without repeating the same live announcement.
 
 These changes do not certify mobile WebKit, TalkBack, VoiceOver or NVDA, or guarantee platform file downloads. Human/device verification remains NOT_RUN until exercised.
