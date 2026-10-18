@@ -1,5 +1,7 @@
 # Run and summarize the public alpha locally
 
+Before recruiting or recording an actual session, use the [current release record](RELEASE_20261017.md) and [manual release gates](RELEASE_OPERATIONS.md). The alpha invitation gate remains BLOCKED without its real-device, destination, source-app and support evidence.
+
 Status: tooling implemented; human sessions **NOT_RUN**. Running these commands creates blank records or summarizes supplied records. It does not recruit participants, verify that sessions happened, measure live visitors, or establish product demand. No browser tracking, public form, provider or external service is involved.
 
 ## 1. Create the private records
