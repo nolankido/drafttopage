@@ -56,7 +56,11 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     // Omitted subtrees cannot create visible paragraph/block boundaries.
     if (ignoredReason(node)) return false;
     let hasBlock = false;
-    for (const child of children(node)) if (mark(child) || blocks.has(tag(child))) hasBlock = true;
+    for (const child of children(node)) {
+      // A hidden block is not a visible block just because its tag is block-level.
+      if (ignoredReason(child)) continue;
+      if (mark(child) || blocks.has(tag(child))) hasBlock = true;
+    }
     if (hasBlock) blockDescendants.add(node);
     return hasBlock;
   }
