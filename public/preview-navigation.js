@@ -88,7 +88,7 @@ export function installPreviewNavigation({ getDraft, isBusy = () => false, hasPe
     }
     for (const item of rendered) item.button.disabled = blocked() || queue.pending();
     if (queue.pending() && !toggle.checked) {
-      status.textContent = 'Updating the reading preview after the current edits. The article is saved separately.';
+      status.textContent = 'Updating the reading preview after your edits. Writing remains in this tab; keep a private backup.';
     }
     if (hasBody && !blocked() && toggle.checked) {
       status.textContent = 'Choose Edit beside a passage to select its source. Lists, quotations, code blocks, and tables are selected as complete groups.' +

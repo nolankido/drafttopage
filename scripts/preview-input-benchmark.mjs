@@ -65,7 +65,7 @@ for(const {name,body} of corpora) {
       throw new Error('The preview or synchronous export-approval contract failed for '+name);
     results.push({name,characters:body.length,initialPreviewMs:Number(initialMs.toFixed(2)),input:stats(input),
       replacementsDuringInput:before,replacementsAfterSettle:$('article-preview').replacements,
-      endingPreserved:ending,approvalUnchanged:false,virtualTypingSpacingMs:7});
+      endingPreserved:ending,approvalCleared:!$('reviewed').checked,virtualTypingSpacingMs:7});
     ui.clear();
   } finally {
     globalThis.document=oldDocument;globalThis.window=oldWindow;
