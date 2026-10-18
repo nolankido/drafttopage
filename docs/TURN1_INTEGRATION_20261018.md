@@ -23,3 +23,7 @@ No GitHub Actions or cron is to be enabled. Cloudflare's existing native Git dep
 ## Review follow-up
 
 The first combined review found a real clipboard-pending shortcut issue: the WordPress copy button remains keyboard-focusable with `aria-disabled=true` while copying. The integrated navigation now respects that attribute, and the existing export-copy-state callback explicitly refreshes the shortcut. A new regression tests busy ARIA state, no-op clicks, and recovery after completion. These claims require fresh tests and browser evidence on the updated commit.
+
+## Concurrent main update
+
+While this integration was under test, separate PR #149 was independently merged to production main at \`9db4731695c1cc98d6821e592be43fc1ce0b1de3\`. Its six modified files exactly match the same blob SHAs in this integration branch. The integration branch then merged that new main with no force update and did not replace or alter those six table feature files. PR #150 now proposes only the export shortcut, clipboard availability guard, tests, styles, and this integration note above main.
