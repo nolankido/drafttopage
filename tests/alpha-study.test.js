@@ -220,7 +220,7 @@ test('Methods and observed destination proof are validated without accepting inv
   const unrun=blank();unrun.paired_comparison.baseline_method='NATIVE_WORDPRESS_PASTE';
   assert.throws(()=>validateSession(unrun),/unrun/);
   const unrunAgain=blank();unrunAgain.paired_comparison.drafttopage_saved_reopened=false;
-  assert.throws(()=>validateSession(unrunAgain),/unrun/);
+  assert.throws(()=>validateSession(unrunAgain),/paired destination observation/);
   assert.equal(validateSession(blank()).status,'NOT_RUN');
 });
 
