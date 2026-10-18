@@ -1302,7 +1302,9 @@ with sync_playwright() as p:
     assert json.loads(page.locator('#draft-collection-saved-preview').input_value())['draft']['body']==draft['body']
     page.locator('#draft-collection-inspection > summary').click()
     expect(page.locator('#draft-collection-saved-preview')).to_have_value('')
-    page.locator('#publishing-profile-panel > summary').click()
+    assert page.locator('#export-extra-settings').get_attribute('open') is None
+    open_details(page,'#publishing-profile-panel')
+    assert page.locator('#export-extra-settings').get_attribute('open') is not None
     page.fill('#publishing-profile-name','Temporary publishing setup')
     page.fill('#publishing-profile-checks','Fictional reminder')
     page.click('#open-draft-collection-entry')
@@ -1351,7 +1353,9 @@ with sync_playwright() as p:
         page,context,state=open_page('/'+profile_route+'/')
         page.fill('#title','Private fictional article')
         page.fill('#body','## Keep this article\n\nA fictional paragraph to preserve.')
-        page.locator('#publishing-profile-panel > summary').click()
+        assert page.locator('#export-extra-settings').get_attribute('open') is None
+        open_details(page,'#publishing-profile-panel')
+        assert page.locator('#export-extra-settings').get_attribute('open') is not None
         expect(page.locator('#publishing-profile-controls')).to_be_enabled()
         page.fill('#publishing-profile-name','Weekly website')
         page.fill('#publishing-profile-checks','Compare dates with source notes\nPreview my final page')
