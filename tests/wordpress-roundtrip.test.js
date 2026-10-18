@@ -58,12 +58,13 @@ test('Every retained article shape uses native Visual paste and the Code-editor 
   assert.deepEqual(primary.map(item => item.id), [
     'paragraphs-inline', 'nested-lists', 'tables', 'quote-code-separator', 'unicode-literal',
     'linked-image-enabled', 'linked-image-literal', 'word-footnotes-handoff', 'strikethrough-nested',
-    'toolbar-strikethrough-handoff', 'word-strikethrough-handoff', 'google-checklist-handoff'
+    'toolbar-strikethrough-handoff', 'word-strikethrough-handoff', 'google-checklist-handoff',
+    'quoted-citation-handoff'
   ]);
   assert.deepEqual(configuration.cases.filter(item => item.inputMode === 'code-editor').map(item => item.id),
     ['paragraphs-inline-code-editor-fallback']);
   const result = validateWordPressEvidence(complete(), configuration, digest);
-  assert.equal(result.nativePasteCases, 12);
+  assert.equal(result.nativePasteCases, 13);
   assert.equal(result.codeEditorCases, 1);
 });
 

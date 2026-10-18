@@ -463,6 +463,31 @@
       ]
     },
     {
+      "id": "quoted-citation-handoff",
+      "file": "tests/fixtures/quotation-handoff/fictional-quoted-citation.html",
+      "sourceRoute": "/google-docs-to-wordpress/",
+      "sourceLabel": "native HTML file import of a fictional formatted quotation, explicit review/apply, and Copy WordPress blocks; not a Google Docs capture",
+      "inputMode": "native-visual-paste",
+      "origin": "Fictional authored HTML, not a source-app capture or customer article.",
+      "text": "Fictional quotation handoff. A critical finding from the original study. Keep careful wording, superseded, and x < y. Final citation sentinel: violet study 516.",
+      "top": [
+        "core/paragraph",
+        "core/quote",
+        "core/paragraph"
+      ],
+      "links": [
+        {
+          "text": "the original study",
+          "href": "https://example.test/study?q=1&section=2"
+        }
+      ],
+      "strikes": [
+        "superseded"
+      ],
+      "expectedSavedSource": "<!-- wp:paragraph -->\n<p>Fictional quotation handoff.</p>\n<!-- /wp:paragraph -->\n\n<!-- wp:quote -->\n<blockquote class=\"wp-block-quote\"><!-- wp:paragraph -->\n<p>A <strong>critical</strong> finding from <a href=\"https://example.test/study?q=1&amp;section=2\" target=\"_blank\" rel=\"noopener noreferrer\">the original study</a>.<br>Keep <em>careful wording</em>, <s>superseded</s>, and <code>x &lt; y</code>.</p>\n<!-- /wp:paragraph --></blockquote>\n<!-- /wp:quote -->\n\n<!-- wp:paragraph -->\n<p>Final citation sentinel: violet study 516.</p>\n<!-- /wp:paragraph -->",
+      "savedSourceNote": "Required native WordPress block source: quotation boundaries, bold, italic, strike, inline code, citation URL, line break, and article ending must all match this independently specified expectation. Only the export final LF may be omitted."
+    },
+    {
       "id": "paragraphs-inline-code-editor-fallback",
       "body": "## Fictional section\n\nKeep **bold _inside_** and [a link](https://example.test/?a=1&b=2).\n\n### Detail\n\nAn ending.",
       "text": "Fictional section Keep bold inside and a link. Detail An ending.",

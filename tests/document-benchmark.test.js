@@ -85,20 +85,80 @@ print('6 corrupted output cases rejected')
   assert.equal(result.trim(), '6 corrupted output cases rejected');
 });
 
+test('Independent quote checks reject HTML tag loss and corrupted Word quote, link, and inline-mark XML', () => {
+  const result = execFileSync('python3', ['-c', String.raw`
+import base64,copy,io,zipfile
+from scripts.document_benchmark import check_conversion
+W='http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+R='http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+P='http://schemas.openxmlformats.org/package/2006/relationships'
+def archive(parts):
+ output=io.BytesIO()
+ with zipfile.ZipFile(output,'w') as z:
+  for name,content in parts.items():z.writestr(name,content)
+ return base64.b64encode(output.getvalue()).decode()
+def run(text,props=''):
+ return '<w:r>'+('<w:rPr>'+props+'</w:rPr>' if props else '')+'<w:t xml:space="preserve">'+text+'</w:t></w:r>'
+body=(run('Keep ')+run('bold','<w:b/>')+run(', ')+run('italic','<w:i/>')+run(', ')+
+      run('sample()','<w:rStyle w:val="CodeChar"/>')+run(', and ')+run('old','<w:strike/>')+
+      run('. Read ')+'<w:hyperlink r:id="rIdCitation">'+run('source','<w:b/>')+'</w:hyperlink>'+run('.'))
+document='<w:document xmlns:w="'+W+'" xmlns:r="'+R+'"><w:body><w:p><w:pPr><w:pStyle w:val="Quote"/></w:pPr>'+body+'</w:p><w:p>'+run('Final sentinel.')+'</w:p></w:body></w:document>'
+rels='<Relationships xmlns="'+P+'"><Relationship Id="rIdCitation" Type="'+R+'/hyperlink" Target="https://example.test/quote" TargetMode="External"/></Relationships>'
+html='<blockquote><p>Keep <strong>bold</strong>, <em>italic</em>, <code>sample()</code>, and <s>old</s>. Read <a href="https://example.test/quote"><strong>source</strong></a>.</p></blockquote><p>Final sentinel.</p>'
+good={'wordpress':html,'html':html,'word':archive({'word/document.xml':document,'word/_rels/document.xml.rels':rels}),
+      'draft':{'title':''},'warnings':[],'findings':[]}
+link={'text':'source','href':'https://example.test/quote'}
+quote='Keep bold, italic, sample(), and old. Read source.'
+wanted={'text':quote+' Final sentinel.','quotes':[quote],
+        'inlineMarks':{'strong':['bold','source'],'em':['italic'],'code':['sample()']},
+        'strikes':['old'],'links':[link],'wordLinks':[link]}
+checks=check_conversion(good,wanted)
+assert all(key in checks for key in ['quotes','inlineMarks','wordLinks','strikethrough'])
+bad=[]
+for output,tag in [('wordpress','blockquote'),('html','strong'),('html','em'),('html','code')]:
+ value=copy.deepcopy(good)
+ value[output]=html.replace('<'+tag+'>','<span>').replace('</'+tag+'>','</span>')
+ bad.append(value)
+def corrupt_word(part,old,new):
+ value=copy.deepcopy(good)
+ with zipfile.ZipFile(io.BytesIO(base64.b64decode(value['word']))) as z:
+  parts={name:z.read(name).decode() for name in z.namelist()}
+ assert old in parts[part], 'The negative control must alter existing output'
+ parts[part]=parts[part].replace(old,new)
+ value['word']=archive(parts)
+ bad.append(value)
+for old,new in [('<w:pStyle w:val="Quote"/>',''),('<w:b/>','<w:b w:val="0"/>'),
+                ('<w:i/>',''),('w:val="CodeChar"','w:val="Normal"'),
+                ('<w:strike/>',''),('r:id="rIdCitation"','r:id="rIdMissing"')]:
+ corrupt_word('word/document.xml',old,new)
+corrupt_word('word/_rels/document.xml.rels','https://example.test/quote','https://wrong.test/quote')
+corrupt_word('word/_rels/document.xml.rels','TargetMode="External"','TargetMode="Internal"')
+assert len(bad)==12
+for value in bad:
+ try:check_conversion(value,wanted)
+ except AssertionError:pass
+ else:raise AssertionError('Corrupted quote fidelity evidence was accepted')
+print('12 quote, link, and inline-mark corruptions rejected')
+`], { cwd: fileURLToPath(root), encoding: 'utf8' });
+  assert.equal(result.trim(), '12 quote, link, and inline-mark corruptions rejected');
+});
+
 test('Authored regression probes are explicit, independent of historical source provenance, and bounded', () => {
   const authored = JSON.parse(readFileSync(new URL('authored-cases.json', fixtures), 'utf8'));
   assert.equal(authored.version, 1);
   assert.equal(authored.origin, 'authored-synthetic');
   assert.match(authored.scope, /not application-origin captures/i);
-  assert.equal(authored.cases.length, 22);
-  assert.equal(manifest.cases.length + authored.cases.length, 37);
+  assert.equal(authored.cases.length, 26);
+  assert.equal(manifest.cases.length + authored.cases.length, 41);
   const ids = new Set(manifest.cases.map(item => item.id));
   let rejected = 0, withStructure = 0, withUI = 0;
+  const kinds = { md: 0, html: 0 };
   for (const item of authored.cases) {
     assert.match(item.id, /^authored-[a-z0-9-]+$/);
     assert.equal(ids.has(item.id), false, 'A pinned corpus ID was reused.');
     ids.add(item.id);
-    assert.equal(item.kind, 'md');
+    assert.ok(['md', 'html'].includes(item.kind));
+    kinds[item.kind]++;
     assert.equal(typeof item.source, 'string');
     assert.ok(item.source.trim());
     assert.ok(Buffer.byteLength(item.source, 'utf8') <= 512 * 1024);
@@ -113,11 +173,17 @@ test('Authored regression probes are explicit, independent of historical source 
     } else {
       assert.ok(typeof item.expect.text === 'string' && item.expect.text.length > 0);
       if (item.expect.category === 'disclosed') assert.ok(Array.isArray(item.expect.warnings) && item.expect.warnings.length);
-      if (['rows', 'listItems', 'listPaths', 'links', 'strikes'].some(key => key in item.expect)) withStructure++;
+      if (['rows', 'listItems', 'listPaths', 'links', 'strikes', 'quotes', 'inlineMarks', 'wordLinks'].some(key => key in item.expect)) withStructure++;
+      for (const key of ['quotes', 'wordLinks']) if (key in item.expect) assert.ok(Array.isArray(item.expect[key]));
+      if ('inlineMarks' in item.expect) {
+        assert.deepEqual(Object.keys(item.expect.inlineMarks).filter(key => !['strong', 'em', 'code'].includes(key)), []);
+        for (const marks of Object.values(item.expect.inlineMarks)) assert.ok(Array.isArray(marks) && marks.every(text => typeof text === 'string'));
+      }
     }
   }
-  assert.ok(withUI >= 4);
-  assert.ok(rejected >= 5);
+  assert.deepEqual(kinds, { md: 22, html: 4 });
+  assert.ok(withUI >= 8);
+  assert.equal(rejected, 6);
   assert.ok(withStructure >= 5, 'Keep meaningful structural assertions instead of text-only probes.');
-  assert.equal(ids.size, 37);
+  assert.equal(ids.size, 41);
 });

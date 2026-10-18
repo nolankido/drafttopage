@@ -2529,6 +2529,7 @@ with sync_playwright() as p:
 
     page,context,state=open_page('/google-docs-to-wordpress/')
     page.click('#start-copied-paste');assert page.locator('#import-format').input_value()=='html'
+    open_details(page,'#copied-import-help')
     page.click('#import-html-example');expect(page.locator('#import-summary')).to_contain_text('Copied formatted writing')
     assert page.locator('#import-text').input_value()=='' and page.locator('#body').input_value()==''
     expect(page.locator('#apply-import')).to_be_disabled();page.check('#import-changes-ok');page.click('#apply-import')
