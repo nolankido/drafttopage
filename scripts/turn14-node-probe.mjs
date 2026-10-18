@@ -35,6 +35,26 @@ const categories = {
   killed: /SIGKILL|SIGTERM|process.*killed/i.test(output + stderr),
   testFailure: /ERR_TEST_FAILURE|test failed/.test(output + stderr)
 };
+const failureDetails=[];
+let current=null;
+for(const line of output.split(/\r?\n/)){
+  if(/^not ok \d+ - /.test(line)){
+    current={name:line.slice(line.indexOf(' - ')+3).replace(/[^a-zA-Z0-9 _.,()'":/-]/g,'').slice(0,95)};
+    failureDetails.push(current);
+  } else if(current){
+    const match=/^  (error|code|location|actual|expected|operator|failureType):\s*(.*)$/.exec(line);
+    if(match){
+      const key=match[1];
+      let value=match[2].replace(/[^a-zA-Z0-9 _.,()'":\/-]/g,'').slice(0,150);
+      if(key==='location'){
+        const found=value.match(/([A-Za-z0-9._-]+\.test\.js):(\d+)/);
+        value=found?found[0]:'test-location';
+      }
+      current[key]=value;
+    }
+    if(/^\s{2}\.\.\.\s*$/.test(line))current=null;
+  }
+}
 const evidence = {
   format: 'drafttopage-temporary-node-probe',
   version: 2,
@@ -53,6 +73,7 @@ const evidence = {
   stdoutBytes: output.length,
   stderrBytes: stderr.length,
   failedTestNames,
+  failureDetails:failureDetails.slice(0,30),
   categories,
   sanitizedLines: [...safeLines(output), ...safeLines(stderr)].slice(0, 25),
   stdoutSha256: createHash('sha256').update(output).digest('hex')
