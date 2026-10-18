@@ -218,8 +218,9 @@ test('Methods and observed destination proof are validated without accepting inv
 test('Named native WordPress comparison reports negative results, balanced orders, failed attempts and other baselines separately', () => {
   const records=Array.from({length:8},(_,i)=>observed(i+1));
   records[0].paired_comparison.drafttopage.elapsed_seconds=900; // slower, must not be omitted
-  records[1].paired_comparison.drafttopage.elapsed_seconds=600; // tied
+  records[1].paired_comparison.drafttopage.elapsed_seconds=300; // faster
   records[2].paired_comparison.usual_workflow.elapsed_seconds=0; // saved-percent undefined
+  records[2].paired_comparison.drafttopage.elapsed_seconds=0; // tied, zero-duration control
   for(const r of records.slice(3,5))r.paired_comparison.order='DRAFTTOPAGE_FIRST';
   records[5].paired_comparison.baseline_method='OTHER_FREE_TOOL';
   records[6].paired_comparison.drafttopage_saved_reopened=null;
