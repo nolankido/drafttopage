@@ -1,5 +1,7 @@
 # Draft to Page
 
+**Alpha release operations (Turn 9):** [Current release record](docs/alpha/RELEASE_20261017.md), [manual release and rollback procedure](docs/alpha/RELEASE_OPERATIONS.md), and [privacy-safe public bug reporting](https://drafttopage.com/help/alpha-support/). The new manual alpha promotion command, `npm run verify:alpha`, is deliberately fail-closed: a passing Cloudflare build is not a passing hosted WordPress or real-device acceptance. A private support channel and owner authorization for invitations remain outstanding.
+
 Your ideas. Ready for your website.
 
 The [original twenty-item roadmap status](docs/ROADMAP_STATUS_20261016.md) distinguishes shipped source work from unfinished real-user, device, repeat-use and demand evidence. The public [conversion checks walkthrough](https://drafttopage.com/help/conversion-checks/) is prepared on the continuation branch; it is not claimed live before merge/deployment.
