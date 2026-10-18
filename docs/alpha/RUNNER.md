@@ -4,6 +4,10 @@ Before recruiting or recording an actual session, use the [current release recor
 
 Status: tooling implemented; human sessions **NOT_RUN**. Running these commands creates blank records or summarizes supplied records. It does not recruit participants, verify that sessions happened, measure live visitors, or establish product demand. No browser tracking, public form, provider or external service is involved.
 
+## 0. Inspect unassigned slots
+
+Run `npm run study:plan` to view the ten UNASSIGNED planning targets (5 Word, 3 Google Docs, 2 Markdown; 5/5 paired workflow order). These are not participants. See [Turn 10 execution guidance](TURN10_EXECUTION.md) before recruitment or actual observations. The owner must authorize private support and outreach separately.
+
 ## 1. Create the private records
 
 From a trusted Draft to Page checkout with Node 22 or newer, choose an absolute directory outside the checkout:
@@ -52,7 +56,7 @@ For machine-readable JSON without npm's command banner, use Node directly. If re
 node scripts/alpha-study.mjs report /absolute/private-study/sessions > /absolute/private-study/summary.json
 ```
 
-The output omits participant IDs, free-text notes, issue descriptions, browser details and source content. It preserves task outcome counts, observed times, incomplete comparisons, unknown checks and per-release denominators. Different releases are never pooled to reach a passing target. Duplicate IDs and inconsistent records fail with a nonzero exit code; errors do not echo raw input.
+The output omits participant IDs, free-text notes, issue descriptions, browser details and source content. New aggregates show normalized source cohorts and predefined issue categories only. The expansion decision blocks on safety incidents from any human observation, even an unqualified participant. It preserves task outcome counts, observed times, incomplete comparisons, unknown checks and per-release denominators. Different releases are never pooled to reach a passing target. Duplicate IDs and inconsistent records fail with a nonzero exit code; errors do not echo raw input.
 
 A fresh ten-record study reports NOT_RUN, zero human observations and no time-saving result. A successful command means valid record processing, not a passed usability study. Targets stay PENDING for cohorts smaller than ten. The first-conversion target requires at least 80 percent unaided completion and an unaided completion median of at most five minutes. Failed and assisted task counts and all attempted times remain visible alongside that median. Larger cohorts use their larger denominator.
 
