@@ -143,7 +143,7 @@ class Node {
   setAttribute(name,value){this[name]=value;}focus(){this.focused=true;}setSelectionRange(start,end){this.selectionStart=start;this.selectionEnd=end;}
 }
 function controls(run,{open=true,ancestorOpen=true}={}){
-  const prior=globalThis.document,map=new Map(),$=id=>{if(!map.has(id)){const node=new Node(id==='table-select'?'select':'',map);node.id=id;}return map.get(id);};globalThis.document={getElementById:$,createElement:tag=>new Node(tag,map)};
+  const prior=globalThis.document,map=new Map(),$=id=>{if(!map.has(id)){const node=new Node(['table-select','table-row-selected','table-row-destination'].includes(id)?'select':'',map);node.id=id;}return map.get(id);};globalThis.document={getElementById:$,createElement:tag=>new Node(tag,map)};
   const workspace={source:{profile:'personal',audience:'',purpose:'',notes:'PRIVATE_SOURCE'},draft:{title:'Fictional',excerpt:'',description:'',slug:'',questions:['PRIVATE_REVIEW'],body:article()}};
   let busy=false,approval=true,linked=true,checkpointFailure=false,applies=0,confirmation=true,report='',workChanges=0,renders=0,renderFailure=false,inspections=0,inspectionFailure=false;
   const history=createCheckpointHistory();$('body').value=workspace.draft.body;
@@ -254,7 +254,165 @@ test('Unchanged v1 backups exclude pending cells and keep applied tables in the 
   prepare();const pending=parseWorkspaceBackup(createWorkspaceBackup(workspace.source,workspace.draft));assert.equal(pending.version,1);assert.ok(!pending.draft.body.includes('Read together'));
   $('table-apply').fire('click');const applied=parseWorkspaceBackup(createWorkspaceBackup(workspace.source,workspace.draft));assert.ok(applied.draft.body.includes('Read together'));assert.deepEqual(Object.keys(applied.draft),['title','excerpt','description','slug','body','questions']);assert.equal(applied.source.notes,'PRIVATE_SOURCE');
 }));
+
+test('Direct row reordering is immutable, preserves every cell, and enforces both source and destination bounds',()=>{
+  const value={head:['Name','Detail'],align:['left','right'],rows:Array.from({length:21},(_,i)=>['Row '+(i+1),'Cell '+(i+1)+' 😀'])};
+  const original=JSON.stringify(value),last=changeEditableTable(value,'move-row',0,20);
+  assert.deepEqual(last.rows.at(-1),value.rows[0]);
+  assert.deepEqual(last.rows[0],value.rows[1]);
+  assert.deepEqual(last.rows.slice(0,-1),value.rows.slice(1));
+  assert.deepEqual(changeEditableTable(last,'move-row',20,0),value);
+  assert.deepEqual(changeEditableTable(value,'move-row',7,7),value);
+  assert.notEqual(changeEditableTable(value,'move-row',7,7),value);
+  assert.equal(JSON.stringify(value),original);
+  for(const [from,to] of [[-1,0],[21,1],[0,-1],[0,21],[0,0.5],[0,NaN],[0,null],[0,undefined],['0',0]]){
+    assert.throws(()=>changeEditableTable(value,'move-row',from,to),/valid|position|current|row/i);
+  }
+});
+
+test('Reordering through the plan preserves exact adjacent Unicode and CRLF prose, alignment, and a clean rollback',()=>{
+  for(const newline of ['\n','\r\n']){
+    const body='前書き 😀'+newline+newline+editableTableMarkdown({
+      head:['Step','Notes'],align:['center','right'],rows:[['One','**first**'],['Two','[link](https://example.com)'],['Three','literal | pipe']]
+    },newline)+newline+newline+'After 😀';
+    // Choose a table whose contents are in the supported subset and preserve the exact source.
+    const range=markdownTableRanges(body)[0],target=tableEditTarget(body,range.start),before=target.before;
+    const prepared=changeEditableTable(target.table,'move-row',0,2);
+    assert.deepEqual(prepared.rows.map(row=>row[0]),['Two','Three','One']);
+    const plan=planTableEdit(target,prepared,body);
+    assert.equal(plan.body.slice(0,target.start),body.slice(0,target.start));
+    assert.equal(plan.body.slice(plan.selectionEnd),body.slice(target.end));
+    assert.equal(plan.body.slice(plan.selectionStart,plan.selectionEnd),plan.markdown);
+    assert.deepEqual(markdownTableRanges(plan.body)[0].table.rows.map(row=>row[0]),['Two','Three','One']);
+    assert.deepEqual(changeEditableTable(prepared,'move-row',2,0),target.table);
+    assert.equal(planTableEdit(target,target.table,body).replacement,before);
+  }
+});
+
+test('Row arrangement provides insert-before-first, insert-after, adjacent moves and a checkpointed apply',()=>controls(({$,ui,workspace,history,approval,applies})=>{
+  const original=workspace.draft.body;
+  $('table-open-selected').fire('click');
+  assert.equal($('table-row-selected').value,'0');
+  assert.equal($('table-row-arrange-status').textContent.includes('Selected row 1 of 2'),true);
+  assert.equal($('table-move-up').disabled,true);
+  assert.equal($('table-move-down').disabled,false);
+  $('table-insert-before').fire('click');
+  assert.equal($('table-cell-0-0').value,'');
+  assert.equal($('table-cell-1-0').value,'Welcome');
+  assert.equal($('table-cell-2-0').value,'Read');
+  $('table-cell-0-0').value='First';$('table-cell-0-0').fire('input');
+  $('table-cell-0-1').value='New intro';$('table-cell-0-1').fire('input');
+  assert.equal($('table-row-selected').value,'0');
+  $('table-move-down').fire('click');
+  assert.equal($('table-row-selected').value,'1');
+  assert.equal($('table-cell-0-0').value,'Welcome');
+  assert.equal($('table-cell-1-0').value,'First');
+  $('table-insert-after').fire('click');
+  assert.equal($('table-row-selected').value,'2');
+  $('table-cell-2-0').value='Inserted';$('table-cell-2-0').fire('input');
+  assert.equal($('table-cell-3-0').value,'Read');
+  assert.equal(workspace.draft.body,original);
+  assert.equal(approval(),true);
+  assert.equal(history.list().length,0);
+  $('table-preview-change').fire('click');
+  assert.deepEqual(markdownTableRanges($('table-after').value)[0].table.rows.map(row=>row[0]),['Welcome','First','Inserted','Read']);
+  $('table-apply').fire('click');
+  assert.equal(applies(),1);
+  assert.equal(approval(),false);
+  assert.equal(history.read(history.list()[0].id).draft.body,original);
+  assert.deepEqual(markdownTableRanges($('body').value)[0].table.rows.map(row=>row[0]),['Welcome','First','Inserted','Read']);
+}));
+
+test('Move directly across the ten-row boundary follows the exact selected row, and old-grid actions cannot mutate it',()=>controls(({$,ui,button,approval,applies})=>{
+  const rows=Array.from({length:24},(_,index)=>['Row '+(index+1),'Value '+(index+1)]);
+  $('body').value=editableTableMarkdown({head:['Name','Note'],align:[null,'right'],rows});
+  ui.refresh();$('table-open-selected').fire('click');
+  const oldButton=button('Remove row 1'),oldInput=$('table-cell-0-0');
+  $('table-row-destination').value='22';$('table-row-destination').fire('change');
+  assert.equal($('table-move-to').disabled,false);
+  $('table-move-to').fire('click');
+  assert.equal($('table-row-selected').value,'22');
+  assert.equal($('table-row-destination').value,'22');
+  assert.equal($('table-cell-22-0').value,'Row 1');
+  assert.equal($('table-cell-22-0').focused,true);
+  assert.match($('table-page-status').textContent,/Rows 21 to 24 of 24/);
+  assert.equal($('table-grid').querySelectorAll('textarea').length,10);
+  oldInput.value='Obsolete value';oldInput.fire('input');oldButton.fire('click');
+  assert.equal($('table-cell-22-0').value,'Row 1');
+  $('table-preview-change').fire('click');
+  assert.deepEqual(markdownTableRanges($('table-after').value)[0].table.rows.map(row=>row[0]).slice(19,24),
+    ['Row 21','Row 22','Row 23','Row 1','Row 24']);
+  assert.equal(applies(),0);assert.equal(approval(),true);
+  $('table-row-selected').value='22';$('table-row-selected').fire('change');
+  $('table-row-destination').value='0';$('table-row-destination').fire('change');
+  $('table-move-to').fire('click');
+  assert.equal($('table-cell-0-0').value,'Row 1');
+  assert.match($('table-page-status').textContent,/Rows 1 to 10 of 24/);
+}));
+
+test('Selecting positions and same-row moves are review-safe no-ops; real row movement invalidates the preview',()=>controls(({$,ui,approval,applies})=>{
+  $('table-open-selected').fire('click');$('table-preview-change').fire('click');
+  const preview=$('table-after').value;assert.equal($('table-apply').disabled,false);
+  $('table-row-selected').value='1';$('table-row-selected').fire('change');
+  assert.equal($('table-after').value,preview);assert.equal($('table-apply').disabled,false);
+  assert.equal($('table-move-to').disabled,true);
+  $('table-move-to').fire('click');
+  assert.equal($('table-after').value,preview);
+  $('table-row-destination').value='0';$('table-row-destination').fire('change');
+  assert.equal($('table-move-to').disabled,false);
+  $('table-move-to').fire('click');
+  assert.equal($('table-after').value,'');
+  assert.equal($('table-apply').disabled,true);
+  assert.equal($('table-cell-0-0').value,'Read');
+  assert.equal(approval(),true);assert.equal(applies(),0);
+}));
+
+test('Maximum-size and header-only tables gate row arrangement and preserve source until apply',()=>controls(({$,ui,busy,approval,applies})=>{
+  $('body').value='| Name |\n| --- |';ui.refresh();$('table-open-selected').fire('click');
+  assert.equal($('table-row-selected').disabled,true);
+  assert.equal($('table-insert-before').disabled,true);
+  assert.equal($('table-move-to').disabled,true);
+  assert.equal($('table-add-row').disabled,false);
+  $('table-add-row').fire('click');
+  assert.equal($('table-row-selected').value,'0');
+  assert.equal($('table-move-up').disabled,true);
+  ui.clear();
+  const rows=Array.from({length:100},(_,index)=>['Row '+(index+1)]);
+  $('body').value=editableTableMarkdown({head:['Name'],align:[null],rows});
+  ui.refresh();$('table-open-selected').fire('click');
+  assert.equal($('table-add-row').disabled,true);
+  assert.equal($('table-insert-before').disabled,true);
+  assert.equal($('table-insert-after').disabled,true);
+  $('table-row-selected').value='99';$('table-row-selected').fire('change');
+  assert.equal($('table-move-down').disabled,true);
+  assert.equal($('table-move-up').disabled,false);
+  busy(true);for(const id of ['table-move-up','table-move-to','table-row-selected','table-insert-before'])assert.equal($(id).disabled,true);
+  $('table-move-up').fire('click');busy(false);
+  assert.equal($('table-cell-99-0').value,'Row 100');
+  $('table-move-up').fire('click');
+  assert.equal($('table-cell-98-0').value,'Row 100');
+  assert.equal(applies(),0);assert.equal(approval(),true);
+}));
+
+test('Prepared reordering survives stale article recheck and failed checkpoint without mutating writing or backup shape',()=>controls(({$,ui,workspace,history,failCheckpoint,approval,applies})=>{
+  $('table-open-selected').fire('click');$('table-move-down').fire('click');
+  assert.equal($('table-cell-1-0').value,'Welcome');
+  const backup=createWorkspaceBackup(workspace.source,workspace.draft);
+  const base=workspace.draft.body;
+  assert.equal(parseWorkspaceBackup(backup).draft.body,base);
+  const changed='New fictional lead.\n\n'+base;
+  workspace.draft.body=changed;$('body').value=changed;ui.refresh();
+  $('table-preview-change').fire('click');assert.equal($('table-apply').disabled,true);
+  $('table-recheck').fire('click');assert.equal($('table-cell-1-0').value,'Welcome');
+  $('table-preview-change').fire('click');assert.equal($('table-apply').disabled,false);
+  failCheckpoint();$('table-apply').fire('click');
+  assert.equal(applies(),0);assert.equal(approval(),true);
+  assert.equal($('body').value,changed);
+  assert.equal($('table-cell-1-0').value,'Welcome');
+  assert.equal(history.list().length,0);
+}));
+
 test('All eight generated workspaces include labeled table controls and accessible table guidance',async()=>{
-  for(const route of ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']){const html=await readFile('public/'+route+'/index.html','utf8');for(const id of ['start-table-editor','table-editor-panel','table-select','table-choice-help','table-choice-context','table-grid','table-reading-preview','table-before','table-after','table-editor-status'])assert.ok(html.includes('id="'+id+'"'));assert.match(html,/for="table-select"/);assert.match(html,/id="table-editor-status"[^>]*role="status"/);assert.match(html,/aria-describedby="table-cell-help"/);assert.match(html,/id="table-select"[^>]*aria-describedby="table-list-status table-choice-help table-choice-context"/);assert.match(html,/Choosing a list item keeps prepared cells and writing/);}
-  const help=await readFile('public/help/local-workspace/index.html','utf8');assert.match(help,/id="table-editor"/);assert.match(help,/Unsaved cells/);
+  for(const route of ['write','markdown-to-wordpress','word-to-wordpress','word-to-markdown','google-docs-to-wordpress','html-to-markdown','markdown-to-html','markdown-to-word']){const html=await readFile('public/'+route+'/index.html','utf8');for(const id of ['start-table-editor','table-editor-panel','table-select','table-choice-help','table-choice-context','table-row-arrange','table-row-selected','table-row-destination','table-insert-before','table-insert-after','table-move-up','table-move-down','table-move-to','table-row-arrange-status','table-grid','table-reading-preview','table-before','table-after','table-editor-status'])assert.ok(html.includes('id="'+id+'"'));assert.match(html,/for="table-select"/);assert.match(html,/id="table-editor-status"[^>]*role="status"/);assert.match(html,/aria-describedby="table-cell-help"/);assert.match(html,/id="table-select"[^>]*aria-describedby="table-list-status table-choice-help table-choice-context"/);assert.match(html,/Choosing a list item keeps prepared cells and writing/);assert.match(html,/for="table-row-selected"/);assert.match(html,/for="table-row-destination"/);assert.match(html,/aria-describedby="table-row-arrange-help table-row-arrange-status"/);}
+  const help=await readFile('public/help/local-workspace/index.html','utf8');assert.match(help,/id="table-editor"/);assert.match(help,/Unsaved cells/);assert.match(help,/Insert or reorder data rows/);
 });

@@ -83,7 +83,7 @@ export function editableTableMarkdown(value, newline = '\n') {
   if (!parsed?.supported || parsed.end !== source.split('\n').length || JSON.stringify(copyEditableTable(parsed.table)) !== JSON.stringify(table)) throw new Error('These cell contents cannot round-trip through the table format. Check literal pipes and preceding backslashes; nothing was changed.');
   return source;
 }
-export function changeEditableTable(value, action, index) {
+export function changeEditableTable(value, action, index, destination = null) {
   const table = copyEditableTable(value);
   if (!Number.isInteger(index) || index < 0) throw new Error('Choose a valid table row or column.');
   if (action === 'insert-row') {
@@ -92,6 +92,10 @@ export function changeEditableTable(value, action, index) {
   } else if (action === 'remove-row') {
     if (index >= table.rows.length) throw new Error('Choose a current data row.');
     table.rows.splice(index, 1);
+  } else if (action === 'move-row') {
+    if (index >= table.rows.length || !Number.isInteger(destination) || destination < 0 || destination >= table.rows.length) throw new Error('Choose a current row and destination position before moving it.');
+    const [row] = table.rows.splice(index, 1);
+    table.rows.splice(destination, 0, row);
   } else if (action === 'insert-column') {
     if (table.head.length >= TABLE_LIMITS.columns || index > table.head.length) throw new Error('Tables support at most 12 columns.');
     table.head.splice(index, 0, ''); table.align.splice(index, 0, null); for (const row of table.rows) row.splice(index, 0, '');
