@@ -163,3 +163,5 @@
 @media(hover:none) and (pointer:coarse){
   .desk-main summary,.desk-main .workflow-step{min-height:2.75rem}
 }
+
+#wordpress-code-preview:focus-visible{outline:3px solid var(--accent);outline-offset:3px}

@@ -73,6 +73,8 @@ test('Clipboard denial provides an exact-source fallback whose disclosure receiv
   assert.match(code,/Enter\/Space release cannot collapse/);
   assert.match(html,/id="wordpress-code-preview"[^>]*readonly/);
   assert.match(html,/id="wordpress-code-panel"/);
+  assert.match(html,/aria-describedby="wordpress-code-help"/);
+  assert.match(html,/Keyboard: select all with Ctrl\+A/);
 });
 test('Paste errors have one announcing status and retain field-level description',async()=>{
   const desk=await readFile(new URL('../scripts/writing-desk.html',import.meta.url),'utf8');
