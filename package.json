@@ -21,6 +21,7 @@
     "preflight:release:full": "node scripts/release-preflight.mjs --require-wordpress",
     "verify:release:full": "node scripts/verify-release.mjs --require-wordpress",
     "verify:production": "node scripts/production-smoke.mjs",
+    "verify:hosted:mobile": "python3 scripts/hosted_table_mobile.py",
     "verify:alpha": "node scripts/alpha-release-gate.mjs",
     "precheck": "npm run build",
     "check": "node scripts/check.mjs",

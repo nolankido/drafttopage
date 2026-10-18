@@ -21,6 +21,16 @@ This checks the actual generated workspace at desktop, 390px and 320px viewport 
 
 The release gate performs build, Node tests, static checks, routed-browser tests and optional isolated local WordPress. Missing WordPress tools produce NOT_RUN, **not** a public alpha pass. Results remain under ignored test-results. A failed test or changed source must trigger a fresh entire run, not a reused green receipt.
 
+## Optional hosted-site mobile browser smoke
+
+On a machine with Python Playwright, Chromium, and **network access to Draft to Page**, this separate manual command exercises real CSS viewport widths of 1440px, 390px, and 320px directly against the deployed site. It enters only fictional writing in a fresh browser session, inserts a table row, moves it across the ten-row pagination boundary, checks for clipped controls and whole-document horizontal overflow, previews and applies the table change, and verifies a revision checkpoint and cleared export approval. It does **not** use WordPress, clipboard, downloads, publishing, AI, accounts or real draft content.
+
+    npm run verify:hosted:mobile
+    # Or test a trusted Draft to Page preview:
+    python3 scripts/hosted_table_mobile.py --origin https://BRANCH-drafttopage.nolankido.workers.dev
+
+It writes a small, content-free report under the ignored `test-results/hosted-table-mobile.json`. An unavailable network, missing Chromium, blocked origin, invalid controls or incorrect viewport fails the command. The `--self-test` flag tests only origin/layout validation logic and reports `realBrowser: NOT_RUN`. **Neither the hosted browser smoke nor its self-test substitutes for a complete clean-checkout `verify:release:full`, local WordPress receipt, physical device/screen-reader evidence or the human alpha gates.** This optional hosted test never writes `release-results.json` or `alpha-release-record.json` and never marks the alpha ready.
+
 ## Record live deployment and remaining real-world gates
 
 After native Cloudflare deployment, independently verify the full main commit, successful Cloudflare production version UUID and the live Word, Google Docs and Markdown converter routes. Use fictional articles, verify the public support label, and do not log private writing. A successful Worker build alone does not show successful conversion in a real source app or destination.
