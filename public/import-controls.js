@@ -8,13 +8,13 @@ import { downloadText } from './download.js';
 import { installWordComments } from './word-comment-controls.js';
 import { HTML_SOURCE_SAMPLE } from './html-source-sample.js';
 import { wordImageDownloadAllowed } from './word-image-metadata.js';
-import { summarizeWordImageHandoff, wordImageDecisionReady, wordImageDecisionStatus, wordImageAfterApply } from './word-image-handoff.js';
+import { summarizeWordImageHandoff, wordImageDecisionReady, wordImageDecisionStatus, wordImageAfterApply, wordImageTransferReady } from './word-image-handoff.js';
 import { summarizeImportFindings, guidanceForImportWarning } from './import-findings.js';
 import { revealDetails } from './disclosure.js';
 
 export const FORMATTED_EXAMPLE = '<h1>A fictional neighborhood walk</h1><p>This illustrative draft has <strong>bold text</strong> and <em>emphasis</em>.</p><h2>Before you leave</h2><ol start="4"><li>Choose a route<ul><li>Check the weather</li><li>Bring water</li></ul></li><li>Invite a neighbor</li></ol><h2>Plan together</h2><table><tr><th>Stop</th><th>Idea</th></tr><tr><td>Park</td><td>Take a break</td></tr></table><p>Read the <a href="https://example.com/">illustrative link</a>. Replace this example with your own writing.</p>';
 
-export function installArticleImport({ hasArticle, apply, applyInsertion, continueToExport, isBusy, busyChanged, report, reportPaste = report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText }) {
+export function installArticleImport({ hasArticle, apply, applyInsertion, continueToExport, isBusy, busyChanged, report, reportPaste = report, focusPreview = false, focusImportPreview = heading => heading.focus(), workChanged = () => {}, pasteFirst = false, prepareImages = async (bytes, value) => (await import('./word-image-kit.js')).prepareWordImageKit(bytes, value), download = downloadText, handoffWordImageMap = () => false }) {
   const $ = id => document.getElementById(id);
   const continueButton = $('apply-import-and-continue'), continueHelp = $('import-continue-help');
   let candidate = null, reading = false, sourceName = '', wordFile = null, copiedSource = null, copiedFailed = false, wordImageKit = null, commentRecovery = null, candidateWordKey = null, candidateHTMLKey = null, imageDownloadRequested = false;
@@ -28,6 +28,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
   const hasTextRevisions = () => Boolean(candidate?.wordRevisions && candidate.wordRevisions.insertions + candidate.wordRevisions.deletions);
   const clearWordImages = (resetChoice = false) => {
     wordImageKit = null; imageDownloadRequested = false;
+    $('word-image-in-tab').checked = false;
     $('word-image-saved-ok').checked = false; $('word-image-saved-label').hidden = true;
     if (resetChoice) { $('word-image-choice-kit').checked = false; $('word-image-choice-placeholders').checked = false; $('word-image-counts').textContent = ''; $('word-image-decision-status').textContent = ''; }
     $('word-image-private-ok').checked = false; $('word-image-metadata-ok').checked = false;
@@ -176,6 +177,10 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     const receiptVisible = Boolean(candidate?.wordImages?.length && choice === 'kit' && wordImageKit?.bytes && imageDownloadRequested);
     $('word-image-saved-label').hidden = !receiptVisible;
     $('word-image-saved-ok').disabled = !receiptVisible || reading || isBusy();
+    const inTabAvailable = Boolean(receiptVisible && $('word-image-saved-ok').checked &&
+      insertion.mode() === 'replace' && wordImageKit?.placementMap);
+    if (!inTabAvailable) $('word-image-in-tab').checked = false;
+    $('word-image-in-tab').disabled = !inTabAvailable || reading || isBusy();
     $('word-image-decision').disabled = reading || isBusy();
     const ready = allowed(), continuing = continuationOffered();
     $('apply-import').disabled = !ready;
@@ -236,6 +241,7 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
     workChanged();
   });
   $('word-image-saved-ok').addEventListener('change', () => { updateApply(); workChanged(); });
+  $('word-image-in-tab').addEventListener('change', () => { updateApply(); workChanged(); });
   for (const id of ['word-image-private-ok', 'word-image-metadata-ok']) $(id).addEventListener('change', () => {
     if (!$(id).checked) {
       imageDownloadRequested = false;
@@ -373,8 +379,19 @@ export function installArticleImport({ hasArticle, apply, applyInsertion, contin
       report('Import cancelled. Current article and source notes are unchanged.'); return;
     }
     try {
-      const imagesAfter = wordImageAfterApply(candidate, imageChoice(), wordImageKit);
+      // The saved ZIP receipt and separate checkbox are prerequisites.
+      // Transfer only map text, never ZIP or original image bytes.
+      const map = wordImageTransferReady(candidate, imageChoice(), wordImageKit,
+        imageDownloadRequested, $('word-image-saved-ok').checked,
+        $('word-image-in-tab').checked, true) ? wordImageKit.placementMap : null;
+      const importedBody = candidate.draft.body;
       apply(commentRecovery?.draft(candidate.draft) || candidate.draft, { continueToExport: continueAfterImport });
+      let retained = false;
+      if (map) {
+        try { retained = handoffWordImageMap(map, importedBody) === true; }
+        catch { retained = false; } // The saved ZIP remains the manual fallback.
+      }
+      const imagesAfter = wordImageAfterApply(candidate, imageChoice(), wordImageKit, retained);
       discardImport();
       $('import-completion').hidden = false;
       $('import-completion').textContent = (continueAfterImport ? 'Article imported. Export review is next, with approval still required. Nothing has been published.' : 'Article imported locally. Edit or review your article below before exporting. Export approval was cleared.') + (imagesAfter ? ' ' + imagesAfter : '');

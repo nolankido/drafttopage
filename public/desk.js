@@ -8,6 +8,7 @@ import { articleIssues, articleBody, makeDraftingBrief } from './authoring.js';
 import { createReadingPage } from './html-export.js';
 import { TEMPLATES } from './content-data.js';
 import { installArticleImport } from './import-controls.js';
+import { parseWordImageMap } from './word-image-map.js';
 import { formatMarkdown, loadEditingTool } from './editing.js';
 import { installDraftReview } from './review-controls.js';
 import { installPublishingExports } from './export-controls.js';
@@ -32,7 +33,7 @@ const wordTool = document.querySelector('.desk-intro')?.dataset.workspace === 'w
 
 const $ = id => document.getElementById(id);
 const sourceFields = ['profile', 'audience', 'purpose', 'notes'];
-let questions = [], recovery = null, workflow = null, workspaceNavigation = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null, browserRecovery = null;
+let questions = [], recovery = null, workflow = null, workspaceNavigation = null, importer = null, draftReview = null, publishingExports = null, revisions = null, articleSearch = null, revisionDiff = null, publishingProfiles = null, draftCollection = null, sourceReview = null, wordPressImages = null, imageEditor = null, linkEditor = null, tableEditor = null, previewNavigation = null, referenceLinks = null, browserRecovery = null, pendingWordImageMap = null;
 const touched = new Set();
 const report = message => { $('desk-status').textContent = message; };
 function openFormattingFinding(item) {
@@ -137,6 +138,8 @@ function update() {
   workspaceNavigation?.update();
 }
 function changed(event) {
+  if (pendingWordImageMap && $('body').value !== pendingWordImageMap.body)
+    pendingWordImageMap = null;
   if (event?.target && DRAFT_FIELDS.includes(event.target.id)) touched.add(event.target.id);
   $('reviewed').checked = false;
   updateExitWarning();
@@ -144,6 +147,7 @@ function changed(event) {
   browserRecovery?.schedule();
 }
 function fill(value) {
+  pendingWordImageMap = null;
   recovery?.clear();
   bodyPaste.clear();
   for (const id of sourceFields) $(id).value = value.source[id];
@@ -318,7 +322,18 @@ $('add-question').addEventListener('click', () => {
   $('questions').lastElementChild.querySelector('textarea').focus();
 });
 $('copy-questions').addEventListener('click', () => copy(questions.map(text => '- ' + text).join('\n'), 'Review notes copied locally. They are excluded from article exports.'));
+function acceptWordImageMap(source, expectedBody) {
+  if (typeof source !== 'string' || typeof expectedBody !== 'string' ||
+      expectedBody !== $('body').value) return false;
+  try { parseWordImageMap(source); } catch { return false; }
+  // The image editor is optional and lazy loaded. Queue only the validated
+  // map and exact article snapshot until the module becomes available.
+  if (imageEditor?.loadWordImageMap) return imageEditor.loadWordImageMap(source, expectedBody);
+  pendingWordImageMap = { source, body: expectedBody };
+  return true;
+}
 importer = installArticleImport({
+  handoffWordImageMap: acceptWordImageMap,
   reportPaste: reportBodyPaste,
   focusPreview: true, pasteFirst: copiedPasteTool,
   focusImportPreview: heading => focusWorkflowTarget(heading, { bar: $('workflow-steps') }),
@@ -333,6 +348,7 @@ importer = installArticleImport({
   },
   apply: (draft, { continueToExport = false } = {}) => {
     revisions?.captureBefore('Before article import');
+    pendingWordImageMap = null;
     for (const id of DRAFT_FIELDS) $(id).value = draft[id];
     articleSearch?.clear(); previewNavigation?.clear(); referenceLinks?.clear();
     questions = [...draft.questions]; touched.clear(); renderQuestions();
@@ -408,7 +424,12 @@ loadEditingTool(() => import('./image-editor-controls.js'), ({ installImageEdito
     revisions.captureBefore(label);
     $('body').value = plan.body; touched.add('body'); changed();
   }, isBusy: () => recovery.reading() || Boolean(browserRecovery?.busy()) || Boolean(importer?.reading()), workChanged, report });
+  if (pendingWordImageMap) {
+    const queued = pendingWordImageMap; pendingWordImageMap = null;
+    if (queued.body === $('body').value) imageEditor.loadWordImageMap(queued.source, queued.body);
+  }
 }, () => {
+  pendingWordImageMap = null;
   $('image-editor-status').textContent = 'Image editor could not load. Edit image Markdown directly in the article. Your writing and exports are kept.';
 });
 loadEditingTool(() => import('./source-review-controls.js'), ({ installSourceReview }) => {

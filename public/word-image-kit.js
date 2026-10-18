@@ -109,5 +109,5 @@ export async function prepareWordImageKit(input, candidate) {
     ...placements.flatMap(p => [p.placeholder + ': ' + (p.filename || 'NOT RECOVERED'), 'Word alternative text: ' + (p.alt || '[not supplied]') + (p.altTruncated ? ' [shortened to 500 characters; inspect Word]' : ''), p.note, ''])
   ].join('\n');
   const bytes = createWordImageZip([...files.map(({ name, content }) => ({ name, content })), { name: 'article-body.md', content: candidate.draft.body.trim() + '\n' }, { name: 'image-map.json', content: map }, { name: 'README.txt', content: instructions }]);
-  return { bytes, filename: 'drafttopage-word-images.zip', images, placements, skipped, metadata };
+  return { bytes, filename: 'drafttopage-word-images.zip', images, placements, skipped, metadata, placementMap: map };
 }
