@@ -185,8 +185,13 @@ export function summarizeSessions(input) {
   const expansion = unsafe ? 'STOP_FOR_SAFETY' : missingSafety ? 'HOLD_SAFETY_CHECKS_INCOMPLETE' :
     qualified.length < 10 ? 'WAIT_FOR_QUALIFIED_SESSIONS' :
     !releaseReports.some(report => report.qualified_observed >= 10) ? 'HOLD_NO_SINGLE_RELEASE_COHORT' :
-    releaseReports.some(report => report.targets.first_conversion === 'NOT_MET' ||
-      report.targets.wordpress_save_reopen === 'NOT_MET') ? 'HOLD_PRODUCT_TARGETS' :
+    !releaseReports.some(report => report.qualified_observed >= 10 &&
+      report.targets.first_conversion === 'MET' &&
+      report.targets.wordpress_save_reopen === 'MET_FOR_ATTEMPTED_CASES' &&
+      report.targets.title_understanding === 'MET' &&
+      report.targets.approval_understanding === 'MET' &&
+      report.targets.manual_publishing_understanding === 'MET' &&
+      report.targets.safety === 'NO_INCIDENT_RECORDED') ? 'HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION' :
     'OWNER_REVIEW_REQUIRED';
   return { format: 'drafttopage-public-alpha-summary', version: 1,
     study_status: !observed.length ? 'NOT_RUN' : !releaseReports.some(report => report.qualified_observed >= 10) ? 'PARTIAL' : 'OBSERVATIONS_RECORDED',

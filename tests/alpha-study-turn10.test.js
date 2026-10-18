@@ -85,6 +85,18 @@ test('Separate five-person release cohorts cannot pool into a ten-person alpha r
   assert.equal(result.expansion_decision,'HOLD_NO_SINGLE_RELEASE_COHORT');
   assert.deepEqual(result.releases.map(x=>x.qualified_observed),[5,5]);
 });
+test('Owner review is held until first conversion and real destination checks pass',()=>{
+  const records=Array.from({length:10},(_,i)=>observed(i+1));
+  assert.equal(summarizeSessions(records).expansion_decision,'OWNER_REVIEW_REQUIRED');
+  for(const record of records){record.wordpress_save_reopen_attempted=false;record.wordpress_native_blocks_editable=null;}
+  assert.equal(summarizeSessions(records).expansion_decision,'HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION');
+  for(const record of records){record.wordpress_save_reopen_attempted=true;record.wordpress_native_blocks_editable=true;}
+  for(const record of records.slice(0,3))record.tasks[0]=task('T1','PASS_ASSISTED',400,1);
+  assert.equal(summarizeSessions(records).expansion_decision,'HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION');
+  for(const record of records.slice(0,3))record.tasks[0]=task('T1');
+  records[0].approval_understood=false;
+  assert.equal(summarizeSessions(records).expansion_decision,'HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION');
+});
 test('Ten unrun placeholders yield zero outcomes and no priority claims',()=>{
   const result=summarizeSessions(Array.from({length:10},()=>blank()));
   assert.equal(result.study_status,'NOT_RUN');
