@@ -1,0 +1,68 @@
+{
+  "format": "drafttopage-alpha-release-record",
+  "version": 1,
+  "release_commit": null,
+  "source_sha256": null,
+  "deployment": {
+    "commit": null,
+    "version_id": null,
+    "status": "NOT_VERIFIED",
+    "production_verified": false
+  },
+  "rollback": {
+    "commit": null,
+    "version_id": null,
+    "manual_recovery_checked": false
+  },
+  "acceptance": {
+    "word_source": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    },
+    "google_docs_source": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    },
+    "hosted_wordpress": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    },
+    "keyboard_device": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    },
+    "mobile_device": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    },
+    "screen_reader": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    },
+    "latency": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    },
+    "private_support": {
+      "status": "NOT_RUN",
+      "commit": null,
+      "evidence_type": null,
+      "evidence_ref": null
+    }
+  },
+  "limitations": "NOT_RUN entries are intentional. Never fill OBSERVED_PASS from synthetic tests or an unverified deployment. Keep real participant, device, contact and content evidence private."
+}
