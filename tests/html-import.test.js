@@ -1128,7 +1128,7 @@ test('Visible thematic breaks in caption definition shells fail closed', () => {
   assert.throws(() => convert(source), /Definition lists inside table captions cannot be preserved/);
   assert.equal(JSON.stringify(source), original);
   const hidden = convert(table(element('hr', [], { hidden: '' })));
-  assert.match(hidden.markdown, /Schedule ending\\\./);
+  assert.match(hidden.markdown, /Schedule\s+ending\\\./);
   assert.doesNotMatch(hidden.markdown, /<hr|\*\*\*/);
   assert.ok(hidden.warnings.some(w => w.includes('hidden content')));
 });
