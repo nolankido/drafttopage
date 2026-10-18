@@ -94,7 +94,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   }
   // Carry explicit normal-weight overrides through the enclosing bold style
   // before serializing; a simple nested span cannot cancel a parent <strong>.
-  const resolveWeight = value => value === 'bold' || Number(value) >= 600;
+  const weightSetting = value => value === 'bold' || /^(?:[6-9]00|1000)$/.test(value) ? true : value === 'normal' || /^(?:[1-5]00)$/.test(value) ? false : null;
   function reconcileWeightOverrides(nodes) {
     const hasOverride = parts => parts.some(p => p.type === 'unstrong' || p.children && hasOverride(p.children));
     if (!hasOverride(nodes)) return nodes;
@@ -129,7 +129,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   }
   const boldWithin = (node, inherited = false) => {
     const style = styles(node);
-    if (style.has('font-weight')) return resolveWeight(style.get('font-weight'));
+    if (style.has('font-weight')) return weightSetting(style.get('font-weight')) ?? inherited;
     return inherited || ['strong', 'b'].includes(tag(node));
   };
   const inheritedInline = (node, bold) => writeInline(bold ? [{ type: 'strong', children: inlineNodes(node) }] : inlineNodes(node));
@@ -158,14 +158,15 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       content = [{ type: 'a', href, children: content }];
     }
     const style = styles(node), weight = style.get('font-weight');
-    const bold = weight === undefined ? name === 'strong' || name === 'b' : resolveWeight(weight);
+    const explicitBold = weight === undefined ? null : weightSetting(weight);
+    const bold = explicitBold === null ? name === 'strong' || name === 'b' : explicitBold;
     const italic = style.has('font-style') ? style.get('font-style') === 'italic' : name === 'em' || name === 'i';
     const decoration = inlineDecoration(node);
     const strike = strikeFormatting(node, style, decoration);
     if (['sup', 'sub', 'u', 'mark'].includes(name) || decoration && /(?:^|\s)(?:underline|overline)(?:\s|$)/.test(decoration)) warn('Some inline formatting was simplified to plain text.');
     if ((bold || italic || strike) && /[\r\n]/.test(children(node).map(plain).join(''))) { warn('Multiline emphasis was simplified.'); return content; }
     if (bold) content = [{ type: 'strong', children: content }];
-    else if (weight !== undefined) content = [{ type: 'unstrong', children: content }];
+    else if (explicitBold === false) content = [{ type: 'unstrong', children: content }];
     if (italic) content = [{ type: 'em', children: content }];
     if (strike) content = [{ type: 's', children: content }];
     return content;

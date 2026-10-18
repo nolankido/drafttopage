@@ -46,6 +46,15 @@ test('Explicit normal-weight span inside bold text stays normal while surroundin
   assert.equal(inlineParts(result.markdown).map(p => p.text).join(''), 'bold normal bold again');
   assert.doesNotMatch(result.markdown, /unstrong/);
 });
+test('Inherited and relative font weights never accidentally cancel bold ancestors', () => {
+  for (const weight of ['inherit', 'unset', 'bolder', 'lighter', 'revert', 'initially-unknown']) {
+    const result = convert(element('p', [element('strong', ['before ', element('span', ['inside'], { style: 'font-weight:' + weight }), ' after'])]));
+    const html = createHTMLSource({ body: result.markdown });
+    assert.match(html, /<strong>before inside after<\/strong>/, weight);
+  }
+  const retained = convert(element('div', [element('p', ['inherited'], { style: 'font-weight:inherit' })], { style: 'font-weight:bold' }));
+  assert.match(createHTMLSource({ body: retained.markdown }), /<strong>inherited<\/strong>/);
+});
 test('Inherited bold on block container reaches child paragraphs and honors normal-weight reset', () => {
   const result = convert(element('div', [
     element('p', ['Inherited ', element('em', ['bold and italic']), '.']),
