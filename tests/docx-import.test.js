@@ -454,7 +454,7 @@ test('Authored combined Word article preserves styled text, links, list, table a
   assert.match(imported.draft.body, /regular checks/);
   assert.match(imported.draft.body, /日本語/);
   assert.match(imported.draft.body, /harbor 924\\\./);
-  assert.match(result.markdown, /1\\. Check the inverter/);
+  assert.match(result.markdown, /1\. Check the inverter/);
   const html = createWordPressArticle(imported.draft).html;
   assert.match(html, /<strong>regular checks<\/strong>/);
   assert.match(html, /fictional reference/);
