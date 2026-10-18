@@ -935,6 +935,8 @@ test('Omitted definition lists and nested blocks cannot invent paragraph boundar
     element('span', [entries()], { hidden: '' }),
     element('span', [element('dl', [element('dt', ['HIDDEN TERM']), element('dd', ['HIDDEN DESCRIPTION'])], { hidden: '' })]),
     element('strong', [element('span', [element('dl', [element('dt', ['HIDDEN TERM']), element('dd', ['HIDDEN DESCRIPTION'])], { style: 'display:none' })])]),
+    element('div', [element('dl', [element('dt', ['HIDDEN TERM']), element('dd', ['HIDDEN DESCRIPTION'])], { hidden: '' })]),
+    element('span', [element('div', [element('dl', [element('dt', ['HIDDEN TERM']), element('dd', ['HIDDEN DESCRIPTION'])], { hidden: '' })])]),
     element('div', [element('p', ['HIDDEN TEXT'])], { hidden: '' }),
     element('script', [element('div', ['HIDDEN SCRIPT'])])
   ];
