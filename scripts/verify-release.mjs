@@ -133,6 +133,10 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
   ];
   if (env.DRAFTTOPAGE_WORDPRESS_CLI) steps.push(['wordpress', env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['scripts/wordpress_roundtrip.py']]);
   try {
+    // A green browser suite without a Git-bound source cannot be a release
+    // receipt. The earlier optional source check could silently certify it.
+    if (!/^[a-f0-9]{40}$/.test(report.head || '') || !/^[a-f0-9]{64}$/.test(report.sourceSha256 || ''))
+      throw new Error('Release validation requires a Git commit and a complete source fingerprint.');
     if (!tests.length) throw new Error('No regression tests were found.');
     for (const [name, command, args] of steps) {
       const entry = { name, result: 'RUNNING' }; report.steps.push(entry); save();
@@ -156,11 +160,11 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
       }
       entry.result = 'PASS'; save();
     }
-    if (report.sourceSha256) {
-      const matches = report.sourceSha256 === sourceDigest();
-      report.steps.push({ name: 'source snapshot', result: matches ? 'PASS' : 'FAIL' });
-      if (!matches) throw new Error('Repository source changed during validation. Run the complete gate again against stable source.');
-    }
+    const matchingHead = report.head === git(['rev-parse', 'HEAD']).trim();
+    const matches = report.sourceSha256 === sourceDigest();
+    const stable = matchingHead && matches;
+    report.steps.push({ name: 'source snapshot', result: stable ? 'PASS' : 'FAIL' });
+    if (!stable) throw new Error('Repository commit or source changed during validation. Run the complete gate again against stable source.');
     report.result = 'PASS';
   } catch (error) {
     const running = report.steps.find(step => step.result === 'RUNNING');
