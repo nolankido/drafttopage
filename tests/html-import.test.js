@@ -1071,5 +1071,5 @@ test('Table captions with fully hidden definition entries preserve visible capti
   assert.doesNotMatch(result.markdown, /Hidden term|Hidden answer/);
   assert.ok(result.warnings.some(w => w.includes('hidden content')));
   const rendered = createHTMLSource({ body: result.markdown });
-  assert.match(rendered, /<th\\b[^>]*>Column<\\/th>/);
+  assert.match(rendered, /<th\b[^>]*>Column<\/th>/);
 });
