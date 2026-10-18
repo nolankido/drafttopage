@@ -473,7 +473,16 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       return fence + '\n' + text + (text.endsWith('\n') ? '' : '\n') + fence;
     }
     if (name === 'blockquote') return quote(node, currentBold);
-    if (name === 'dl') return definitionList(node, currentBold);
+    if (name === 'dl') {
+      // A definition-list shell whose entries are all omitted has no visible
+      // semantics to export. Disclose its hidden children without treating it
+      // as an orphaned visible definition or a text boundary.
+      if (!visibleDefinitionMaterial(node)) {
+        for (const child of children(node)) if (ignoredReason(child)) skip(child);
+        return '';
+      }
+      return definitionList(node, currentBold);
+    }
     if (name === 'dt' || name === 'dd') throw new Error('A definition term or description must be inside a definition list. Correct the source before importing.');
     if (name === 'hr') return '***';
     if (name === 'li') throw new Error('A list item is outside its list. Correct the source before importing.');
