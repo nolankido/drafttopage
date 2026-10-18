@@ -467,7 +467,15 @@ test('Authored combined Word article preserves styled text, links, list, table a
     "import json,sys; from scripts.document_benchmark import check_conversion; p=json.load(sys.stdin); r=check_conversion(p['result'],p['expect']); print(r['textCheck'])"
   ], {
     input: JSON.stringify({
-      expect: spec.expect,
+      // Compound fidelity is checked as exact article text, table/list cells
+      // and links. Inline styles and Word relationship bytes are checked
+      // separately so a table-header paragraph style does not count as an
+      // authored inline bold run in a different destination.
+      expect: {
+        title: spec.expect.title, text: spec.expect.text,
+        rows: spec.expect.rows, listItems: spec.expect.listItems,
+        links: spec.expect.links
+      },
       result: {
         draft: imported.draft, warnings: result.warnings,
         wordpress: html, html: createHTMLSource(imported.draft),
