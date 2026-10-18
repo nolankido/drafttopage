@@ -116,5 +116,10 @@ export function installImageEditor({ getBody, apply, workChanged, report, isBusy
   $('image-discard').addEventListener('click', () => { if (!isBusy()) clear(); });
   $('image-editor-panel').addEventListener('toggle', () => { if (!$('image-editor-panel').open) purgePreview(); refresh(); });
   refresh();
-  return { refresh, clear, hasWork, editImage: (start, end) => choose(start, end) };
+  return { refresh, clear, hasWork, editImage: (start, end) => choose(start, end),
+    loadWordImageMap: (source, expectedBody) => {
+      const accepted = imageMap.loadPreparedMap(source, expectedBody);
+      if (accepted) { revealDetails($('image-editor-panel')); refresh(); }
+      return accepted;
+    } };
 }

@@ -102,3 +102,24 @@ test('Map UI is local and explicit, and has no added persistence, image renderin
   assert.match(html,/excluded from backups, browser recovery, collections, and exports/);assert.match(html,/metadata and areas hidden by Word cropping/);
   for(const path of ['public/word-image-map.js','public/word-image-map-controls.js'])assert.doesNotMatch(await readFile(path,'utf8'),/fetch\(|XMLHttpRequest|localStorage|sessionStorage|innerHTML|createObjectURL|console\./);
 });
+
+test('Optional in-tab placement map binds the article and never fills image details', () => controls(async ({ $, ui, choose, alt, url, reads, setBody, setBusy }) => {
+  const originalBody = 'Before [Word image 1] after.', source = JSON.stringify(fixture());
+  assert.equal(ui.loadPreparedMap(source, 'Other article'), false);
+  assert.equal(ui.hasWork(), false);
+  assert.equal(ui.loadPreparedMap('{}', originalBody), false);
+  setBusy(true); assert.equal(ui.loadPreparedMap(source, originalBody), false); setBusy(false);
+  assert.equal(ui.loadPreparedMap(source, originalBody), true);
+  assert.equal(ui.hasWork(), true); assert.equal(reads(), 0);
+  assert.equal($('image-map-panel').open, true);
+  assert.equal($('image-map-review').hidden, false);
+  assert.match($('image-map-status').textContent, /confirmed Word ZIP/);
+  assert.equal(alt(), 'Pending alt');
+  assert.equal(url(), 'https://example.com/current.jpg');
+  choose(); assert.equal($('image-map-use-alt').disabled, true);
+  setBody('Edited article with [Word image 1].');
+  assert.equal(ui.loadPreparedMap(source, originalBody), false);
+  assert.equal(ui.hasWork(), true, 'stale handoff cannot replace current map');
+  ui.clear(); assert.equal(ui.hasWork(), false);
+  assert.equal($('image-map-alt').value, '');
+}));
