@@ -9,7 +9,7 @@ export function roundTripCases() {
   return configuration.cases.map(item => {
     const title = 'Fictional acceptance: ' + item.id;
     const draft = { title, body: item.formattedBody || item.body, questions: [privateMarkers[1]], source: { notes: privateMarkers[0] } };
-    return { ...item, title, ...(item.file ? {} : { html: createWordPressArticle(draft, { includeLinkedImages: item.includeLinkedImages === true }).html }) };
+    return { ...item, title, ...((item.file || item.sourceFixture) ? {} : { html: createWordPressArticle(draft, { includeLinkedImages: item.includeLinkedImages === true }).html }) };
   });
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

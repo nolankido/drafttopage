@@ -488,6 +488,99 @@
       "savedSourceNote": "Required native WordPress block source: quotation boundaries, bold, italic, strike, inline code, citation URL, line break, and article ending must all match this independently specified expectation. Only the export final LF may be omitted."
     },
     {
+      "id": "compound-word-synthetic-handoff",
+      "sourceFixture": "authored-compound-docx-article",
+      "sourceRoute": "/word-to-wordpress/",
+      "sourceLabel": "Synthetic programmatic DOCX, not a recent Word application export; local reviewed import and WordPress native paste",
+      "inputMode": "native-visual-paste",
+      "text": "October maintenance plan Our fictional rooftop pilot combines regular checks with multilingual instructions for every volunteer. The team logs café notes, 日本語 instructions, and a 😀 marker in one shared article. Check the inverter before opening. Record the meter values without publishing private addresses. Read the fictional reference before the afternoon review. Metric Value Inspection Complete Next review Friday Editorial safeguards The draft is for demonstration only; nobody has installed equipment or supplied personal data. Keep the final sentence: harbor 924.",
+      "top": [
+        "core/heading",
+        "core/paragraph",
+        "core/paragraph",
+        "core/list",
+        "core/paragraph",
+        "core/table",
+        "core/heading",
+        "core/paragraph",
+        "core/paragraph"
+      ],
+      "headingLevels": [
+        2,
+        2
+      ],
+      "listStarts": [
+        1
+      ],
+      "listItems": 2,
+      "rows": [
+        [
+          "Metric",
+          "Value"
+        ],
+        [
+          "Inspection",
+          "Complete"
+        ],
+        [
+          "Next review",
+          "Friday"
+        ]
+      ],
+      "links": [
+        {
+          "text": "fictional reference",
+          "href": "https://example.com/solar-editorial?stage=review"
+        }
+      ]
+    },
+    {
+      "id": "compound-docs-style-synthetic-handoff",
+      "sourceFixture": "authored-compound-docs-style-html",
+      "sourceRoute": "/google-docs-to-wordpress/",
+      "sourceLabel": "Synthetic fictional HTML formatted like a copied Google Docs selection, not a current authenticated Google Docs capture",
+      "inputMode": "native-visual-paste",
+      "text": "Preparation Our fictional editor checked a reference link before drafting. Confirm the opening heading. Compare every table row. Stage Owner Import Writer Review Editor No customer results are represented here. Final publishing sentinel: juniper 927.",
+      "top": [
+        "core/heading",
+        "core/paragraph",
+        "core/list",
+        "core/table",
+        "core/quote",
+        "core/paragraph"
+      ],
+      "headingLevels": [
+        2
+      ],
+      "listStarts": [
+        4
+      ],
+      "listItems": 2,
+      "rows": [
+        [
+          "Stage",
+          "Owner"
+        ],
+        [
+          "Import",
+          "Writer"
+        ],
+        [
+          "Review",
+          "Editor"
+        ]
+      ],
+      "links": [
+        {
+          "text": "reference link",
+          "href": "https://example.com/editorial-source"
+        }
+      ],
+      "quotes": [
+        "No customer results are represented here."
+      ]
+    },
+    {
       "id": "paragraphs-inline-code-editor-fallback",
       "body": "## Fictional section\n\nKeep **bold _inside_** and [a link](https://example.test/?a=1&b=2).\n\n### Detail\n\nAn ending.",
       "text": "Fictional section Keep bold inside and a link. Detail An ending.",

@@ -41,6 +41,8 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
             !isDigest(found.editedSha256) || found.editedSha256 === found.savedSha256) ||
           item.strikes && found.strikethroughVerified !== true || item.rawText && found.rawTextVerified !== true ||
           item.listPaths && found.listHierarchyVerified !== true ||
+          item.sourceFixture && (found.sourceOrigin !== 'authored-synthetic' || !isDigest(found.sourceInputSha256) ||
+            typeof found.source !== 'string' || !/synthetic|fictional|programmatic/i.test(found.source)) ||
           item.formatSelection && found.toolbarVerified !== true;
       })) throw new Error('WordPress evidence is incomplete, contains failures, or targets a different environment.');
   // The separate media case is not another parser-only block fixture. It must

@@ -17,6 +17,7 @@ from urllib.parse import urlparse, parse_qs
 
 from document_benchmark import ArticleHTML, normalized
 from wordpress_media_acceptance import run_wordpress_media_handoff
+from wordpress_source_fixtures import load_wordpress_source_fixture
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'test-results'
@@ -57,6 +58,8 @@ def check_post(post, case, markers, text=None):
     assert article.images == len(case.get('images', [])), 'Rendered image count changed'
     if 'rows' in case:
         assert article.rows == case['rows'], 'Saved/rendered table structure changed'
+    if 'quotes' in case:
+        assert article.quotes == case['quotes'], 'Saved/rendered quotation boundaries changed'
     if 'links' in case:
         assert article.links == case['links'], 'Saved/rendered link targets changed'
     if 'listPaths' in case:
@@ -262,10 +265,17 @@ def main():
                     entry = {'id': case['id'], 'result': 'RUNNING'}
                     report['cases'].append(entry)
                     source_page = new_page()
-                    source_page.goto('https://drafttopage.test' + case.get('sourceRoute', '/word-to-wordpress/' if case.get('file') else '/markdown-to-wordpress/'))
+                    source_page.goto('https://drafttopage.test' + case.get('sourceRoute', '/word-to-wordpress/' if case.get('file') or case.get('sourceFixture') else '/markdown-to-wordpress/'))
                     expect(source_page.locator('#desk-status')).to_contain_text('ready')
-                    if case.get('file'):
-                        source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
+                    if case.get('file') or case.get('sourceFixture'):
+                        if case.get('sourceFixture'):
+                            synthetic = load_wordpress_source_fixture(ROOT, case['sourceFixture'])
+                            source_page.locator('#import-file').set_input_files(synthetic['input'])
+                            entry['sourceOrigin'] = synthetic['origin']
+                            entry['sourceInputSha256'] = synthetic['sha256']
+                            entry['source'] = case.get('sourceLabel', 'Synthetic authored fixture, not an actual source-app export')
+                        else:
+                            source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
                         expect(source_page.locator('#import-preview')).to_be_visible()
                         source_page.check('#import-changes-ok')
                         source_page.click('#apply-import-and-continue')
@@ -273,7 +283,8 @@ def main():
                         expect(source_page.locator('#publishing-destination')).to_have_value('wordpress')
                         expect(source_page.locator('#reviewed')).not_to_be_checked()
                         entry['reviewedImportContinuation'] = True
-                        entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and Copy WordPress blocks')
+                        if not case.get('sourceFixture'):
+                            entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and Copy WordPress blocks')
                     else:
                         source_page.fill('#body', case['body'])
                         entry['source'] = 'actual Markdown-to-WordPress article fields and Copy WordPress blocks'

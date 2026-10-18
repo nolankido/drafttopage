@@ -34,7 +34,9 @@ const complete = () => ({ result: 'PASS', scope: 'local WordPress native clipboa
     ...(item.listPaths ? { listHierarchyVerified: true } : {}),
     ...(item.rawText ? { rawTextVerified: true } : {}),
     ...(item.editAfterReopen ? { editedAndReopened: true, editedSha256: editedDigest, secondReopenExact: true } : {}),
-    ...(item.file ? { source: 'native file fixture' } : {}) })),
+    ...(item.file ? { source: 'native file fixture' } : {}),
+    ...(item.sourceFixture ? { source: item.sourceLabel, sourceOrigin: 'authored-synthetic',
+      sourceInputSha256: digest } : {}) })),
   mediaLibrary: {
     result: 'PASS', fixtureId: mediaFixture.id, sourceDocumentSha256: digest,
     imagePackageVerified: true, mapV1Verified: true, wordpressAttachmentCount: 2,
@@ -60,12 +62,13 @@ test('Every retained article shape uses native Visual paste and the Code-editor 
     'paragraphs-inline', 'nested-lists', 'tables', 'quote-code-separator', 'unicode-literal',
     'linked-image-enabled', 'linked-image-literal', 'word-footnotes-handoff', 'strikethrough-nested',
     'toolbar-strikethrough-handoff', 'word-strikethrough-handoff', 'google-checklist-handoff',
-    'quoted-citation-handoff'
+    'quoted-citation-handoff', 'compound-word-synthetic-handoff',
+    'compound-docs-style-synthetic-handoff'
   ]);
   assert.deepEqual(configuration.cases.filter(item => item.inputMode === 'code-editor').map(item => item.id),
     ['paragraphs-inline-code-editor-fallback']);
   const result = validateWordPressEvidence(complete(), configuration, digest);
-  assert.equal(result.nativePasteCases, 13);
+  assert.equal(result.nativePasteCases, 15);
   assert.equal(result.codeEditorCases, 1);
 });
 
@@ -85,7 +88,9 @@ test('WordPress acceptance requires the pinned environment, every saved/reopened
     x => delete x.cases.find(item => item.rawTextVerified).rawTextVerified,
     x => delete x.cases.find(item => item.toolbarVerified).toolbarVerified,
     x => delete x.cases.find(item => item.toolbarVerified).source,
-    x => delete x.cases.find(item => item.listHierarchyVerified).listHierarchyVerified
+    x => delete x.cases.find(item => item.listHierarchyVerified).listHierarchyVerified,
+    x => delete x.cases.find(item => item.sourceOrigin).sourceOrigin,
+    x => delete x.cases.find(item => item.sourceInputSha256).sourceInputSha256
   ];
   for (const corrupt of corruptions) {
     const evidence = complete(); corrupt(evidence);
