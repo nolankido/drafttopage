@@ -1117,3 +1117,18 @@ test('Caption-level emphasis survives separated HTML caption paragraphs', () => 
     element('div', [element('p', ['Nested one']), element('p', ['Nested two'])])
   ]))), /Nested paragraph wrappers/);
 });
+
+test('Visible thematic breaks in caption definition shells fail closed', () => {
+  const table = nested => element('table', [
+    element('caption', ['Schedule ', element('dl', [nested]), ' ending.']),
+    element('tr', [element('th', ['Column'])]),
+    element('tr', [element('td', ['Value'])])
+  ]);
+  const source = table(element('hr')), original = JSON.stringify(source);
+  assert.throws(() => convert(source), /Definition lists inside table captions cannot be preserved/);
+  assert.equal(JSON.stringify(source), original);
+  const hidden = convert(table(element('hr', [], { hidden: '' })));
+  assert.match(hidden.markdown, /Schedule ending\\\./);
+  assert.doesNotMatch(hidden.markdown, /<hr|\*\*\*/);
+  assert.ok(hidden.warnings.some(w => w.includes('hidden content')));
+});
