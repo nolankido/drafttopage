@@ -4,7 +4,7 @@ Status: **NOT_RUN**. Study tooling is ready, but this work has not contacted, re
 
 ## Prepare empty slots, not participants
 
-Run `npm run study:plan` from a trusted checkout with Node 22+ to print ten unassigned proposed slots: Word 5, Google Docs 3, Markdown 2. It balances method order 5 usual-first and 5 DraftToPage-first. Planning slots must never be treated as recruited people. If the real mix differs, record the actual cohort and method order rather than modifying history to fit quotas.
+Run `npm run study:plan` from a trusted checkout with Node 22+ to print ten unassigned proposed slots: Word 5, Google Docs 3, Markdown 2. It balances method order 5 usual-first and 5 Draft to Page first. Planning slots must never be treated as recruited people. If the real mix differs, record the actual cohort and method order rather than modifying history to fit quotas.
 
 Run `npm run study:init -- /absolute/private-alpha/sessions` to create ten blank, private, non-overwriting records outside the checkout. This does not invite or contact anyone. The owner must separately choose the invited participants, private support contact method, recording consent, deletion policy, and session timing. No public signup form, tracking or automated outreach is introduced.
 
@@ -18,10 +18,12 @@ Use source_cohort as WORD, GOOGLE_DOCS or MARKDOWN if observed. Another source o
 
 ## Expansion stop and bounded repair
 
-If any observed human, including an unqualified participant, experiences unrecoverable writing loss, private material appearing in an article export, or a lost final paragraph, the summary says STOP_FOR_SAFETY. Unknown safety checks also hold expansion. Stop new invitations and reproduce only with fictional content. Do not request private writing in a public issue. Fix an actual reproducible defect on a feature branch, rerun gates, and keep before/after participants separated by exact commit.
+If any observed human, including an unqualified participant, experiences unrecoverable writing loss, private material appearing in an article export, a lost final paragraph, unintended persistence, unintended publication, or an unexpected external request, the summary says STOP_FOR_SAFETY. Unknown safety checks also hold expansion. Stop new invitations and reproduce only with fictional content. Do not request private writing in a public issue. Fix an actual reproducible defect on a feature branch, rerun gates, and keep before/after participants separated by exact commit.
 
 Otherwise use `npm run study:report -- /absolute/private-alpha/sessions` to see the actual qualified source mix beside the 5/3/2 planning target, and the most frequent issue category by affected participant count. This helps choose which concrete observed defect to investigate first; the tag alone is not a bug proof. Mixed five-person release groups may not be pooled into a ten-person success claim. Even a ten-person cohort remains HOLD_PRODUCT_TARGETS_OR_UNVERIFIED_DESTINATION if first conversions, title/approval/publishing comprehension, or all actually attempted WordPress save/reopen tasks are not supported by recorded outcomes. OWNER_REVIEW_REQUIRED is never an automatic invitation.
 
 Provisional goals remain at least 8/10 unaided first conversions, median unaided T1 time <=300 seconds, every attempted WordPress draft save/reopen editable, no writing/privacy/ending loss, and 5/10 observed voluntary distinct returns within 72 hours. These are goals, not measured outcomes. A ten-blank-record report must say NOT_RUN and zero human observations.
 
 The owner determines whether to invite people after the blocked release and private support requirements are resolved. Do not create messages, invitations, automations or participant accounts merely to run this tooling.
+
+The three additional safety observations are explicit, nullable fields in the session record. The owner must check each separately; do not infer false from silence or convert a saved WordPress draft made deliberately by the participant into unintended publication. Older version-2 records without the new fields are accepted but their safety evidence is incomplete, so cohort expansion stays on hold until a real observer reconciles the original session record.

@@ -13,6 +13,7 @@ function observed(index = 1) {
   Object.assign(record, { status: 'OBSERVED', session_id: 'P' + String(index).padStart(2, '0'), release_commit: 'a'.repeat(40), session_date: '2026-10-16',
     evidence_type: 'HUMAN_OBSERVATION', participant_qualified: true, consent_to_record_outcomes: true, publishes_articles_per_month: 4,
     article_ending_retained: true, private_material_in_export: false, unrecoverable_writing_loss: false,
+    unintended_persistence: false, unintended_publication: false, unexpected_external_request: false,
     title_handling_understood: true, approval_understood: true, manual_publishing_understood: true,
     wordpress_save_reopen_attempted: true, wordpress_native_blocks_editable: true });
   record.tasks = record.tasks.map(({ id }) => ({ id, ...task() }));

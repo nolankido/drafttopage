@@ -8,6 +8,30 @@ const template = JSON.parse(readFileSync(resolve(root, 'docs/alpha/session-recor
 const statuses = ['NOT_RUN', 'PASS_UNAIDED', 'PASS_ASSISTED', 'FAIL', 'DECLINED'];
 export const ISSUE_CATEGORIES = Object.freeze(['START','PREVIEW','FIDELITY','HANDOFF','RECOVERY','OTHER']);
 export const ALPHA_SOURCE_COHORTS = Object.freeze(['WORD','GOOGLE_DOCS','MARKDOWN']);
+export const ALPHA_ADDITIONAL_SAFETY_FLAGS = Object.freeze([
+  'unintended_persistence','unintended_publication','unexpected_external_request'
+]);
+// These fields were introduced after private version-2 study records existed.
+// Absence means unverified, never a negative observation.
+const safetyObserved = (record, key) => record[key] === undefined ? null : record[key];
+function safetySummary(records) {
+  const incidents = {
+    writing_loss: records.filter(record => record.unrecoverable_writing_loss === true).length,
+    private_material_exported: records.filter(record => record.private_material_in_export === true).length,
+    article_ending_lost: records.filter(record => record.article_ending_retained === false).length,
+    unintended_persistence: records.filter(record => safetyObserved(record,'unintended_persistence') === true).length,
+    unintended_publication: records.filter(record => safetyObserved(record,'unintended_publication') === true).length,
+    unexpected_external_request: records.filter(record => safetyObserved(record,'unexpected_external_request') === true).length
+  };
+  const missing_checks = records.filter(record =>
+    record.unrecoverable_writing_loss === null ||
+    record.private_material_in_export === null ||
+    completed(record.tasks[0]) && record.article_ending_retained === null ||
+    ALPHA_ADDITIONAL_SAFETY_FLAGS.some(flag => safetyObserved(record,flag) === null)).length;
+  return { ...incidents, missing_checks };
+}
+const hasSafetyIncident = summary => Object.entries(summary)
+  .some(([key,count]) => key !== 'missing_checks' && count > 0);
 // Never copy arbitrary source-app or issue note strings into an aggregate.
 function sourceCategory(value) {
   const source = typeof value === 'string' ? value.toLowerCase().replace(/[ _-]+/g,' ').trim() : '';
@@ -65,6 +89,9 @@ export function validateSession(record) {
     invalid('Issue categories must be unique predefined category names, without writing or identifying details.');
   if (!Array.isArray(record.tasks) || record.tasks.length !== 6 ||
       record.tasks.some((task, index) => !object(task) || task.id !== 'T' + (index + 1) || !taskValid(task))) invalid('Tasks must contain T1 through T6 with consistent outcomes, times and hints.');
+  if (ALPHA_ADDITIONAL_SAFETY_FLAGS.some(flag =>
+    record[flag] !== undefined && !nullableBoolean(record[flag])))
+    invalid('Unexpected-persistence, publication and external-request observations must be boolean or null.');
   const flags = ['article_ending_retained', 'private_material_in_export', 'unrecoverable_writing_loss',
     'title_handling_understood', 'approval_understood', 'manual_publishing_understood',
     'wordpress_save_reopen_attempted', 'wordpress_native_blocks_editable', 'actual_second_article_observed'];
@@ -88,6 +115,7 @@ export function validateSession(record) {
     if (record.tasks.some(task => task.status !== 'NOT_RUN') || flags.some(key => record[key] !== null) ||
         record.setup_seconds !== null || record.second_article_delay_hours !== null ||
         (record.issue_categories?.length ?? 0) !== 0 ||
+        ALPHA_ADDITIONAL_SAFETY_FLAGS.some(flag => safetyObserved(record,flag) !== null) ||
         record.version === 2 && (record.evidence_type !== null || record.participant_qualified !== null ||
           record.consent_to_record_outcomes !== null || record.publishes_articles_per_month !== null ||
           record.paired_comparison.usual_workflow.status !== 'NOT_RUN' || record.paired_comparison.drafttopage.status !== 'NOT_RUN' ||
@@ -113,13 +141,7 @@ function summarizeRelease(records) {
   const first = tasks.T1;
   first.median_unaided_completion_seconds = median(first.unaided_completion_seconds);
   first.median_attempted_seconds = median(first.attempted_seconds);
-  const safety = {
-    writing_loss: records.filter(record => record.unrecoverable_writing_loss === true).length,
-    private_material_exported: records.filter(record => record.private_material_in_export === true).length,
-    article_ending_lost: records.filter(record => record.article_ending_retained === false).length,
-    missing_checks: records.filter(record => record.unrecoverable_writing_loss === null || record.private_material_in_export === null ||
-      completed(record.tasks[0]) && record.article_ending_retained === null).length
-  };
+  const safety = safetySummary(records);
   const comprehension = Object.fromEntries(['title_handling_understood', 'approval_understood', 'manual_publishing_understood'].map(key =>
     [key, { understood: records.filter(record => record[key] === true).length, unknown: records.filter(record => record[key] === null).length }]));
   const attemptedWP = records.filter(record => record.wordpress_save_reopen_attempted === true);
@@ -156,7 +178,7 @@ function summarizeRelease(records) {
     issue_priority: prioritizeAlphaIssues(issueCounts(records)),
     targets: {
       first_conversion: target(first.statuses.PASS_UNAIDED >= threshold && first.median_unaided_completion_seconds <= 300, first.statuses.NOT_RUN),
-      safety: safety.writing_loss + safety.private_material_exported + safety.article_ending_lost ? 'BLOCKED' : safety.missing_checks ? 'PENDING' : 'NO_INCIDENT_RECORDED',
+      safety: hasSafetyIncident(safety) ? 'BLOCKED' : safety.missing_checks ? 'PENDING' : 'NO_INCIDENT_RECORDED',
       title_understanding: target(comprehension.title_handling_understood.understood >= threshold, comprehension.title_handling_understood.unknown),
       approval_understanding: target(comprehension.approval_understood.understood >= threshold, comprehension.approval_understood.unknown),
       manual_publishing_understanding: target(comprehension.manual_publishing_understood.understood >= threshold, comprehension.manual_publishing_understood.unknown),
@@ -173,15 +195,9 @@ export function summarizeSessions(input) {
   const qualified = observed.filter(record => record.participant_qualified === true);
   const releases = [...new Set(qualified.map(record => record.release_commit))];
   const releaseReports = releases.map(release => summarizeRelease(qualified.filter(record => record.release_commit === release)));
-  const critical = {
-    writing_loss: observed.filter(record => record.unrecoverable_writing_loss === true).length,
-    private_material_exported: observed.filter(record => record.private_material_in_export === true).length,
-    article_ending_lost: observed.filter(record => record.article_ending_retained === false).length
-  };
-  const missingSafety = observed.filter(record => record.unrecoverable_writing_loss === null ||
-    record.private_material_in_export === null ||
-    completed(record.tasks[0]) && record.article_ending_retained === null).length;
-  const unsafe = Object.values(critical).some(count => count > 0);
+  const allHumanSafety = safetySummary(observed);
+  const { missing_checks: missingSafety, ...critical } = allHumanSafety;
+  const unsafe = hasSafetyIncident(allHumanSafety);
   const expansion = unsafe ? 'STOP_FOR_SAFETY' : missingSafety ? 'HOLD_SAFETY_CHECKS_INCOMPLETE' :
     qualified.length < 10 ? 'WAIT_FOR_QUALIFIED_SESSIONS' :
     !releaseReports.some(report => report.qualified_observed >= 10) ? 'HOLD_NO_SINGLE_RELEASE_COHORT' :
