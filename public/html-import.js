@@ -288,6 +288,14 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     }
     return lines;
   }
+  // A caption is flattened to inline Markdown. Reject only definition
+  // material that would become visible and lose its term/description meaning.
+  function visibleDefinitionMaterial(node) {
+    if (ignoredReason(node)) return false;
+    if (node.nodeType === 3) return /\S/.test(node.nodeValue);
+    if (['dt', 'dd', 'br', 'img'].includes(tag(node))) return true;
+    return children(node).some(visibleDefinitionMaterial);
+  }
   function table(node) {
     const rows = [], captions = [];
     for (const child of children(node)) {
@@ -298,7 +306,12 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
         while (pending.length) {
           const nested = pending.pop();
           if (ignoredReason(nested)) continue;
-          if (['dl', 'dt', 'dd'].includes(tag(nested)))
+          if (tag(nested) === 'dl') {
+            if (visibleDefinitionMaterial(nested))
+              throw new Error('Definition lists inside table captions cannot be preserved. Move terms and descriptions outside the table before importing.');
+            continue; // Only omitted entries: the inline parser still discloses them.
+          }
+          if (['dt', 'dd'].includes(tag(nested)))
             throw new Error('Definition lists inside table captions cannot be preserved. Move terms and descriptions outside the table before importing.');
           pending.push(...children(nested));
         }
@@ -460,6 +473,16 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (blockDescendants.has(node)) return flow(node, currentBold);
     return inheritedInline(node, currentBold).trim();
   }
+  // Empty rendered output can mean either a genuine blank/break-only
+  // visible block or a wrapper around solely omitted content. Preserve
+  // real source boundaries without giving hidden content a visible effect.
+  function visibleEmptyBoundary(node) {
+    if (ignoredReason(node)) return false;
+    if (node.nodeType === 3) return /\S/.test(node.nodeValue);
+    const nested = children(node);
+    if (!nested.length) return blocks.has(tag(node)) || tag(node) === 'br';
+    return nested.some(visibleEmptyBoundary);
+  }
   function flow(node, ancestorBold = false) {
     const result = []; let run = [];
     const flush = () => { const value = writeInline(run).trim(); if (value) result.push(value); run = []; };
@@ -468,8 +491,9 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       if (skip(child)) continue;
       if (blocks.has(tag(child)) || blockDescendants.has(child)) {
         const value = render(child, ancestorBold);
-        // Empty wrappers around omitted descendants have no visible boundary.
-        if (value) { flush(); result.push(value); }
+        // Empty hidden-only wrappers do not divide prose, but explicit
+        // visible blank blocks still separate neighboring text runs.
+        if (value || visibleEmptyBoundary(child)) { flush(); if (value) result.push(value); }
       }
       else run.push(...(ancestorBold ? [{ type: 'strong', children: inlineNodes(child) }] : inlineNodes(child)));
     }

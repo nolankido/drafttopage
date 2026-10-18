@@ -961,3 +961,48 @@ test('Omitted definition lists and nested blocks cannot invent paragraph boundar
   assert.match(createHTMLSource({ body: withRealParagraph.markdown }),
     /<p>Before after\.<\/p>\n<p>Actual new paragraph\.<\/p>/);
 });
+
+test('Visible break-only or empty blocks still separate neighboring article text', () => {
+  const blocks = [
+    element('div', [element('br')]),
+    element('div'),
+    element('p'),
+    element('section', [element('p')])
+  ];
+  for (const gap of blocks) {
+    const original = JSON.stringify(gap);
+    const result = convert(element('div', ['Before', gap, 'After']));
+    assert.equal(JSON.stringify(gap), original);
+    assert.equal(result.markdown, 'Before\n\nAfter', 'visible block did not merge neighboring prose');
+  }
+  const hiddenOnly = convert(element('div', ['Before', element('div', [
+    element('dl', [element('dt', ['Secret']), element('dd', ['Private'])], { hidden: '' })
+  ]), 'After']));
+  assert.equal(hiddenOnly.markdown, 'BeforeAfter');
+  assert.doesNotMatch(hiddenOnly.markdown, /Secret|Private/);
+});
+
+test('Captions containing only hidden definition entries retain visible caption text', () => {
+  const table = caption => element('table', [
+    caption, element('tr', [element('th', ['Header'])]),
+    element('tr', [element('td', ['Row'])])
+  ]);
+  for (const hidden of [{ hidden: '' }, { 'aria-hidden': 'true' }, { style: 'display:none' }]) {
+    const source = table(element('caption', [
+      'Schedule',
+      element('dl', [
+        element('dt', ['Secret'], hidden),
+        element('dd', ['Private'], hidden)
+      ])
+    ]));
+    const original = JSON.stringify(source);
+    const result = convert(source);
+    assert.equal(JSON.stringify(source), original);
+    assert.match(result.markdown, /^Schedule\n/);
+    assert.doesNotMatch(result.markdown, /Secret|Private/);
+    assert.ok(result.warnings.some(text => text.includes('hidden content')));
+  }
+  assert.throws(() => convert(table(element('caption', ['Schedule',
+    element('dl', [element('dt', ['Visible']), element('dd', ['Hidden'], { hidden: '' })])
+  ]))), /Definition lists inside table captions cannot be preserved/);
+});
