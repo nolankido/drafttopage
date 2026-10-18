@@ -758,3 +758,66 @@ test('Reopening copied controls preserves a selected Word file and its proposed-
   assert.equal($('import-word-revisions').value, 'proposed'); assert.equal(ui.pending(), true);
   assert.equal($('body').value, 'Existing article'); assert.equal($('reviewed').checked, true); assert.equal(applications.length, 0);
 }));
+
+
+test('Definition lists keep terms, descriptions, inline formatting, links, and exact article ending across exports', () => {
+  const root = element('section', [
+    element('h2', ['Project information']),
+    element('dl', [
+      element('dt', ['Start time']),
+      element('dd', ['Check-in at ', element('strong', ['10:00']), '.']),
+      element('dt', ['Parking']),
+      element('dd', ['Use the ', element('a', ['north lot'], { href: 'https://example.com/north?entry=1' }), '.']),
+    ]),
+    element('p', ['KEEP_DEFINITION_ENDING_20261018'])
+  ]);
+  const original = JSON.stringify(root);
+  const result = convert(root), article = parseArticleImport(result.markdown);
+  assert.equal(JSON.stringify(root), original, 'original detached HTML tree must not change');
+  assert.match(result.markdown, /\*\*Term:\*\* Start time/);
+  assert.match(result.markdown, /\*\*Definition:\*\* Check\\-in at \*\*10:00\*\*/);
+  assert.match(result.markdown, /\*\*Term:\*\* Parking/);
+  assert.match(result.markdown, /\[north lot\]\(https:\/\/example.com\/north\?entry=1\)/);
+  assert.ok(result.warnings.some(text => text.includes('Definition lists became labeled')));
+  assert.match(result.markdown, /KEEP\\_DEFINITION\\_ENDING\\_20261018$/);
+  for (const output of [createHTMLSource(article.draft), createWordPressArticle(article.draft).html]) {
+    for (const word of ['Start time', 'Check-in at', '10:00', 'Parking', 'north lot', 'KEEP_DEFINITION_ENDING_20261018']) assert.ok(output.includes(word), word);
+    assert.match(output, /<strong>Term:<\/strong>/);
+    assert.match(output, /<strong>Definition:<\/strong>/);
+    assert.match(output, /href="https:\/\/example.com\/north\?entry=1"/);
+    assert.doesNotMatch(output, /<dl|<dt|<dd|<script|<iframe/);
+  }
+});
+
+test('Definition entries with ordinary paragraph wrappers keep boundaries without joining adjacent text', () => {
+  const source = element('dl', [
+    element('dt', ['Limit']),
+    element('dd', [element('p', ['First paragraph.']), element('p', ['Second paragraph.'])]),
+    element('dt', ['Single-line term']),
+    element('dd', ['Final answer.'])
+  ]);
+  const result = convert(source);
+  assert.match(result.markdown, /\*\*Definition:\*\* First paragraph\\\.\n\nSecond paragraph\\\./);
+  assert.match(result.markdown, /\*\*Term:\*\* Single\\-line term/);
+  const output = createHTMLSource({ body: result.markdown });
+  assert.ok(output.indexOf('First paragraph') < output.indexOf('Second paragraph'));
+  assert.ok(output.indexOf('Second paragraph') < output.indexOf('Single-line term'));
+  assert.doesNotMatch(output, /First paragraphSecond paragraph|Second paragraphSingle-line/);
+});
+
+test('Ambiguous or oversized HTML definition lists fail closed rather than silently losing content', () => {
+  const dl = (...items) => element('dl', items);
+  for (const broken of [
+    dl(element('dd', ['Orphan description']), element('dt', ['Late term'])),
+    dl(element('dt', ['Trailing term only'])),
+    dl(element('dt', ['Valid']), element('dd', ['First']), element('dt', ['No definition'])),
+    dl(element('dt', ['Term']), element('dd', ['One']), element('div', [element('dd', ['Wrapped and ambiguous'])])),
+    dl(element('dt', ['Term']), element('dd', [element('ul', [element('li', ['Nested item'])])])),
+    dl(element('dt', ['Term']), element('dd', [element('table', [element('tr', [element('th', ['Nested'])])])])),
+    dl(element('dt', ['Term']), element('dd', [''])),
+    element('article', [element('dd', ['Outside list'])])
+  ]) assert.throws(() => convert(broken), /definition|Definition|Nested lists|Empty/);
+  const lots = dl(...Array.from({ length: 101 }, (_, i) => [element('dt', ['Term ' + i]), element('dd', ['Answer ' + i])]).flat());
+  assert.throws(() => convert(lots), /200 terms and descriptions/);
+  assert.throws(() => convert(dl(element('dt', ['Hidden'], { hidden: '' }), element('dd', ['Orphan']))), /definition needs a preceding term/);
+});

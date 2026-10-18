@@ -5,7 +5,7 @@ import { markdownFromInline } from './inline-markdown.js';
 const MAX_NODES = 12000, MAX_DEPTH = 32, MAX_TAGS = 6000;
 const controls = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/;
 const omitted = new Set('head title meta link script style template noscript iframe object embed svg math canvas audio video source track input button select textarea form'.split(' '));
-const blocks = new Set('html body div section article main header footer nav aside figure figcaption address p h1 h2 h3 h4 h5 h6 ul ol li table pre blockquote hr'.split(' '));
+const blocks = new Set('html body div section article main header footer nav aside figure figcaption address p h1 h2 h3 h4 h5 h6 ul ol li table pre blockquote hr dl dt dd'.split(' '));
 const tag = node => node.nodeType === 1 ? node.localName.toLowerCase() : '';
 const children = node => Array.from(node.childNodes || []);
 const attr = (node, name) => node.nodeType === 1 ? node.getAttribute(name) : null;
@@ -359,6 +359,40 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     const quoted = lines.join('\n').replace(/^\n+|\n+$/g, '');
     return quoted ? quoted.split('\n').map(line => '> ' + line).join('\n') : '';
   }
+  // Native HTML definition lists are semantic pairs, not one continuous
+  // paragraph. Convert only bounded, understandable dt/dd entries. Label each
+  // entry explicitly so the association survives plain Markdown, WordPress,
+  // and Word rather than silently concatenating terms with their descriptions.
+  function definitionList(node, ancestorBold) {
+    const entries = [];
+    let sawTerm = false, sawDefinition = false, waitingForDefinition = false;
+    for (const item of children(node)) {
+      if (item.nodeType === 8 || item.nodeType === 3 && !item.nodeValue.trim()) continue;
+      if (skip(item)) continue;
+      const kind = tag(item);
+      if (kind !== 'dt' && kind !== 'dd') throw new Error('Definition lists support only direct terms and descriptions. Simplify grouped or custom definition lists before importing.');
+      if (kind === 'dd' && !sawTerm) throw new Error('A definition needs a preceding term. Correct this definition list before importing.');
+      if (entries.length >= 200) throw new Error('Definition lists support at most 200 terms and descriptions. Import a smaller selection.');
+      const queue = [...children(item)];
+      while (queue.length) {
+        const child = queue.pop(), name = tag(child);
+        if (['dl', 'ul', 'ol', 'table', 'pre', 'blockquote', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(name))
+          throw new Error('Nested lists, tables, headings, quotes, or code blocks in definitions cannot be preserved. Simplify them before importing.');
+        queue.push(...children(child));
+      }
+      const content = blockDescendants.has(item)
+        ? flow(item, boldWithin(item, ancestorBold)).trim()
+        : inheritedInline(item, boldWithin(item, ancestorBold)).trim();
+      if (!content) throw new Error('Empty definition terms or descriptions cannot be preserved. Correct the list before importing.');
+      entries.push((kind === 'dt' ? '**Term:** ' : '**Definition:** ') + content);
+      if (kind === 'dt') { sawTerm = true; waitingForDefinition = true; }
+      else { sawDefinition = true; waitingForDefinition = false; }
+    }
+    if (!sawTerm || !sawDefinition || waitingForDefinition)
+      throw new Error('Each definition term needs a following description. Correct the list before importing.');
+    warn('Definition lists became labeled Term and Definition paragraphs. Review their structure in your Markdown destination.');
+    return entries.join('\n\n');
+  }
   function render(node, ancestorBold = false) {
     if (skip(node)) return '';
     const name = tag(node), currentBold = boldWithin(node, ancestorBold);
@@ -379,6 +413,8 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       return fence + '\n' + text + (text.endsWith('\n') ? '' : '\n') + fence;
     }
     if (name === 'blockquote') return quote(node, currentBold);
+    if (name === 'dl') return definitionList(node, currentBold);
+    if (name === 'dt' || name === 'dd') throw new Error('A definition term or description must be inside a definition list. Correct the source before importing.');
     if (name === 'hr') return '***';
     if (name === 'li') throw new Error('A list item is outside its list. Correct the source before importing.');
     if (blockDescendants.has(node)) return flow(node, currentBold);
