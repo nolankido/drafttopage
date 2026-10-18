@@ -12,6 +12,10 @@ function fixture(run) {
     mkdirSync(join(root, 'tests')); mkdirSync(join(root, 'test-results'));
     writeFileSync(join(root, 'package.json'), '{"name":"drafttopage"}');
     writeFileSync(join(root, 'tests', 'fixture.test.js'), '');
+    writeFileSync(join(root, '.gitignore'), 'test-results/\n');
+    execFileSync('git', ['init', '--quiet'], { cwd: root });
+    execFileSync('git', ['add', '.gitignore', 'package.json', 'tests'], { cwd: root });
+    execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--quiet', '-m', 'Fixture baseline'], { cwd: root });
     writeFileSync(join(root, 'test-results', 'browser-results.json'), '{"result":"PASS"}');
     return run(root);
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -56,9 +60,6 @@ test('Fresh complete browser evidence passes after all commands and a supplied P
 
 
 test('Source changes during a run invalidate otherwise complete passing evidence', () => fixture(root => {
-  execFileSync('git', ['init', '--quiet'], { cwd: root });
-  writeFileSync(join(root, '.gitignore'), 'test-results/\n');
-  execFileSync('git', ['add', '.gitignore', 'package.json', 'tests'], { cwd: root });
   let calls = 0;
   const result = verifyRelease({ root, env: {}, run: () => {
     if (++calls === 4) {
@@ -67,6 +68,32 @@ test('Source changes during a run invalidate otherwise complete passing evidence
     }
     return { status: 0 };
   } });
-  assert.equal(result.result, 'FAIL'); assert.match(result.error, /source changed during validation/);
+  assert.equal(result.result, 'FAIL'); assert.match(result.error, /commit or source changed during validation/);
   assert.equal(result.steps.at(-1).name, 'source snapshot'); assert.equal(result.steps.at(-1).result, 'FAIL');
+}));
+
+test('A checkout without Git metadata cannot produce a green release receipt', () => fixture(root => {
+  rmSync(join(root, '.git'), { recursive: true, force: true });
+  let called = 0;
+  const result = verifyRelease({ root, env: {}, run: () => { called++; return { status: 0 }; } });
+  assert.equal(result.result, 'FAIL');
+  assert.equal(called, 0);
+  assert.match(result.error, /requires a Git commit and a complete source fingerprint/);
+  assert.equal(existsSync(join(root, 'test-results', 'browser-results.json')), false);
+  assert.equal(JSON.parse(readFileSync(join(root, 'test-results', 'release-results.json'))).result, 'FAIL');
+}));
+
+test('Moving Git HEAD during validation invalidates an otherwise green source digest', () => fixture(root => {
+  let calls = 0;
+  const result = verifyRelease({ root, env: {}, run: () => {
+    if (++calls === 4) {
+      writeFileSync(join(root, 'test-results', 'browser-results.json'), JSON.stringify(goodEvidence));
+      execFileSync('git', ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+        'commit', '--allow-empty', '--quiet', '-m', 'Commit moved while checking'], { cwd: root });
+    }
+    return { status: 0 };
+  } });
+  assert.equal(result.result, 'FAIL');
+  assert.match(result.error, /commit or source changed during validation/);
+  assert.equal(result.steps.at(-1).name, 'source snapshot');
 }));
