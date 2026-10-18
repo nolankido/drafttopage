@@ -7,19 +7,22 @@ import { renderPage } from '../scripts/site-shell.mjs';
 
 const routes = ['write','word-to-wordpress','word-to-markdown','html-to-markdown','google-docs-to-wordpress','markdown-to-wordpress','markdown-to-html','markdown-to-word'];
 
+let cached;
 function inspect() {
+  if (cached) return cached;
   const pages = Object.fromEntries(writingPages.filter(page => page.desk).map(page => [page.route, renderPage(page)]));
-  return JSON.parse(execFileSync('python3', ['-c', String.raw`
+  return cached = JSON.parse(execFileSync('python3', ['-c', String.raw`
 import json,sys
 from html.parser import HTMLParser
 VOID=set('area base br col embed hr img input link meta param source track wbr'.split())
+TRACKED=set('article-heading backup-controls browser-recovery-panel import-panel checkpoint-panel draft-collection-panel editing-tools export-heading publishing-destination export-content-panel export-format-review reviewed jump-to-primary-export export-extra-settings publishing-checklist publishing-profile-panel export-essentials'.split())
 class P(HTMLParser):
- def __init__(self): super().__init__();self.nodes={};self.stack=[];self.index=0
+ def __init__(self): super().__init__();self.nodes={};self.seen=set();self.stack=[];self.index=0
  def handle_starttag(self,tag,attrs):
   attrs=dict(attrs);self.index+=1
   if 'id' in attrs:
-   key=attrs['id'];assert key not in self.nodes,key
-   self.nodes[key]={'tag':tag,'order':self.index,'attrs':attrs,'ancestors':[el[1].get('id') for el in self.stack]}
+   key=attrs['id'];assert key not in self.seen,key;self.seen.add(key)
+   if key in TRACKED:self.nodes[key]={'tag':tag,'order':self.index,'attrs':attrs,'ancestors':[el[1].get('id') for el in self.stack]}
   if tag not in VOID:self.stack.append((tag,attrs))
  def handle_startendtag(self,tag,attrs):
   assert tag in VOID
@@ -32,7 +35,7 @@ for route,html in json.load(sys.stdin).items():
  p=P();p.feed(html);p.close();assert not p.stack,route
  out[route]=p.nodes
 print(json.dumps(out))
-`], { encoding: 'utf8', input: JSON.stringify(pages) }));
+`], { encoding: 'utf8', input: JSON.stringify(pages), maxBuffer: 2 * 1024 * 1024 }));
 }
 
 test('First use presents article input before optional backup and recovery panels',()=>{
