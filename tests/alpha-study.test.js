@@ -95,7 +95,9 @@ test('Paired comparisons exclude failed, assisted, missing and mismatched work w
   records[3].paired_comparison.includes_image_and_cleanup_work = null;
   records[4].paired_comparison.drafttopage = task('PASS_ASSISTED', 1, 1);
   records[5].paired_comparison.drafttopage = task('FAIL', 1);
+  records[5].paired_comparison.drafttopage_saved_reopened = false;
   records[6].paired_comparison.usual_workflow = task('NOT_RUN', null, null);
+  records[6].paired_comparison.usual_saved_reopened = null;
   const result = summarizeSessions(records).releases[0].paired_comparison;
   assert.equal(result.accepted_unaided_pairs.length, 2); assert.equal(result.excluded_scope, 2);
   assert.equal(result.excluded_assisted_or_failed, 2); assert.equal(result.excluded_incomplete, 1);
