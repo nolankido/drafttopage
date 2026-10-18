@@ -227,6 +227,26 @@ def check_conversion(result, wanted):
                     items.append({'depth': int(level.get(ns + 'val')), 'text': normalized(''.join(node.text or '' for node in paragraph.iter(ns + 't')))})
             assert items == [{'depth': len(item['path']) - 2, 'text': item['text']} for item in wanted['listPaths']], 'Word list hierarchy or item text changed'
         checked['listHierarchy'] = 'exact HTML parent paths and Word paragraph levels checked'
+    if wanted.get('wordStructure'):
+        assert 'rows' in wanted and 'listItems' in wanted, 'Word structure requires independent table and list expectations'
+        with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
+            document = ET.fromstring(archive.read('word/document.xml'))
+            ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+            list_rows = []
+            for paragraph in document.iter(ns + 'p'):
+                numbering = paragraph.find(ns + 'pPr/' + ns + 'numPr')
+                if numbering is None:
+                    continue
+                assert numbering.find(ns + 'ilvl') is not None and numbering.find(ns + 'numId') is not None, 'Word list numbering metadata missing'
+                list_rows.append(normalized(''.join(item.text or '' for item in paragraph.iter(ns + 't'))))
+            tables = []
+            for block in document.iter(ns + 'tbl'):
+                for row in block.findall(ns + 'tr'):
+                    tables.append([normalized(''.join(item.text or '' for item in cell.iter(ns + 't')))
+                                   for cell in row.findall(ns + 'tc')])
+            assert list_rows == wanted['listItems'], 'Word numbered-list structure changed'
+            assert tables == wanted['rows'], 'Word table rows/cells changed'
+        checked['wordStructure'] = 'independent Word numbered paragraphs and table cells checked'
     if 'strikes' in wanted:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
             document = ET.fromstring(archive.read('word/document.xml'))

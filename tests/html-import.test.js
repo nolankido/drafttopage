@@ -1073,3 +1073,47 @@ test('Table captions with fully hidden definition entries preserve visible capti
   const rendered = createHTMLSource({ body: result.markdown });
   assert.match(rendered, /<th\b[^>]*>Column<\/th>/);
 });
+
+test('Empty visible paragraphs with harmless wrappers still delimit adjacent prose', () => {
+  for (const blank of [
+    element('p', [element('span')]),
+    element('p', [element('em')]),
+    element('div', [element('span', [element('i')])])
+  ]) {
+    const result = convert(element('div', ['Before', blank, 'After']));
+    assert.equal(result.markdown, 'Before\n\nAfter');
+  }
+  const omitted = convert(element('div', ['Before', element('div', [
+    element('span', [element('dl', [
+      element('dt', ['Hidden'], { hidden: '' }),
+      element('dd', ['Private'], { hidden: '' })
+    ])])
+  ]), 'After']));
+  assert.equal(omitted.markdown, 'BeforeAfter');
+  assert.ok(omitted.warnings.some(w => w.includes('hidden content')));
+});
+
+test('Caption-level emphasis survives separated HTML caption paragraphs', () => {
+  const table = caption => element('table', [
+    caption, element('tr', [element('th', ['Column'])]),
+    element('tr', [element('td', ['Value'])])
+  ]);
+  for (const [style, marker] of [
+    ['font-style:italic', '*'],
+    ['font-weight:700', '**'],
+    ['text-decoration:line-through', '~~']
+  ]) {
+    const root = table(element('caption', [
+      element('p', ['First']), element('p', ['Second'])
+    ], { style }));
+    const converted = convert(root);
+    assert.ok(converted.markdown.includes(marker + 'First' + marker + '\n\n' + marker + 'Second' + marker), style);
+    assert.ok(converted.warnings.some(w => w.includes('Original caption placement')));
+    const rendered = createHTMLSource({ body: converted.markdown });
+    assert.match(rendered, /First/);
+    assert.match(rendered, /Second/);
+  }
+  assert.throws(() => convert(table(element('caption', [
+    element('div', [element('p', ['Nested one']), element('p', ['Nested two'])])
+  ]))), /Nested paragraph wrappers/);
+});

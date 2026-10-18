@@ -181,6 +181,11 @@ test('Authored regression probes are explicit, independent of historical source 
       if (item.expect.category === 'disclosed') assert.ok(Array.isArray(item.expect.warnings) && item.expect.warnings.length);
       if (['rows', 'listItems', 'listPaths', 'links', 'strikes', 'quotes', 'inlineMarks', 'wordLinks'].some(key => key in item.expect)) withStructure++;
       for (const key of ['quotes', 'wordLinks']) if (key in item.expect) assert.ok(Array.isArray(item.expect[key]));
+      if ('wordStructure' in item.expect) {
+        assert.equal(item.kind, 'docx');
+        assert.equal(item.expect.wordStructure, true);
+        assert.ok(item.expect.rows?.length && item.expect.listItems?.length);
+      }
       if ('inlineMarks' in item.expect) {
         assert.deepEqual(Object.keys(item.expect.inlineMarks).filter(key => !['strong', 'em', 'code'].includes(key)), []);
         for (const marks of Object.values(item.expect.inlineMarks)) assert.ok(Array.isArray(marks) && marks.every(text => typeof text === 'string'));

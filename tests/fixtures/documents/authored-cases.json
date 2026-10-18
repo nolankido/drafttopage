@@ -432,7 +432,8 @@
             "text": "fictional reference",
             "href": "https://example.com/solar-editorial?stage=review"
           }
-        ]
+        ],
+        "wordStructure": true
       },
       "reason": "A complete, programmatically constructed fictional Word article must retain title, styled runs, list order, header table, Unicode, hyperlink and exact final sentence through all three exports.",
       "ui": true

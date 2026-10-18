@@ -296,6 +296,44 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (['dt', 'dd', 'br', 'img'].includes(tag(node))) return true;
     return children(node).some(visibleDefinitionMaterial);
   }
+  function captionParagraphs(node) {
+    // Preserve the caption's own inline styling around each simple paragraph.
+    // Original table-caption placement still requires a visible loss notice.
+    const paragraphs = []; let run = [];
+    const wrapped = content => ({
+      nodeType: 1, localName: tag(node), childNodes: content,
+      getAttribute: name => attr(node, name),
+      hasAttribute: name => node.hasAttribute(name)
+    });
+    const flush = () => {
+      if (run.length) {
+        const value = inline(wrapped(run)).trim();
+        if (value) paragraphs.push(value);
+      }
+      run = [];
+    };
+    for (const child of children(node)) {
+      if (skip(child)) continue;
+      const name = tag(child);
+      if (name === 'dl' && !visibleDefinitionMaterial(child)) {
+        for (const item of children(child)) if (ignoredReason(item)) skip(item);
+        continue;
+      }
+      if (['p', 'div'].includes(name)) {
+        if (blockDescendants.has(child))
+          throw new Error('Nested paragraph wrappers inside HTML table captions need review in the source editor before importing.');
+        flush();
+        const value = inline(wrapped([child])).trim();
+        if (value) paragraphs.push(value);
+      } else {
+        if (blockDescendants.has(child))
+          throw new Error('Nested block wrappers inside HTML table captions need review in the source editor before importing.');
+        run.push(child);
+      }
+    }
+    flush();
+    return paragraphs.join('\n\n');
+  }
   function table(node) {
     const rows = [], captions = [];
     for (const child of children(node)) {
@@ -319,7 +357,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
             throw new Error('Headings, lists, quotes, code, tables and rules inside table captions need review in the source editor before importing.');
           pending.push(...children(nested));
         }
-        const caption = blockDescendants.has(child) ? flow(child) : inline(child).trim();
+        const caption = blockDescendants.has(child) ? captionParagraphs(child) : inline(child).trim();
         if (caption) captions.push(caption);
         if (blockDescendants.has(child))
           warn('Paragraphs inside HTML table captions became separate article paragraphs. Original caption placement and semantics were not retained.');
@@ -492,12 +530,19 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   // Empty rendered output can mean either a genuine blank/break-only
   // visible block or a wrapper around solely omitted content. Preserve
   // real source boundaries without giving hidden content a visible effect.
+  function omittedIn(node) {
+    if (ignoredReason(node)) return true;
+    return children(node).some(omittedIn);
+  }
   function visibleEmptyBoundary(node) {
     if (ignoredReason(node)) return false;
     if (node.nodeType === 3) return node.nodeValue.length > 0;
     const nested = children(node);
     if (!nested.length) return blocks.has(tag(node)) || tag(node) === 'br';
-    return nested.some(visibleEmptyBoundary);
+    if (nested.some(visibleEmptyBoundary)) return true;
+    // A visible empty paragraph containing inert inline wrappers still
+    // separates text. Hidden-only descendants must not introduce a break.
+    return blocks.has(tag(node)) && !nested.some(omittedIn);
   }
   function flow(node, ancestorBold = false) {
     const result = []; let run = [];
