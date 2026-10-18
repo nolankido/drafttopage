@@ -249,10 +249,15 @@ test('Explicit image preparation gates downloads, keeps import approval and purg
     $('import-changes-ok').checked=true; await $('import-changes-ok').fire('change');
     await $('download-word-images').fire(); assert.equal(downloads.length,0);
     await $('prepare-word-images').fire(); assert.equal(calls,1); assert.equal($('word-image-kit-review').hidden,false);
-    assert.equal($('import-changes-ok').checked,true); assert.equal($('apply-import').disabled,false); assert.equal($('download-word-images').disabled,true);
+    assert.equal($('import-changes-ok').checked,true); assert.equal($('apply-import').disabled,true); assert.equal($('download-word-images').disabled,true);
+    $('word-image-choice-kit').checked=true; await $('word-image-choice-kit').fire('change');
+    assert.equal($('apply-import').disabled,true);
     await $('download-word-images').fire(); assert.equal(downloads.length,0);
     $('word-image-private-ok').checked=true; await $('word-image-private-ok').fire('change');
     await $('download-word-images').fire(); assert.equal(downloads.length,1); assert.equal(downloads[0][1],prepared.filename);
+    assert.equal($('apply-import').disabled,true,'Download request alone cannot permit the import.');
+    $('word-image-saved-ok').checked=true;await $('word-image-saved-ok').fire('change');
+    assert.equal($('apply-import').disabled,false,'Confirmed saved ZIP now permits importing after review.');
     confirm(true); await $('apply-import').fire(); assert.equal(applied.length,1); assert.match(applied[0].body,/Word image 1/); assert.doesNotMatch(JSON.stringify(applied[0]),/image\/png|Uint8Array|wordImages|image-map/);
     assert.equal(ui.pending(),false); assert.equal($('word-image-handoff').hidden,true); assert.equal($('word-image-kit-files').childNodes.length,0); assert.equal($('word-image-private-ok').checked,false);
     await $('download-word-images').fire(); assert.equal(downloads.length,1);
@@ -264,7 +269,9 @@ test('An image preparation failure or discard leaves the import usable and curre
   await withUI(async ({$,ui,file,applied,message})=>{
     await file(imageFixture().bytes); const before=$('import-body-preview').value;
     $('import-changes-ok').checked=true; await $('import-changes-ok').fire('change');
-    await $('prepare-word-images').fire(); assert.match(message(),/Image read failed/); assert.equal(ui.pending(),true); assert.equal(ui.reading(),false); assert.equal($('apply-import').disabled,false); assert.equal($('import-body-preview').value,before);
+    await $('prepare-word-images').fire(); assert.match(message(),/Image read failed/); assert.equal(ui.pending(),true); assert.equal(ui.reading(),false); assert.equal($('apply-import').disabled,true); assert.equal($('import-body-preview').value,before);
+    $('word-image-choice-placeholders').checked=true; await $('word-image-choice-placeholders').fire('change');
+    assert.equal($('apply-import').disabled,false,'Deliberate placeholder path remains usable after image recovery failure.');
     failing=false; await $('prepare-word-images').fire(); assert.equal($('word-image-kit-review').hidden,false); await $('discard-word-images').fire();
     assert.equal($('word-image-kit-review').hidden,true); assert.equal($('word-image-kit-files').childNodes.length,0); assert.equal($('import-body-preview').value,before); assert.equal($('import-changes-ok').checked,true); assert.equal(applied.length,0);
   },{prepareImages:async()=>{if(failing)throw new Error('Image read failed');return {bytes:new Uint8Array([1]),filename:'images.zip',images:[],skipped:[]};}});
