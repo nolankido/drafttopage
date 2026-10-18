@@ -1,6 +1,7 @@
 import { renderPreview, previewPassages } from './preview.js';
 import { revealArticleSelection } from './editing.js';
 import { focusWorkflowTarget } from './workflow-navigation.js';
+import { createPreviewRenderQueue } from './preview-render-queue.js';
 
 export const PREVIEW_PASSAGE_LIMIT = 200;
 const passageKind = passage => passage.blocks.length > 1 || passage.blocks[0].items ? 'list group' :
@@ -18,6 +19,12 @@ export function installPreviewNavigation({ getDraft, isBusy = () => false, hasPe
   selectReview = () => {}, reveal = revealArticleSelection, move = focusWorkflowTarget }) {
   const $ = id => document.getElementById(id), toggle = $('preview-locate'), back = $('return-to-passage');
   let snapshot = null, rendered = [], hasReturn = false, passageCount = 0;
+  const queue = createPreviewRenderQueue();
+  const preview = $('article-preview'), panel = $('preview-panel'), status = $('preview-locate-status');
+  const pending = active => {
+    preview.setAttribute('aria-busy', String(active));
+    preview.inert = active; // Old links and source-navigation controls cannot be used.
+  };
   const blocked = () => isBusy() || hasPendingImport();
   const navigate = (target, anchor = target) => move(target, { bar: $('workflow-steps'), anchor });
 
@@ -42,23 +49,47 @@ export function installPreviewNavigation({ getDraft, isBusy = () => false, hasPe
     node.append(button); rendered.push({ passage, node, button }); return node;
   }
 
-  function refresh() {
+  function refresh(force = false) {
     const { title, body } = getDraft(), hasBody = Boolean(body.trim());
     toggle.disabled = !hasBody || blocked(); back.disabled = blocked();
     if (!hasBody) hasReturn = false;
     back.hidden = !hasReturn || !toggle.checked;
-    const status = $('preview-locate-status');
     if (blocked()) status.textContent = isBusy() ? 'Finish the current file operation before locating passages.' : 'Apply or clear the pending import before locating passages in the current article.';
     else if (!hasBody) status.textContent = 'Add an article to locate its passages in the editor.';
     else if (!toggle.checked) status.textContent = 'Show buttons that select the matching Markdown in the article editor. Reading links keep their normal behavior.';
     // Do not replace button nodes through editor blur or unrelated updates.
     const signature = JSON.stringify([title, body, toggle.checked]);
-    if ($('preview-panel').open && snapshot !== signature) {
-      rendered = []; passageCount = 0;
-      renderPreview($('article-preview'), title, body, toggle.checked ? { wrapPassage: (passage, index) => { passageCount++; return wrap(passage, index, body); } } : {});
-      snapshot = signature;
+    const dirty = snapshot !== signature;
+    if (!panel.open) { queue.clear(); pending(false); }
+    else if (dirty) {
+      const typingLongArticle = snapshot !== null && !force && !toggle.checked && body.length >= 12000 &&
+        typeof window !== 'undefined' && typeof window.setTimeout === 'function' &&
+        document.activeElement === $('body');
+      if (typingLongArticle) {
+        pending(true);
+        // Only the latest current draft is read on delivery. The user can still
+        // edit immediately; approval and recovery change synchronously elsewhere.
+        queue.enqueue(() => refresh(true));
+      } else {
+        queue.clear();
+        pending(true);
+        try {
+          rendered = []; passageCount = 0;
+          renderPreview(preview, title, body, toggle.checked ? { wrapPassage: (passage, index) => { passageCount++; return wrap(passage, index, body); } } : {});
+          snapshot = signature;
+        } catch {
+          // Do not keep misleading, clickable old preview content on failure.
+          preview.replaceChildren();
+          status.textContent = 'The reading preview could not be refreshed. Your article is still in the editor.';
+        } finally { pending(false); }
+      }
+    } else if (queue.pending()) {
+      queue.clear(); pending(false);
     }
-    for (const item of rendered) item.button.disabled = blocked();
+    for (const item of rendered) item.button.disabled = blocked() || queue.pending();
+    if (queue.pending() && !toggle.checked) {
+      status.textContent = 'Updating the reading preview after your edits. Writing remains in this tab; keep a private backup.';
+    }
     if (hasBody && !blocked() && toggle.checked) {
       status.textContent = 'Choose Edit beside a passage to select its source. Lists, quotations, code blocks, and tables are selected as complete groups.' +
         (passageCount > PREVIEW_PASSAGE_LIMIT ? ' Controls cover the first ' + PREVIEW_PASSAGE_LIMIT + ' of ' + passageCount + ' passages; the full article remains in the preview and editor.' : ' After editing, use Return to this passage in preview.');
@@ -74,7 +105,7 @@ export function installPreviewNavigation({ getDraft, isBusy = () => false, hasPe
   back.addEventListener('click', () => {
     if (blocked() || !toggle.checked || !hasReturn) return;
     const position = $('body').selectionStart;
-    $('preview-panel').open = true; refresh(); selectReview();
+    $('preview-panel').open = true; refresh(true); selectReview();
     const index = passageAtPosition(previewPassages(getDraft().body), position), item = rendered[index];
     if (!item) {
       navigate($('article-preview'), $('conversion-heading'));
@@ -85,6 +116,7 @@ export function installPreviewNavigation({ getDraft, isBusy = () => false, hasPe
     report('Returned to the current preview passage on ' + lineLabel(item.passage) + '. Compare your changes before exporting.');
   });
   function clear() {
+    queue.clear(); pending(false);
     toggle.checked = false; hasReturn = false; back.hidden = true;
     rendered = []; snapshot = null; passageCount = 0; $('preview-locate-status').textContent = '';
   }

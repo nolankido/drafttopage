@@ -12,6 +12,7 @@
     "test": "node --test tests/*.test.js",
     "test:contracts": "node --test tests/release-contracts.test.js",
     "benchmark:documents": "python3 scripts/browser-smoke.py --documents-only",
+    "benchmark:preview-input": "node scripts/preview-input-benchmark.mjs",
     "verify:wordpress": "python3 scripts/wordpress_roundtrip.py",
     "verify:wordpress:receipt": "node scripts/verify-wordpress-receipt.mjs",
     "verify:wordpress:hosted": "node scripts/validate-hosted-wordpress-evidence.mjs",
