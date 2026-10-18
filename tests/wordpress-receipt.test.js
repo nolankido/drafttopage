@@ -119,7 +119,18 @@ test('Receipt and release source snapshots match Python with tracked, untracked,
   writeFileSync(join(root, 'tests/fixture.test.js'), '');
   const expected = pythonSourceDigest(root);
   assert.equal(sourceDigest(root), expected);
+  // A matching fingerprint is not by itself release proof: staged, deleted
+  // and untracked source must fail before any browser or model command.
   let calls = 0;
+  const dirty = verifyRelease({ root, env: {}, run: () => { calls++; return {status:0}; } });
+  assert.equal(dirty.result, 'FAIL');
+  assert.equal(calls, 0);
+  assert.match(dirty.error, /clean Git checkout/);
+  // Commit that exact Unicode source state, then qualify it normally.
+  git(['add', '-A']);
+  git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'Commit Unicode fixture']);
+  const committed = pythonSourceDigest(root);
+  assert.equal(sourceDigest(root), committed);
   const result = verifyRelease({ root, env: {}, run: () => {
     if (++calls === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify({
       result: 'PASS', scope: 'full', checks: ['Fictional browser receipt'], errors: [], unexpected_requests: [], layout: { narrow: false }
@@ -127,7 +138,7 @@ test('Receipt and release source snapshots match Python with tracked, untracked,
     return { status: 0 };
   } });
   assert.equal(result.result, 'PASS');
-  assert.equal(result.sourceSha256, expected);
+  assert.equal(result.sourceSha256, committed);
   assert.deepEqual(result.steps.at(-1), { name: 'source snapshot', result: 'PASS' });
 }));
 
@@ -183,6 +194,10 @@ test('Strict full release invokes a real independent receipt validator and rejec
   writeFileSync(join(root, 'package.json'), '{"name":"drafttopage"}');
   writeFileSync(join(root, 'tests/fixture.test.js'), '// Fictional Node test fixture');
   writeFileSync(join(root, 'tests/fixtures/wordpress-roundtrip.json'), JSON.stringify(configuration));
+  git(['add', 'package.json', 'tests/fixture.test.js', 'tests/fixtures/wordpress-roundtrip.json']);
+  git(['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'Commit WordPress receipt inputs']);
+  const cli = join(root, 'test-results', 'local-playground-cli.js');
+  writeFileSync(cli, '// Fictional installed entry point, never invoked by this mock.\n');
   const head = git(['rev-parse', 'HEAD']), fingerprint = sourceDigest(root);
   const wordpress = completeReceipt(head, fingerprint);
   const browserEvidence = {
@@ -191,7 +206,7 @@ test('Strict full release invokes a real independent receipt validator and rejec
   };
   function runGate(tamper) {
     const commands = [];
-    const result = verifyRelease({ root, env: { DRAFTTOPAGE_WORDPRESS_CLI: '/fictional/playground-cli.js' }, requireWordPress: true,
+    const result = verifyRelease({ root, env: { DRAFTTOPAGE_WORDPRESS_CLI: cli }, requireWordPress: true,
       run: (command, args, opts) => {
         assert.equal(opts.shell, false);
         const last = args.at(-1);

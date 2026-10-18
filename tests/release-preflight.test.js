@@ -11,13 +11,14 @@ function fixture(testCase) {
     return testCase(dir);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
-function mockRuns({ dirty = false, chromium = true, head = 'a'.repeat(40) } = {}) {
+function mockRuns({ dirty = false, chromium = true, head = 'a'.repeat(40), indexFlag = 'H' } = {}) {
   const calls = [];
   const run = (tool, args, options) => {
     calls.push({ tool, args });
     assert.equal(options.shell, false);
     if (tool === 'git' && args[0] === 'rev-parse') return { status: 0, stdout: head };
     if (tool === 'git' && args[0] === 'status') return { status: 0, stdout: dirty ? ' M scripts/source.js\n' : '' };
+    if (tool === 'git' && args[0] === 'ls-files') return { status: 0, stdout: indexFlag + ' tests/fixture.test.js\0' };
     if (tool === 'python3') return { status: chromium ? 0 : 1, stdout: chromium ? '130.0.0' : '' };
     return { status: 1 };
   };
@@ -46,6 +47,17 @@ test('Configured strict local preflight verifies the already-installed file with
   assert.equal(result.result, 'PASS');
   assert.equal(result.checks.at(-1).result, 'PASS');
 }));
+test('Preflight blocks assume-unchanged and skip-worktree flags even if ordinary Git status is clean', () => fixture(root => {
+  for (const indexFlag of ['h', 'S', 's']) {
+    const result = checkReleasePreflight({
+      root, run: mockRuns({ indexFlag }).run, env: {}, nodeVersion: '22.16.0'
+    });
+    assert.equal(result.result, 'BLOCKED');
+    assert.equal(result.checks.find(check => check.name === 'Clean checkout')?.result, 'PASS');
+    assert.equal(result.checks.find(check => check.name === 'Complete Git index')?.result, 'BLOCKED');
+  }
+}));
+
 test('Preflight fails closed for dirty worktrees, missing Git, absent Chromium and old Node', () => fixture(root => {
   for (const scenario of [
     { run: mockRuns({ dirty: true }).run, nodeVersion: '22.0.0' },

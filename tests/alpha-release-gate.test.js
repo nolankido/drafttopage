@@ -69,6 +69,23 @@ test('Every physical/source/support observation is required for the current rele
     }
   }
 });
+test('An otherwise complete alpha record cannot bypass hidden tracked-source index flags',()=>{
+  const files={
+    '/virtual/package.json':JSON.stringify({name:'drafttopage'}),
+    '/virtual/test-results/release-results.json':JSON.stringify(local),
+    '/virtual/test-results/alpha-release-record.json':JSON.stringify(complete())
+  };
+  for(const flag of ['h', 'S', 's']){
+    const result=examineAlphaRelease({root:'/virtual',
+      read:p=>{if(p in files)return files[p];throw new Error('missing');},
+      git:args=>args[0]==='rev-parse'?HEAD:args[0]==='branch'?'main':
+        args[0]==='status'?'':args[0]==='ls-files'?flag+' tests/fixture.test.js\0':'',
+      snapshot:()=>SOURCE});
+    assert.equal(result.result,'BLOCKED');
+    assert.ok(result.blockers.includes('main_clean_checkout_required'));
+  }
+});
+
 test('CLI gate has no deployment, network, environment or content-bearing action',()=>{
   const src=readFileSync(new URL('../scripts/alpha-release-gate.mjs',import.meta.url),'utf8');
   assert.doesNotMatch(src,/fetch\(|XMLHttpRequest|sendBeacon|cloudflare.*api|deploy\s*\(/i);

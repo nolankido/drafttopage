@@ -1,5 +1,5 @@
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -102,6 +102,12 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
     role: 'author' };
 }
 
+// Git status can hide changed source behind index flags. Complete release
+// qualification must refuse these states, even if source snapshots match.
+const hasHiddenIndexFlags = git => git(['ls-files', '-v', '-z']).split('\0').some(
+  entry => /^[hSs] /.test(entry)
+);
+
 // A deliberately invoked local gate. It never installs tools, starts Actions,
 // deploys, activates the pilot, or retries a failed check.
 export function verifyRelease({ root = process.cwd(), run = spawnSync, env = process.env, requireWordPress = false } = {}) {
@@ -141,10 +147,24 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
   try {
     if (requireWordPress && !env.DRAFTTOPAGE_WORDPRESS_CLI)
       throw new Error('Complete release qualification requires DRAFTTOPAGE_WORDPRESS_CLI. No checks ran; local WordPress is NOT_RUN.');
+    if (env.DRAFTTOPAGE_WORDPRESS_CLI) {
+      const cli = env.DRAFTTOPAGE_WORDPRESS_CLI;
+      let installed = false;
+      try { installed = typeof cli === 'string' && isAbsolute(cli) && statSync(cli).isFile(); }
+      catch { /* Missing or unreadable CLI is a hard failure, not a skipped test. */ }
+      if (!installed) throw new Error('DRAFTTOPAGE_WORDPRESS_CLI must be an existing absolute local file. No release checks ran.');
+    }
     // A green browser suite without a Git-bound source cannot be a release
     // receipt. The earlier optional source check could silently certify it.
     if (!/^[a-f0-9]{40}$/.test(report.head || '') || !/^[a-f0-9]{64}$/.test(report.sourceSha256 || ''))
       throw new Error('Release validation requires a Git commit and a complete source fingerprint.');
+    // The standalone preflight is advisory for faster diagnosis, not a bypass.
+    // Recheck cleanliness here so invoking either release command directly
+    // cannot certify local edits, staged changes or untracked source files.
+    if (git(['status', '--porcelain', '--untracked-files=normal']).trim())
+      throw new Error('Release validation requires a clean Git checkout. Commit or discard source changes before rerunning the complete gate.');
+    if (hasHiddenIndexFlags(git))
+      throw new Error('Release validation requires a complete Git index: remove assume-unchanged and skip-worktree flags before qualification.');
     if (!tests.length) throw new Error('No regression tests were found.');
     for (const [name, command, args] of steps) {
       const entry = { name, result: 'RUNNING' }; report.steps.push(entry); save();
@@ -170,7 +190,8 @@ export function verifyRelease({ root = process.cwd(), run = spawnSync, env = pro
     }
     const matchingHead = report.head === git(['rev-parse', 'HEAD']).trim();
     const matches = report.sourceSha256 === sourceDigest();
-    const stable = matchingHead && matches;
+    const clean = git(['status', '--porcelain', '--untracked-files=normal']).trim() === '' && !hasHiddenIndexFlags(git);
+    const stable = matchingHead && matches && clean;
     report.steps.push({ name: 'source snapshot', result: stable ? 'PASS' : 'FAIL' });
     if (!stable) throw new Error('Repository commit or source changed during validation. Run the complete gate again against stable source.');
     report.result = 'PASS';

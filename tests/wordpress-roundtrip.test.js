@@ -142,10 +142,20 @@ test('The manual gate removes stale WordPress proof, records an explicit skip, a
       execFileSync('git', ['-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
         'commit','--no-gpg-sign','--quiet','-m','Fixture source'], { cwd:root });
       writeFileSync(join(root, 'tests/fixtures/wordpress-roundtrip.json'), JSON.stringify(configuration));
+      // The full release gate now requires committed source. This synthetic
+      // case must use a real clean fixture rather than relying on untracked
+      // inputs being included in a matching-but-dirty source fingerprint.
+      execFileSync('git', ['add', 'tests/fixtures/wordpress-roundtrip.json'], { cwd: root });
+      execFileSync('git', ['-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+        'commit','--no-gpg-sign','--quiet','-m','Pin WordPress acceptance fixture'], { cwd: root });
+      // This ignored file proves only path existence. The mocked runner never
+      // executes the synthetic CLI, installs WordPress or makes a network call.
+      const cliPath = join(root, 'test-results', 'existing-playground-cli.js');
+      writeFileSync(cliPath, '// Fictional CLI used only by this mocked gate test.\n');
       const wordpressFile = join(root, 'test-results/wordpress-results.json');
       writeFileSync(wordpressFile, JSON.stringify(complete()));
       const calls = [];
-      const result = verifyRelease({ root, env: requested ? { DRAFTTOPAGE_WORDPRESS_CLI: '/explicit/test/cli.js' } : {}, run: (command, args) => {
+      const result = verifyRelease({ root, env: requested ? { DRAFTTOPAGE_WORDPRESS_CLI: cliPath } : {}, run: (command, args) => {
         calls.push(args);
         if (calls.length === 1) assert.equal(existsSync(wordpressFile), false);
         if (calls.length === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify({ result: 'PASS', scope: 'full', checks: ['fixture'], errors: [], unexpected_requests: [], layout: { narrow: false } }));
