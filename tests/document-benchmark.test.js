@@ -193,3 +193,36 @@ test('Authored regression probes are explicit, independent of historical source 
   assert.ok(withStructure >= 5, 'Keep meaningful structural assertions instead of text-only probes.');
   assert.equal(ids.size, 44);
 });
+
+test('Authored DOCX source builds as deterministic, independent synthetic ZIP', () => {
+  const output = execFileSync('python3', ['-c', String.raw`
+import io,json,sys,zipfile,xml.etree.ElementTree as ET
+from scripts.document_benchmark import build_authored_docx
+with open(sys.argv[1],encoding='utf-8') as file:
+    corpus=json.load(file)
+case=next(x for x in corpus['cases'] if x['id']=='authored-compound-docx-article')
+a=build_authored_docx(case)
+b=build_authored_docx(case)
+assert a==b
+assert len(a)<8*1024*1024
+with zipfile.ZipFile(io.BytesIO(a)) as z:
+    assert z.testzip() is None
+    assert 'word/document.xml' in z.namelist()
+    assert 'word/numbering.xml' in z.namelist()
+    assert 'word/_rels/document.xml.rels' in z.namelist()
+    content=ET.fromstring(z.read('word/document.xml'))
+    t=''.join((n.text or '') for n in content.iter() if n.tag.endswith('}t'))
+    assert 'harbor 924.' in t
+    assert '日本語' in t
+    assert 'private addresses' in t
+assert 'Microsoft Word' not in corpus['scope']
+bad=dict(case, relationships=[{'id':'x','target':'javascript:unsafe'}])
+try:build_authored_docx(bad)
+except AssertionError:pass
+else:raise AssertionError('unsafe relationship accepted')
+print('deterministic synthetic DOCX ZIP valid')
+`, new URL('./fixtures/documents/authored-cases.json', import.meta.url).pathname], {
+    cwd: fileURLToPath(root), encoding: 'utf8', timeout: 45000
+  });
+  assert.equal(output.trim(), 'deterministic synthetic DOCX ZIP valid');
+});
