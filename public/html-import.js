@@ -62,14 +62,25 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   const notices = new Map();
   const warn = message => notices.set(message, (notices.get(message) || 0) + 1);
   const checkboxRole = node => (attr(node, 'role') || '').trim().toLowerCase().split(/\s+/).includes('checkbox');
-  function skip(node) {
+  // The same omission policy applies to conversion and shape validation.
+  // Shape checks prune a hidden subtree without double-counting warnings.
+  function ignoredReason(node) {
     const name = tag(node);
-    if (name === 'base') { warn('Source HTML base URLs were ignored. Only the source page URL you supply is used for relative links.'); return true; }
-    if (omitted.has(name)) { warn('Embedded, interactive, or document-only content was omitted.'); return true; }
-    const style = styles(node);
-    if (node.nodeType === 1 && (node.hasAttribute('hidden') || attr(node, 'aria-hidden')?.toLowerCase() === 'true' || style.get('display') === 'none' || style.get('visibility') === 'hidden')) {
-      warn('Explicitly hidden content was omitted.'); return true;
+    if (name === 'base') return 'base';
+    if (omitted.has(name)) return 'embedded';
+    if (node.nodeType === 1) {
+      const style = styles(node);
+      if (node.hasAttribute('hidden') || attr(node, 'aria-hidden')?.toLowerCase() === 'true' ||
+          style.get('display') === 'none' || style.get('visibility') === 'hidden') return 'hidden';
     }
+    return null;
+  }
+  function skip(node) {
+    const reason = ignoredReason(node);
+    if (reason === 'base') { warn('Source HTML base URLs were ignored. Only the source page URL you supply is used for relative links.'); return true; }
+    if (reason === 'embedded') { warn('Embedded, interactive, or document-only content was omitted.'); return true; }
+    if (reason === 'hidden') { warn('Explicitly hidden content was omitted.'); return true; }
+    const name = tag(node);
     if (name !== 'li' && (checkboxRole(node) || attr(node, 'aria-checked') !== null)) throw new Error('Checkbox state outside a list item cannot be preserved. Choose a supported checklist selection before importing.');
     if (name === 'ins' || name === 'del') throw new Error('Resolve tracked changes before importing this HTML. Current writing is unchanged.');
     return false;
@@ -254,7 +265,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
         else if (childSeen && plain(child).trim()) throw new Error('Text after a nested list cannot be preserved. Move it before the nested list.');
         else {
           const queue = [child];
-          while (queue.length) { const node = queue.pop(); if (['ul', 'ol', 'table', 'pre'].includes(tag(node))) throw new Error('Wrapped lists, tables, or code blocks inside list text are not supported.'); queue.push(...children(node)); }
+          while (queue.length) { const node = queue.pop(); if (ignoredReason(node)) continue; if (['ul', 'ol', 'table', 'pre', 'dl', 'dt', 'dd'].includes(tag(node))) throw new Error('Wrapped lists, tables, definition lists, or code blocks inside list text are not supported.'); queue.push(...children(node)); }
           own.push(child);
         }
       }
@@ -291,7 +302,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     for (const row of cells) for (const cell of row) {
       if (['colspan', 'rowspan'].some(key => attr(cell, key) !== null && attr(cell, key) !== '1')) throw new Error('Merged table cells are not supported. Unmerge them before importing.');
       const queue = children(cell);
-      while (queue.length) { const child = queue.pop(); if (['table', 'ul', 'ol', 'pre'].includes(tag(child))) throw new Error('Nested tables, lists, and code blocks inside table cells are not supported.'); queue.push(...children(child)); }
+      while (queue.length) { const child = queue.pop(); if (ignoredReason(child)) continue; if (['table', 'ul', 'ol', 'pre', 'dl', 'dt', 'dd'].includes(tag(child))) throw new Error('Nested tables, lists, definition lists, and code blocks inside table cells are not supported.'); queue.push(...children(child)); }
     }
     if (cells.slice(1).some(row => row.some(cell => tag(cell) === 'th'))) warn('Row headers were simplified to data cells; review the table.');
     const align = cells[0].map(cell => styles(cell).get('text-align') || attr(cell, 'align'));
@@ -365,17 +376,28 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   // and Word rather than silently concatenating terms with their descriptions.
   function definitionList(node, ancestorBold) {
     const entries = [];
-    let sawTerm = false, sawDefinition = false, waitingForDefinition = false;
+    let sawTerm = false, sawDefinition = false, waitingForDefinition = false, activeTerm = false;
     for (const item of children(node)) {
       if (item.nodeType === 8 || item.nodeType === 3 && !item.nodeValue.trim()) continue;
-      if (skip(item)) continue;
+      if (skip(item)) {
+        // A hidden term breaks its relation to any following visible definition.
+        // Do not attach that definition to an unrelated earlier visible term.
+        if (tag(item) === 'dt') {
+          if (waitingForDefinition) throw new Error('A visible definition term lost its description after a hidden term. Correct the list before importing.');
+          activeTerm = false;
+        }
+        if (tag(item) === 'dd' && waitingForDefinition)
+          throw new Error('A visible definition term has a hidden description. Correct the list before importing.');
+        continue;
+      }
       const kind = tag(item);
       if (kind !== 'dt' && kind !== 'dd') throw new Error('Definition lists support only direct terms and descriptions. Simplify grouped or custom definition lists before importing.');
-      if (kind === 'dd' && !sawTerm) throw new Error('A definition needs a preceding term. Correct this definition list before importing.');
+      if (kind === 'dd' && !activeTerm) throw new Error('A definition needs a preceding term. Correct this definition list before importing.');
       if (entries.length >= 200) throw new Error('Definition lists support at most 200 terms and descriptions. Import a smaller selection.');
       const queue = [...children(item)];
       while (queue.length) {
         const child = queue.pop(), name = tag(child);
+        if (ignoredReason(child)) continue;
         if (['dl', 'ul', 'ol', 'table', 'pre', 'blockquote', 'hr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(name))
           throw new Error('Nested lists, tables, headings, quotes, or code blocks in definitions cannot be preserved. Simplify them before importing.');
         queue.push(...children(child));
@@ -385,7 +407,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
         : inheritedInline(item, boldWithin(item, ancestorBold)).trim();
       if (!content) throw new Error('Empty definition terms or descriptions cannot be preserved. Correct the list before importing.');
       entries.push((kind === 'dt' ? '**Term:** ' : '**Definition:** ') + content);
-      if (kind === 'dt') { sawTerm = true; waitingForDefinition = true; }
+      if (kind === 'dt') { sawTerm = true; waitingForDefinition = true; activeTerm = true; }
       else { sawDefinition = true; waitingForDefinition = false; }
     }
     if (!sawTerm || !sawDefinition || waitingForDefinition)
