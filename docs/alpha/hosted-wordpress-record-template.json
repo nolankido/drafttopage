@@ -1,0 +1,50 @@
+{
+  "format": "drafttopage-hosted-wordpress-acceptance",
+  "version": 1,
+  "status": "NOT_RUN",
+  "evidence_type": null,
+  "observed_at": null,
+  "release_commit": null,
+  "environment": {
+    "wordpress_version": null,
+    "browser_family_and_version": null,
+    "editor_role": null,
+    "plugins_affecting_editor": null
+  },
+  "paste_mode": null,
+  "post_status": null,
+  "expected_counts": {
+    "headings": null,
+    "web_links": null,
+    "list_groups": null,
+    "tables": null,
+    "linked_images": null,
+    "optional_fields": null
+  },
+  "observed": {
+    "copied_complete_source": null,
+    "pasted_into_editor": null,
+    "native_editable_blocks": null,
+    "no_unexpected_content_warning": null,
+    "separate_title": null,
+    "heading_hierarchy_correct": null,
+    "web_links_correct": null,
+    "list_starts_and_nesting_correct": null,
+    "table_headers_correct": null,
+    "images_and_alt_text_correct": null,
+    "optional_fields_checked": null,
+    "private_notes_absent": null,
+    "unique_ending_present": null,
+    "saved_unpublished_draft": null,
+    "left_editor_after_save": null,
+    "reopened_same_draft_editable": null,
+    "edited_after_reopen": null,
+    "saved_second_edit": null,
+    "left_and_reopened_second_time": null,
+    "second_edit_and_ending_present": null
+  },
+  "notes": "Keep completed records private. Never include credentials, site URLs, user identities, raw drafts, clipboard contents or screenshots in this repository. This is an offline human observation record, not automatic WordPress verification.",
+  "source_transport": null,
+  "download_requested": null,
+  "download_saved_and_opened": null
+}

@@ -142,3 +142,13 @@
 #word-image-saved-label{border-left:3px solid var(--accent);padding:.65rem .8rem;margin-top:1rem;background:var(--white);overflow-wrap:anywhere}
 #word-image-counts{font-weight:600;overflow-wrap:anywhere}
 #word-image-decision-status{border-left:3px solid var(--line);padding-left:.65rem;overflow-wrap:anywhere}
+
+/* Separate manual WordPress destination acceptance from local export approval. */
+.wordpress-destination-check{margin:1.2rem 0;border:1px solid var(--line);border-radius:6px;padding:.75rem 1rem;overflow-wrap:anywhere;min-width:0}
+.wordpress-destination-check>summary{cursor:pointer;font-weight:650}
+.wordpress-destination-check fieldset{min-width:0;border:0;padding:0;margin:.9rem 0}
+.wordpress-destination-check legend{font-weight:600;margin-bottom:.6rem}
+.wordpress-destination-check .check{display:flex;align-items:flex-start;gap:.55rem;margin:.65rem 0;overflow-wrap:anywhere}
+.wordpress-destination-check .check input{flex:none;margin-top:.3rem}
+.wordpress-destination-ending{max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;padding:.65rem;background:var(--soft);font:.8rem/1.5 ui-monospace,monospace}
+#wordpress-destination-status{border-left:3px solid var(--line);padding-left:.7rem}
