@@ -120,7 +120,7 @@ test('A pending WordPress copy retains keyboard focus while locked, then announc
     assert.equal($('wordpress-instructions').open, false);
     if (fails) reject(new Error('Permission denied')); else finish();
     await pending;
-    assert.equal(document.activeElement, button);
+    assert.equal(document.activeElement, fails ? $('wordpress-code-preview') : button);
     assert.equal(button.attributes['aria-disabled'], 'false');
     assert.equal($('wordpress-instructions').open, !fails);
     assert.match($('wordpress-action-status').textContent, fails ? /Download the blocks/ : /WordPress blocks copied/);

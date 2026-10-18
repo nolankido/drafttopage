@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { verifyRelease, validateWordPressEvidence } from '../scripts/verify-release.mjs';
+import { sourceDigest } from '../scripts/source-snapshot.mjs';
 import { configuration } from '../scripts/wordpress-roundtrip-cases.mjs';
 
 const digest = 'a'.repeat(64);
@@ -134,6 +135,11 @@ test('The manual gate removes stale WordPress proof, records an explicit skip, a
     try {
       mkdirSync(join(root, 'tests/fixtures'), { recursive: true }); mkdirSync(join(root, 'test-results'));
       writeFileSync(join(root, 'package.json'), '{"name":"drafttopage"}'); writeFileSync(join(root, 'tests/fixture.test.js'), '');
+      writeFileSync(join(root, '.gitignore'), 'test-results/\n');
+      execFileSync('git', ['init','--quiet'], { cwd:root });
+      execFileSync('git', ['add', '.gitignore','package.json','tests'], { cwd:root });
+      execFileSync('git', ['-c','user.name=Fixture','-c','user.email=fixture@example.invalid',
+        'commit','--no-gpg-sign','--quiet','-m','Fixture source'], { cwd:root });
       writeFileSync(join(root, 'tests/fixtures/wordpress-roundtrip.json'), JSON.stringify(configuration));
       const wordpressFile = join(root, 'test-results/wordpress-results.json');
       writeFileSync(wordpressFile, JSON.stringify(complete()));
@@ -142,7 +148,7 @@ test('The manual gate removes stale WordPress proof, records an explicit skip, a
         calls.push(args);
         if (calls.length === 1) assert.equal(existsSync(wordpressFile), false);
         if (calls.length === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify({ result: 'PASS', scope: 'full', checks: ['fixture'], errors: [], unexpected_requests: [], layout: { narrow: false } }));
-        if (calls.length === 5 && fresh) writeFileSync(wordpressFile, JSON.stringify(complete()));
+        if (calls.length === 5 && fresh) writeFileSync(wordpressFile, JSON.stringify({ ...complete(), sourceSha256: sourceDigest(root) }));
         return { status: 0 };
       } });
       assert.equal(result.result, requested && !fresh ? 'FAIL' : 'PASS');

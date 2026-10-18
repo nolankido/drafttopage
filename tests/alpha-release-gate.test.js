@@ -66,7 +66,7 @@ test('CLI gate has no deployment, network, environment or content-bearing action
   assert.match(src,/sourceDigest/);
 });
 test('CLI evaluator treats stale or absent local proof as blocked without creating it',()=>{
-  const fixture = { 'package.json':JSON.stringify({name:'drafttopage'}) };
+  const fixture = { '/virtual/package.json':JSON.stringify({name:'drafttopage'}) };
   const seen=[];
   const r=examineAlphaRelease({root:'/virtual',
     read:p=>{seen.push(p); if(p in fixture)return fixture[p];throw new Error('missing')},
