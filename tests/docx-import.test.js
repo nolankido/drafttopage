@@ -83,6 +83,33 @@ test('Inherited paragraph/run styles and explicit off values respect hidden text
   const cyclic = styles.replace('<w:style w:styleId="Base">', '<w:style w:styleId="Base"><w:basedOn w:val="Child"/>');
   assert.throws(() => convert(fixture(para('body', '<w:pStyle w:val="Child"/>'), { 'word/styles.xml': cyclic })), /Cyclic/);
 });
+test('Word style bold and italic toggles cancel inherited formatting, direct runs remain absolute', () => {
+  const styles = word('styles', [
+    '<w:style w:styleId="BoldBase"><w:rPr><w:b/><w:i/></w:rPr></w:style>',
+    '<w:style w:styleId="PlainChild"><w:basedOn w:val="BoldBase"/><w:rPr><w:b/><w:i/></w:rPr></w:style>',
+    '<w:style w:styleId="ToggleBack"><w:basedOn w:val="PlainChild"/><w:rPr><w:b/><w:i/></w:rPr></w:style>',
+    '<w:style w:styleId="RunOff"><w:rPr><w:b w:val="0"/><w:i w:val="0"/></w:rPr></w:style>',
+    '<w:style w:styleId="RunOn"><w:rPr><w:b/><w:i/></w:rPr></w:style>'
+  ].join(''));
+  const body = '<w:p><w:pPr><w:pStyle w:val="PlainChild"/></w:pPr>'
+    + run('plain') + run(' bold', '<w:rStyle w:val="RunOn"/>')
+    + run(' direct', '<w:rStyle w:val="RunOn"/><w:b w:val="0"/><w:i w:val="0"/>')
+    + '</w:p>'
+    + para('formatted', '<w:pStyle w:val="ToggleBack"/>')
+    + '<w:p><w:pPr><w:pStyle w:val="BoldBase"/></w:pPr>' + run('normal', '<w:rStyle w:val="RunOn"/>') + run(' explicit bold', '<w:b/>') + '</w:p>';
+  const result = convert(fixture(body, { 'word/styles.xml': styles }));
+  assert.equal(result.markdown, 'plain ***bold*** direct\n\n***formatted***\n\nnormal ***explicit bold***');
+});
+test('Word document defaults are absolute and a second inherited bold style cancels the first', () => {
+  const styles = word('styles',
+    '<w:docDefaults><w:rPrDefault><w:rPr><w:b/><w:i/></w:rPr></w:rPrDefault></w:docDefaults>'
+    + '<w:style w:styleId="Cancel"><w:rPr><w:b/><w:i/></w:rPr></w:style>'
+    + '<w:style w:styleId="Restore"><w:basedOn w:val="Cancel"/><w:rPr><w:b/><w:i/></w:rPr></w:style>');
+  const result = convert(fixture(
+    para('not bold', '<w:pStyle w:val="Cancel"/>') + para('bold again', '<w:pStyle w:val="Restore"/>'),
+    { 'word/styles.xml': styles }));
+  assert.equal(result.markdown, 'not bold\n\n***bold again***');
+});
 test('External web links survive while unsafe/internal links retain only labels', () => {
   const rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + [['safe', 'https://example.com/a?x=1&amp;y=2'], ['unsafe', 'javascript:alert(1)']].map(([id, url]) => '<Relationship Id="' + id + '" Type="' + R + '/hyperlink" TargetMode="External" Target="' + url + '"/>').join('') + '</Relationships>';
   const body = '<w:p>' + ['safe', 'unsafe', 'missing'].map(id => '<w:hyperlink r:id="' + id + '">' + run(id) + '</w:hyperlink>').join('') + '</w:p>';

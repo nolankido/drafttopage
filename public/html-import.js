@@ -92,6 +92,47 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     else if (strike && /(?:dotted|dashed|wavy)/.test(style.get('text-decoration-style') || decoration || '')) warn('Strikethrough line styling was simplified to a single ordinary line.');
     return strike;
   }
+  // Carry explicit normal-weight overrides through the enclosing bold style
+  // before serializing; a simple nested span cannot cancel a parent <strong>.
+  const weightSetting = value => value === 'bold' || /^(?:[6-9]00|1000)$/.test(value) ? true : value === 'normal' || /^(?:[1-5]00)$/.test(value) ? false : null;
+  function reconcileWeightOverrides(nodes) {
+    const hasOverride = parts => parts.some(p => p.type === 'unstrong' || p.children && hasOverride(p.children));
+    if (!hasOverride(nodes)) return nodes;
+    const runs = [];
+    const walk = (parts, state) => {
+      for (const part of parts) {
+        if (part.type === 'unstrong') { walk(part.children, { ...state, strong: false }); continue; }
+        if (['strong', 'em', 's'].includes(part.type)) { walk(part.children, { ...state, [part.type]: true }); continue; }
+        if (part.type === 'a') { walk(part.children, { ...state, href: part.href }); continue; }
+        if (['text', 'code'].includes(part.type)) runs.push({ text: part.text, type: part.type, ...state });
+      }
+    };
+    walk(nodes, { strong: false, em: false, s: false, href: '' });
+    const result = []; let active = [], targets = [result];
+    for (const run of runs) {
+      const path = [
+        ...(run.s ? [{ type: 's' }] : []),
+        ...(run.strong ? [{ type: 'strong' }] : []),
+        ...(run.em ? [{ type: 'em' }] : []),
+        ...(run.href ? [{ type: 'a', href: run.href }] : [])
+      ];
+      let common = 0;
+      while (common < path.length && common < active.length && path[common].type === active[common].type && path[common].href === active[common].href) common++;
+      active.length = common; targets.length = common + 1;
+      for (const item of path.slice(common)) {
+        const target = { ...item, children: [] };
+        targets.at(-1).push(target); targets.push(target.children); active.push(item);
+      }
+      targets.at(-1).push({ type: run.type, text: run.text });
+    }
+    return result;
+  }
+  const boldWithin = (node, inherited = false) => {
+    const style = styles(node);
+    if (style.has('font-weight')) return weightSetting(style.get('font-weight')) ?? inherited;
+    return inherited || ['strong', 'b'].includes(tag(node));
+  };
+  const inheritedInline = (node, bold) => writeInline(bold ? [{ type: 'strong', children: inlineNodes(node) }] : inlineNodes(node));
   function inlineNodes(node, inLink = false) {
     const text = value => [{ type: 'text', text: value }];
     if (node.nodeType === 3) return text(whitespace(node.nodeValue));
@@ -117,19 +158,21 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       content = [{ type: 'a', href, children: content }];
     }
     const style = styles(node), weight = style.get('font-weight');
-    const bold = weight ? weight === 'bold' || Number(weight) >= 600 : name === 'strong' || name === 'b';
+    const explicitBold = weight === undefined ? null : weightSetting(weight);
+    const bold = explicitBold === null ? name === 'strong' || name === 'b' : explicitBold;
     const italic = style.has('font-style') ? style.get('font-style') === 'italic' : name === 'em' || name === 'i';
     const decoration = inlineDecoration(node);
     const strike = strikeFormatting(node, style, decoration);
     if (['sup', 'sub', 'u', 'mark'].includes(name) || decoration && /(?:^|\s)(?:underline|overline)(?:\s|$)/.test(decoration)) warn('Some inline formatting was simplified to plain text.');
     if ((bold || italic || strike) && /[\r\n]/.test(children(node).map(plain).join(''))) { warn('Multiline emphasis was simplified.'); return content; }
     if (bold) content = [{ type: 'strong', children: content }];
+    else if (explicitBold === false) content = [{ type: 'unstrong', children: content }];
     if (italic) content = [{ type: 'em', children: content }];
     if (strike) content = [{ type: 's', children: content }];
     return content;
   }
   function writeInline(nodes) {
-    const result = markdownFromInline(nodes);
+    const result = markdownFromInline(reconcileWeightOverrides(nodes));
     if (result.simplified) warn('Ambiguous or overly complex inline formatting was simplified to literal text with safe link URLs.');
     return result.markdown;
   }
@@ -255,13 +298,13 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     const line = row => '| ' + row.map(cell => skip(cell) ? '' : flattened(children(cell))).join(' | ') + ' |';
     return [...captions.filter(Boolean), line(cells[0]), '| ' + align.map(value => value === 'center' ? ':---:' : value === 'right' ? '---:' : value === 'left' ? ':---' : '---').join(' | ') + ' |', ...cells.slice(1).map(line)].join('\n');
   }
-  function render(node) {
+  function render(node, ancestorBold = false) {
     if (skip(node)) return '';
-    const name = tag(node);
+    const name = tag(node), currentBold = boldWithin(node, ancestorBold);
     if (/^h[1-6]$/.test(name)) {
       const hasStrike = nodes => nodes.some(part => part.type === 's' || part.children && hasStrike(part.children));
       if (name === 'h1' && hasStrike(inlineNodes(node))) warn('Strikethrough in a level-one heading was kept as plain text. Title fields do not retain inline formatting.');
-      const content = name === 'h1' ? escapeText(whitespace(plain(node)).trim()) : inline(node).trim();
+      const content = name === 'h1' ? escapeText(whitespace(plain(node)).trim()) : inheritedInline(node, ancestorBold && !styles(node).has('font-weight')).trim();
       if (/[\r\n]/.test(content)) warn('Line breaks in a heading became spaces.');
       return '#'.repeat(Number(name[1])) + ' ' + content.replace(/\r\n?|\n/g, ' ');
     }
@@ -281,15 +324,15 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     }
     if (name === 'hr') return '***';
     if (name === 'li') throw new Error('A list item is outside its list. Correct the source before importing.');
-    if (blockDescendants.has(node)) return flow(node);
-    return inline(node).trim();
+    if (blockDescendants.has(node)) return flow(node, currentBold);
+    return inheritedInline(node, ancestorBold && !styles(node).has('font-weight')).trim();
   }
-  function flow(node) {
+  function flow(node, ancestorBold = false) {
     const result = []; let run = [];
     const flush = () => { const value = writeInline(run).trim(); if (value) result.push(value); run = []; };
     for (const child of children(node)) {
-      if (blocks.has(tag(child)) || blockDescendants.has(child)) { flush(); const value = render(child); if (value) result.push(value); }
-      else run.push(...inlineNodes(child));
+      if (blocks.has(tag(child)) || blockDescendants.has(child)) { flush(); const value = render(child, ancestorBold); if (value) result.push(value); }
+      else run.push(...(ancestorBold ? [{ type: 'strong', children: inlineNodes(child) }] : inlineNodes(child)));
     }
     flush(); return result.join('\n\n');
   }

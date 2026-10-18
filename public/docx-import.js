@@ -95,6 +95,21 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     }
     return result;
   }
+  // OOXML bold/italic are toggle properties in styles, but direct run formatting
+  // is absolute on/off. Start from document defaults or the paragraph's
+  // resolved state, then toggle each inherited character style in chain order.
+  function fontProperties(inherited, styles, direct) {
+    const result = { b: Boolean(inherited.b), i: Boolean(inherited.i) };
+    for (const style of styles.filter(Boolean)) for (const key of ['b', 'i']) {
+      const node = child(style, key);
+      if (node && on(node)) result[key] = !result[key];
+    }
+    for (const key of ['b', 'i']) {
+      const node = child(direct, key);
+      if (node) result[key] = Boolean(on(node));
+    }
+    return result;
+  }
   function strikeProperties(inherited, styles, direct) {
     const result = { strike: Boolean(inherited.strike), dstrike: Boolean(inherited.dstrike) };
     const enabled = node => {
@@ -156,8 +171,9 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
     if (name === 'softHyphen') return ['\u00ad'];
     if (name === 'r') {
       const rp = child(node, 'rPr'), style = chain(val(child(rp, 'rStyle')));
-      const props = { ...inherited, ...properties(style.map(s => child(s, 'rPr')).concat(rp)) };
-      Object.assign(props, strikeProperties(inherited, style.map(s => child(s, 'rPr')), rp));
+      const styleRuns = style.map(s => child(s, 'rPr'));
+      const props = { ...inherited, ...properties([...styleRuns, rp]) };
+      Object.assign(props, fontProperties(inherited, styleRuns, rp), strikeProperties(inherited, styleRuns, rp));
       if (props.vanish || props.webHidden) { warn('Explicitly hidden text was omitted.'); return []; }
       for (const [key, defaultKey, styledKey] of [['strike', '_defaultStrike', '_styledStrike'], ['dstrike', '_defaultDstrike', '_styledDstrike']]) {
         const styled = inherited[styledKey] || style.some(s => child(child(s, 'rPr'), key));
@@ -182,8 +198,10 @@ export function wordTreesToMarkdown(parts, options = {}, create = name => docume
   function paragraph(p) {
     const pp = child(p, 'pPr'), id = val(child(pp, 'pStyle')) || defaultParagraph, styles = chain(id);
     const props = properties([defaultPara, ...styles.map(s => child(s, 'pPr')), pp]);
-    const run = properties([defaultRun, ...styles.map(s => child(s, 'rPr')), child(pp, 'rPr')]);
-    const strikeDefaults = strikeProperties({}, [], defaultRun), styleRuns = styles.map(s => child(s, 'rPr'));
+    const styleRuns = styles.map(s => child(s, 'rPr'));
+    const run = properties([defaultRun, ...styleRuns, child(pp, 'rPr')]);
+    Object.assign(run, fontProperties(properties([defaultRun]), styleRuns, child(pp, 'rPr')));
+    const strikeDefaults = strikeProperties({}, [], defaultRun);
     Object.assign(run, strikeProperties(strikeDefaults, styleRuns, null), {
       _defaultStrike: strikeDefaults.strike, _defaultDstrike: strikeDefaults.dstrike,
       _styledStrike: styleRuns.some(p => child(p, 'strike')), _styledDstrike: styleRuns.some(p => child(p, 'dstrike'))
