@@ -1,3 +1,5 @@
+import { resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 // Ten unassigned research slots only. No recruitment, messaging, tracking,
 // real participant data, device identity or recorded outcomes.
 export const ALPHA_PLANNED_ASSIGNMENTS = Object.freeze([
@@ -19,5 +21,5 @@ export function plannedAlphaSlots() {
     caution:'These are unassigned research slots, not participants or completed observations. Do not treat targets as actual cohort mix or initiate contact.'
   };
 }
-if (process.argv[1] && import.meta.url === new URL('file://'+process.argv[1]).href)
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href)
   process.stdout.write(JSON.stringify(plannedAlphaSlots(),null,2)+'\n');

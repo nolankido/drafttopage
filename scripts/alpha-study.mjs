@@ -21,6 +21,11 @@ function categorizedCounts(records) {
   for (const record of records) result[sourceCategory(record.source_cohort)]++;
   return result;
 }
+export function prioritizeAlphaIssues(counts) {
+  return ISSUE_CATEGORIES.filter(name => counts[name] > 0)
+    .sort((a,b) => counts[b] - counts[a] || ISSUE_CATEGORIES.indexOf(a) - ISSUE_CATEGORIES.indexOf(b))
+    .map(category => ({ category, affected_sessions: counts[category] }));
+}
 function issueCounts(records) {
   return Object.fromEntries(ISSUE_CATEGORIES.map(key =>
     [key, records.filter(record => record.issue_categories?.includes(key)).length]));
@@ -148,6 +153,7 @@ function summarizeRelease(records) {
     tasks, safety, comprehension, wordpress, repeat, paired_comparison: comparison,
     actual_source_mix: categorizedCounts(records),
     issue_category_counts: issueCounts(records),
+    issue_priority: prioritizeAlphaIssues(issueCounts(records)),
     targets: {
       first_conversion: target(first.statuses.PASS_UNAIDED >= threshold && first.median_unaided_completion_seconds <= 300, first.statuses.NOT_RUN),
       safety: safety.writing_loss + safety.private_material_exported + safety.article_ending_lost ? 'BLOCKED' : safety.missing_checks ? 'PENDING' : 'NO_INCIDENT_RECORDED',
@@ -188,6 +194,7 @@ export function summarizeSessions(input) {
     cohort_target: { WORD: 5, GOOGLE_DOCS: 3, MARKDOWN: 2 },
     actual_qualified_source_mix: categorizedCounts(qualified),
     issue_category_counts_qualified: issueCounts(qualified),
+    issue_priority_qualified: prioritizeAlphaIssues(issueCounts(qualified)),
     planned_cohort: 10, records_supplied: records.length, human_observations: observed.length, qualified_human_observations: qualified.length,
     not_run: records.filter(record => record.status === 'NOT_RUN').length,
     excluded_legacy: records.filter(record => record.version === 1 && record.status === 'OBSERVED').length,
