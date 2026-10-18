@@ -1,7 +1,8 @@
 import { wordpressDestinationExpectations, destinationSummary, destinationStatus, WORDPRESS_DESTINATION_STEPS } from './wordpress-destination-check.js';
 
-// Local, ephemeral self-check only. Never stores an article, a destination URL,
-// WordPress credentials, evidence or user action history.
+// Local, ephemeral self-check only. Transient source comparison state stays in
+// this tab; no destination credentials, acceptance results or source are
+// persisted or transmitted by this checklist.
 export function installWordPressDestinationCheck({ $, getDraft, getWordPressOptions, isBusy }) {
   const panel = $('wordpress-destination-check'), status = $('wordpress-destination-status');
   const controls = WORDPRESS_DESTINATION_STEPS.map(id => $('wp-destination-' + id));
