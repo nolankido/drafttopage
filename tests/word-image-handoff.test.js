@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { summarizeWordImageHandoff, wordImageDecisionReady, wordImageDecisionStatus, wordImageAfterApply } from '../public/word-image-handoff.js';
+import { summarizeWordImageHandoff, wordImageDecisionReady, wordImageDecisionStatus, wordImageTransferReady, wordImageAfterApply } from '../public/word-image-handoff.js';
 const c = { kind: 'Word document', wordImages: [{index:1},{index:2},{index:3}], draft:{body:'Text [Word image 1] [Word image 2] [Word image 3]'} };
 const kit = { bytes:new Uint8Array([80,75,3,4]), images:[{name:'word-image-001.png'}], placements:[{placeholder:'[Word image 1]',filename:'word-image-001.png'},{placeholder:'[Word image 2]',filename:'word-image-001.png'},{placeholder:'[Word image 3]',filename:''}], skipped:[{placeholder:'[Word image 3]'}] };
 test('No image positions introduces no extra import step',()=>{
@@ -46,4 +46,33 @@ test('Generated import UI retains Word metadata and deliberate acknowledgement p
   assert.match(controller,/wordImageAfterApply\(candidate,/);
   assert.match(panel,/Download before importing|download, verify the saved ZIP|request download/i);
   assert.match(panel,/does not read the values, remove metadata, or guarantee/);
+});
+
+test('Same-tab map requires verified ZIP, separate consent, and complete replacement',()=>{
+  const prepared = { ...kit, placementMap: '{"format":"drafttopage-word-images-v1"}' };
+  assert.equal(wordImageTransferReady(c,'kit',prepared,true,true,true,true),true);
+  for(const args of [
+    ['kit',prepared,false,true,true,true],
+    ['kit',prepared,true,false,true,true],
+    ['kit',prepared,true,true,false,true],
+    ['kit',prepared,true,true,true,false],
+    ['placeholders',prepared,true,true,true,true],
+    ['kit',kit,true,true,true,true],
+    ['kit',{...prepared,bytes:null},true,true,true,true]
+  ]) assert.equal(wordImageTransferReady(c,...args),false);
+  assert.match(wordImageAfterApply(c,'kit',prepared,true),/available temporarily/);
+  assert.match(wordImageAfterApply(c,'kit',prepared,true),/nothing was published/);
+  assert.match(wordImageAfterApply(c,'kit',prepared),/image-map.json/);
+});
+test('Same-tab consent is optional and discarded by workspace replacement',async()=>{
+  const html=await readFile(new URL('../scripts/import-panel.html.inc',import.meta.url),'utf8');
+  const controller=await readFile(new URL('../public/import-controls.js',import.meta.url),'utf8');
+  const desk=await readFile(new URL('../public/desk.js',import.meta.url),'utf8');
+  assert.match(html,/id="word-image-in-tab"[^>]*disabled/);
+  assert.match(html,/not saved in backups or exports/);
+  assert.match(controller,/insertion.mode\(\) === 'replace'/);
+  assert.match(controller,/wordImageTransferReady\(candidate/);
+  assert.match(controller,/handoffWordImageMap\(map, importedBody\)/);
+  assert.match(desk,/pendingWordImageMap = null/);
+  assert.match(desk,/parseWordImageMap\(source\)/);
 });

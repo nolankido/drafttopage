@@ -19,6 +19,7 @@ test('Word image ZIP preserves original PNG/JPEG bytes, numbered positions and p
   assert.deepEqual(output['word-image-001.png'],Array.from(PNG)); assert.deepEqual(output['word-image-002.jpg'],Array.from(JPEG));
   assert.deepEqual(result.images.map(({width,height})=>({width,height})),[{width:2,height:3},{width:2,height:3}]);
   const map = JSON.parse(decode(output['image-map.json']));
+  assert.equal(result.placementMap, decode(output['image-map.json']), 'same-tab map must match the packaged map byte-for-byte');
   assert.equal(map.placements.length,3); assert.equal(map.placements[2].filename,'word-image-001.png'); assert.equal(map.placements[2].alt,'Fictional image 3');
   assert.deepEqual(wordImagePlaceholders(candidate.draft.body).length,3);
   assert.equal(decode(output['article-body.md']),candidate.draft.body.trim()+'\n');

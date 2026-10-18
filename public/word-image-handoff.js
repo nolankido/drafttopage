@@ -25,10 +25,21 @@ export function wordImageDecisionStatus(candidate, choice, kit, requested, confi
   if (!confirmed) return 'Download requested, not verified as saved. Check your device Downloads and open the ZIP, then confirm you have the package before importing.';
   return 'You confirmed the ZIP is saved. The app cannot verify this. Map each numbered placement manually; images are not uploaded or published.';
 }
-export function wordImageAfterApply(candidate, choice, kit) {
+// This optional in-tab map requires a confirmed ZIP and separate consent.
+// Insertion is excluded because older articles can reuse the same labels.
+export function wordImageTransferReady(candidate, choice, kit, requested, confirmed, optedIn, replacing) {
+  return Boolean(candidate?.wordImages?.length && replacing && optedIn &&
+    choice === 'kit' && wordImageDecisionReady(candidate, choice, kit, requested, confirmed) &&
+    typeof kit?.placementMap === 'string' && kit.placementMap.length > 0);
+}
+export function wordImageAfterApply(candidate, choice, kit, inTabMap = false) {
   if (!candidate?.wordImages?.length) return '';
   const total = candidate.wordImages.length;
   if (choice === 'placeholders') return total + ' Word image/object placeholder(s) remain as text. Revisit the original Word file and add images manually at the destination.';
   const unresolved = Math.max(0, total - (kit?.placements || []).filter(p => Boolean(p.filename)).length);
-  return 'You confirmed the Word image ZIP on your device. Use image-map.json and the original Word file to match each numbered placeholder, including repeated placements. ' + unresolved + ' unresolved placement(s) need separate attention. Upload and review images manually; nothing was published.';
+  return 'You confirmed the Word image ZIP on your device. ' +
+    (inTabMap ? 'The placement map is available temporarily in Add or edit an article image in this tab. The ZIP is still your separate copy; clearing or refreshing loses the in-tab map. ' :
+      'Use image-map.json from the saved ZIP to match the numbered placeholders. ') +
+    'Compare every occurrence with the original Word document, including repeated placements. ' +
+    unresolved + ' unresolved placement(s) need separate attention. Upload and review images manually; nothing was published.';
 }

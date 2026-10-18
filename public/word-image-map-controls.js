@@ -38,6 +38,28 @@ export function installWordImageMap({ getTarget, getBody, useAlt, isBusy, workCh
     $('image-map-file-note').textContent = item ? (item.filename || 'NOT RECOVERED') + ': ' + item.note + (item.altTruncated ? ' Word alternative text was shortened to 500 characters. Review it against the original.' : '') + (!item.alt ? ' No alternative text was supplied. Describe the image yourself or explicitly mark it decorative.' : '') : '';
     refresh();
   }
+  function presentMap(parsed, message) {
+    model = parsed;
+    $('image-map-entry').replaceChildren(...model.placements.map(item => {
+      const option = document.createElement('option'); option.value = item.placeholder;
+      option.textContent = item.placeholder + ': ' + (item.filename || 'NOT RECOVERED'); return option;
+    }));
+    $('image-map-entry').value = model.placements[0].placeholder;
+    $('image-map-scope').textContent = 'Map scope: ' + model.scope;
+    $('image-map-review').hidden = false; inspect();
+    status(message);
+  }
+  function loadPreparedMap(source, expectedBody) {
+    // Bind to the exact resulting article; reject stale or malformed handoffs
+    // without changing the previous map, writing, image URL or alt text.
+    if (reading || isBusy() || typeof expectedBody !== 'string' || getBody() !== expectedBody) return false;
+    let parsed;
+    try { parsed = parseWordImageMap(source); } catch { return false; }
+    clear();
+    presentMap(parsed, 'Placement map carried from your confirmed Word ZIP for this tab only. Compare each placement with the saved Word file and original document before reusing alt text. No image has been loaded or approved.');
+    $('image-map-panel').open = true;
+    refresh(); workChanged(); return true;
+  }
   function clear() {
     ++generation; model = null; reading = false; targetKey = '';
     $('image-map-file').value = ''; $('image-map-entry').replaceChildren();
@@ -53,15 +75,8 @@ export function installWordImageMap({ getTarget, getBody, useAlt, isBusy, workCh
       if (!Number.isInteger(file.size) || file.size > WORD_IMAGE_MAP_LIMIT) throw new Error('Choose an image map no larger than 512 KiB.');
       const bytes = await read(file);
       if (token !== generation) return;
-      model = parseWordImageMap(new Uint8Array(bytes));
-      $('image-map-entry').replaceChildren(...model.placements.map(item => {
-        const option = document.createElement('option'); option.value = item.placeholder;
-        option.textContent = item.placeholder + ': ' + (item.filename || 'NOT RECOVERED'); return option;
-      }));
-      $('image-map-entry').value = model.placements[0].placeholder;
-      $('image-map-scope').textContent = 'Map scope: ' + model.scope;
-      $('image-map-review').hidden = false; inspect();
-      status('Placement map ready to inspect. No image, alternative text, URL, or article change has been applied.');
+      presentMap(parseWordImageMap(new Uint8Array(bytes)),
+        'Placement map ready to inspect. No image, alternative text, URL, or article change has been applied.');
     } catch (error) { if (token === generation) { model = null; status(error.message || 'The selected image map could not be read. Current writing and image details are kept.'); } }
     finally { if (token === generation) { reading = false; $('image-map-file').value = ''; refresh(); workChanged(); } }
   });
@@ -94,5 +109,5 @@ export function installWordImageMap({ getTarget, getBody, useAlt, isBusy, workCh
     refresh();
   });
   refresh();
-  return { refresh, clear, hasWork: () => reading || Boolean(model) };
+  return { refresh, clear, loadPreparedMap, hasWork: () => reading || Boolean(model) };
 }
