@@ -14,6 +14,7 @@
   "paste_mode": null,
   "post_status": null,
   "expected_counts": {
+    "headings": null,
     "web_links": null,
     "list_groups": null,
     "tables": null,
@@ -26,6 +27,7 @@
     "native_editable_blocks": null,
     "no_unexpected_content_warning": null,
     "separate_title": null,
+    "heading_hierarchy_correct": null,
     "web_links_correct": null,
     "list_starts_and_nesting_correct": null,
     "table_headers_correct": null,

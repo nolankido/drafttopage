@@ -52,13 +52,13 @@ test('Manual WordPress receipt resets on changed article, changed destination an
 });
 test('Hosted WordPress template cannot be reported as success',()=>{
   assert.equal(validateHostedWordPressEvidence(template).result,'NOT_RUN');
-  assert.equal(HOSTED_WORDPRESS_STEPS.length,19);
+  assert.equal(HOSTED_WORDPRESS_STEPS.length,20);
 });
 test('Hosted destination validator distinguishes observed failure, omission, and self-report',()=>{
   const observed=structuredClone(template);
   Object.assign(observed,{status:'OBSERVED',evidence_type:'HUMAN_OBSERVATION',observed_at:'2026-10-17T12:00:00Z',release_commit:'f'.repeat(40),paste_mode:'code-editor-fallback',post_status:'draft',source_transport:'copy-button'});
   Object.assign(observed.environment,{wordpress_version:'6.8.3',browser_family_and_version:'FictionalBrowser 1',editor_role:'editor',plugins_affecting_editor:'none observed'});
-  Object.assign(observed.expected_counts,{web_links:0,list_groups:1,tables:0,linked_images:0,optional_fields:0});
+  Object.assign(observed.expected_counts,{headings:1,web_links:0,list_groups:1,tables:0,linked_images:0,optional_fields:0});
   for(const id of HOSTED_WORDPRESS_STEPS)observed.observed[id]=true;
   for(const key of ['web_links_correct','table_headers_correct','images_and_alt_text_correct','optional_fields_checked'])observed.observed[key]='NOT_APPLICABLE';
   assert.equal(validateHostedWordPressEvidence(observed).result,'OBSERVED_MANUAL_PASS');
@@ -74,6 +74,15 @@ test('Hosted destination validator distinguishes observed failure, omission, and
   observed.download_requested=true;
   assert.equal(validateHostedWordPressEvidence(observed).result,'INCOMPLETE');
   observed.download_saved_and_opened=true;
+  assert.equal(validateHostedWordPressEvidence(observed).result,'OBSERVED_MANUAL_PASS');
+  observed.observed.heading_hierarchy_correct=null;
+  assert.equal(validateHostedWordPressEvidence(observed).result,'INCOMPLETE');
+  observed.observed.heading_hierarchy_correct=true;
+  observed.observed_at='not-a-timestamp';
+  assert.equal(validateHostedWordPressEvidence(observed).result,'INCOMPLETE');
+  observed.observed_at='2026-02-30T12:00:00Z';
+  assert.equal(validateHostedWordPressEvidence(observed).result,'INCOMPLETE');
+  observed.observed_at='2026-10-17T12:00:00Z';
   assert.equal(validateHostedWordPressEvidence(observed).result,'OBSERVED_MANUAL_PASS');
 });
 test('Public hosted checklist is present, manual and backed by help guidance',()=>{

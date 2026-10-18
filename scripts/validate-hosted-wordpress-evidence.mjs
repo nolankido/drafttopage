@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 export const HOSTED_WORDPRESS_STEPS = [
   'copied_complete_source','pasted_into_editor','native_editable_blocks','no_unexpected_content_warning',
-  'separate_title','web_links_correct','list_starts_and_nesting_correct','table_headers_correct',
+  'separate_title','heading_hierarchy_correct','web_links_correct','list_starts_and_nesting_correct','table_headers_correct',
   'images_and_alt_text_correct','optional_fields_checked','private_notes_absent','unique_ending_present',
   'saved_unpublished_draft','left_editor_after_save','reopened_same_draft_editable','edited_after_reopen',
   'saved_second_edit','left_and_reopened_second_time','second_edit_and_ending_present'
@@ -14,13 +14,29 @@ const optional = new Map([
   ['optional_fields_checked','optional_fields']
 ]);
 const ready = value => typeof value === 'string' && value.trim().length > 0;
+const validObservationTime = value => {
+  if (typeof value !== 'string') return false;
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(?:\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$/.exec(value);
+  if (!match) return false;
+  const [, y, m, d, h, min, sec, zone] = match;
+  const year = Number(y), month = Number(m), day = Number(d);
+  if (year < 2000 || month < 1 || month > 12 || Number(h) > 23 || Number(min) > 59 || Number(sec) > 59) return false;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (day < 1 || day > days[month - 1]) return false;
+  if (zone !== 'Z') {
+    const hour = Number(zone.slice(1, 3)), minutes = Number(zone.slice(4));
+    if (hour > 14 || minutes > 59 || (hour === 14 && minutes !== 0)) return false;
+  }
+  return Number.isFinite(Date.parse(value));
+};
 
 export function validateHostedWordPressEvidence(value) {
   if (value?.format !== 'drafttopage-hosted-wordpress-acceptance' || value.version !== 1)
     throw new Error('Choose a version 1 hosted WordPress acceptance record.');
   if (value.status === 'NOT_RUN') return { result:'NOT_RUN', detail:'No hosted WordPress destination observation exists.' };
   if (value.status !== 'OBSERVED') throw new Error('Use NOT_RUN or OBSERVED as the record status.');
-  if (value.evidence_type !== 'HUMAN_OBSERVATION' || !ready(value.observed_at)
+  if (value.evidence_type !== 'HUMAN_OBSERVATION' || !validObservationTime(value.observed_at)
       || !/^[0-9a-f]{40}$/.test(value.release_commit || '') || !['visual','code-editor-fallback'].includes(value.paste_mode)
       || value.post_status !== 'draft'
       || !['copy-button','downloaded-block-file'].includes(value.source_transport))
@@ -30,7 +46,7 @@ export function validateHostedWordPressEvidence(value) {
     return { result:'INCOMPLETE', detail:'A download request is not a saved, opened block source file.' };
   for (const key of ['wordpress_version','browser_family_and_version','editor_role','plugins_affecting_editor'])
     if (!ready(value.environment?.[key])) return { result:'INCOMPLETE', detail:'Missing destination environment: '+key };
-  for (const count of ['web_links','list_groups','tables','linked_images','optional_fields'])
+  for (const count of ['headings','web_links','list_groups','tables','linked_images','optional_fields'])
     if (!Number.isInteger(value.expected_counts?.[count]) || value.expected_counts[count] < 0 || value.expected_counts[count] > 60000)
       return { result:'INCOMPLETE', detail:'Missing or invalid local expected count: '+count };
   const failures = [], missing = [];
