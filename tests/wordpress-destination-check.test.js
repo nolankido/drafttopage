@@ -56,7 +56,7 @@ test('Hosted WordPress template cannot be reported as success',()=>{
 });
 test('Hosted destination validator distinguishes observed failure, omission, and self-report',()=>{
   const observed=structuredClone(template);
-  Object.assign(observed,{status:'OBSERVED',evidence_type:'HUMAN_OBSERVATION',observed_at:'2026-10-17T12:00:00Z',release_commit:'f'.repeat(40),paste_mode:'code-editor-fallback',post_status:'draft'});
+  Object.assign(observed,{status:'OBSERVED',evidence_type:'HUMAN_OBSERVATION',observed_at:'2026-10-17T12:00:00Z',release_commit:'f'.repeat(40),paste_mode:'code-editor-fallback',post_status:'draft',source_transport:'copy-button'});
   Object.assign(observed.environment,{wordpress_version:'6.8.3',browser_family_and_version:'FictionalBrowser 1',editor_role:'editor',plugins_affecting_editor:'none observed'});
   Object.assign(observed.expected_counts,{web_links:0,list_groups:1,tables:0,linked_images:0,optional_fields:0});
   for(const id of HOSTED_WORDPRESS_STEPS)observed.observed[id]=true;
@@ -69,6 +69,12 @@ test('Hosted destination validator distinguishes observed failure, omission, and
   observed.observed.saved_second_edit=true;
   observed.observed.list_starts_and_nesting_correct='NOT_APPLICABLE';
   assert.equal(validateHostedWordPressEvidence(observed).result,'INCOMPLETE');
+  observed.observed.list_starts_and_nesting_correct=true;
+  observed.source_transport='downloaded-block-file';
+  observed.download_requested=true;
+  assert.equal(validateHostedWordPressEvidence(observed).result,'INCOMPLETE');
+  observed.download_saved_and_opened=true;
+  assert.equal(validateHostedWordPressEvidence(observed).result,'OBSERVED_MANUAL_PASS');
 });
 test('Public hosted checklist is present, manual and backed by help guidance',()=>{
   const html=readFileSync(new URL('../scripts/writing-desk.html',import.meta.url),'utf8');

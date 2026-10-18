@@ -41,5 +41,8 @@
     "left_and_reopened_second_time": null,
     "second_edit_and_ending_present": null
   },
-  "notes": "Keep completed records private. Never include credentials, site URLs, user identities, raw drafts, clipboard contents or screenshots in this repository. This is an offline human observation record, not automatic WordPress verification."
+  "notes": "Keep completed records private. Never include credentials, site URLs, user identities, raw drafts, clipboard contents or screenshots in this repository. This is an offline human observation record, not automatic WordPress verification.",
+  "source_transport": null,
+  "download_requested": null,
+  "download_saved_and_opened": null
 }

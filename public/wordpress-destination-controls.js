@@ -20,10 +20,13 @@ export function installWordPressDestinationCheck({ $, getDraft, getWordPressOpti
     if (current !== signature) {
       reset();
       signature = current;
+    }
+    // Do not build a potentially large export while this optional checklist is closed.
+    if (!panel.open) return;
+    if (!expectations) {
       try { expectations = wordpressDestinationExpectations(draft, options); }
       catch { /* Incomplete article: destination checks stay unavailable. */ }
     }
-    if (!panel.open) return;
     $('wordpress-destination-expectations').textContent = expectations ? destinationSummary(expectations) : 'Complete the article before checking its WordPress handoff.';
     $('wordpress-destination-ending').textContent = expectations
       ? (expectations.endingTruncated ? '…' : '') + expectations.sourceEnding

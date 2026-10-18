@@ -22,8 +22,12 @@ export function validateHostedWordPressEvidence(value) {
   if (value.status !== 'OBSERVED') throw new Error('Use NOT_RUN or OBSERVED as the record status.');
   if (value.evidence_type !== 'HUMAN_OBSERVATION' || !ready(value.observed_at)
       || !/^[0-9a-f]{40}$/.test(value.release_commit || '') || !['visual','code-editor-fallback'].includes(value.paste_mode)
-      || value.post_status !== 'draft')
+      || value.post_status !== 'draft'
+      || !['copy-button','downloaded-block-file'].includes(value.source_transport))
     return { result:'INCOMPLETE', detail:'Record source version, method, human observation, and unpublished draft status.' };
+  if (value.source_transport === 'downloaded-block-file'
+      && (value.download_requested !== true || value.download_saved_and_opened !== true))
+    return { result:'INCOMPLETE', detail:'A download request is not a saved, opened block source file.' };
   for (const key of ['wordpress_version','browser_family_and_version','editor_role','plugins_affecting_editor'])
     if (!ready(value.environment?.[key])) return { result:'INCOMPLETE', detail:'Missing destination environment: '+key };
   for (const count of ['web_links','list_groups','tables','linked_images','optional_fields'])
