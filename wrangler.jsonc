@@ -3,7 +3,7 @@
   "name": "drafttopage",
   "main": "src/worker.js",
   "compatibility_date": "2026-10-07",
-  "build": { "command": "node scripts/build-site.mjs" },
+  "build": { "command": "node scripts/build-site.mjs && node --test --test-concurrency=4 tests/*.test.js" },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",

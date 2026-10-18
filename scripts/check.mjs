@@ -42,7 +42,7 @@ for (const page of pages) {
 }
 const config = JSON.parse(await readFile('wrangler.jsonc', 'utf8'));
 assert.equal(config.name, 'drafttopage'); assert.equal(config.main, 'src/worker.js');
-assert.equal(config.build.command, 'node scripts/build-site.mjs');
+assert.equal(config.build.command, 'node scripts/build-site.mjs && node --test --test-concurrency=4 tests/*.test.js');
 assert.equal(config.assets.binding, 'ASSETS');
 assert.deepEqual(config.assets.run_worker_first, ['/pilot', '/pilot/*', '/api/*']);
 assert.ok(config.migrations[0].new_sqlite_classes.includes('PilotQuota'));
