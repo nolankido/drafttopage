@@ -466,7 +466,11 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     for (const child of children(node)) {
       // Hidden and embedded blocks must not flush surrounding visible prose.
       if (skip(child)) continue;
-      if (blocks.has(tag(child)) || blockDescendants.has(child)) { flush(); const value = render(child, ancestorBold); if (value) result.push(value); }
+      if (blocks.has(tag(child)) || blockDescendants.has(child)) {
+        const value = render(child, ancestorBold);
+        // Empty wrappers around omitted descendants have no visible boundary.
+        if (value) { flush(); result.push(value); }
+      }
       else run.push(...(ancestorBold ? [{ type: 'strong', children: inlineNodes(child) }] : inlineNodes(child)));
     }
     flush(); return result.join('\n\n');
