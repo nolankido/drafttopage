@@ -64,6 +64,7 @@ def run_wordpress_media_handoff(*, root, origin, config, new_page, open_editor, 
         })
         expect(source.locator('#import-preview')).to_be_visible()
         assert source.locator('#body').input_value() == '', 'Import preview must not replace writing'
+        source.check('#word-image-choice-kit')
         source.click('#prepare-word-images')
         expect(source.locator('#word-image-kit-review')).to_be_visible()
         assert source.locator('#word-image-metadata-review').is_hidden(), 'Synthetic images unexpectedly have metadata markers'
@@ -130,6 +131,14 @@ def run_wordpress_media_handoff(*, root, origin, config, new_page, open_editor, 
         # source comparison, alt-text use, pasted URL, preview and apply for
         # EACH image. The shortcut can select, but not approve, an occurrence.
         source.check('#import-changes-ok')
+        expect(source.locator('#word-image-saved-ok')).not_to_be_checked()
+        expect(source.locator('#apply-import')).to_be_disabled()
+        expect(source.locator('#apply-import-and-continue')).to_be_disabled()
+        # Confirm the saved-file receipt only after opening the downloaded ZIP
+        # and verifying its original image bytes and placement map above.
+        source.check('#word-image-saved-ok')
+        expect(source.locator('#apply-import')).to_be_enabled()
+        expect(source.locator('#apply-import-and-continue')).to_be_enabled()
         source.click('#apply-import-and-continue')
         expect(source.locator('#publishing-destination')).to_be_focused()
         expect(source.locator('#reviewed')).not_to_be_checked()

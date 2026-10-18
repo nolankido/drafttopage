@@ -106,7 +106,7 @@ for (const id of ['copy-wordpress', 'copy-wordpress-title', 'copy-wordpress-exce
     ui.update(); assert.equal($('wordpress-action-status').textContent, messages.at(-1));
   }));
 }
-test('A pending WordPress copy retains keyboard focus while locked, then announces success or failure without moving focus', async () => {
+test('A pending WordPress copy retains keyboard focus; success keeps it and failure focuses approved source', async () => {
   for (const fails of [false, true]) await withUI(async ({ $, writes }) => {
     let finish, reject;
     navigator.clipboard.writeText = text => { writes.push(text); return new Promise((resolve, fail) => { finish = resolve; reject = fail; }); };
