@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { evaluateAlphaRelease, examineAlphaRelease, ALPHA_REQUIRED_STEPS, ALPHA_REAL_WORLD_GATES } from '../scripts/alpha-release-gate.mjs';
+import { TABLE_ROW_LAYOUT_KEYS } from '../scripts/release-browser-contract.mjs';
 const template=JSON.parse(readFileSync(new URL('../docs/alpha/alpha-release-record-template.json',import.meta.url),'utf8'));
 const HEAD='a'.repeat(40),OLD='b'.repeat(40),SOURCE='c'.repeat(64),VERSION='12345678-1234-1234-1234-123456789abc';
 const local={result:'PASS',head:HEAD,sourceSha256:SOURCE,
-  steps:ALPHA_REQUIRED_STEPS.map(name=>({name,result:'PASS'})),browser:{scope:'full',checks:42,layoutChecks:5},
+  steps:ALPHA_REQUIRED_STEPS.map(name=>({name,result:'PASS'})),
+  browser:{scope:'full',checks:42,layoutChecks:TABLE_ROW_LAYOUT_KEYS.length,
+    tableRowScenario:'PASS',tableRowLayouts:[...TABLE_ROW_LAYOUT_KEYS]},
   wordpress:{result:'PASS'}};
 function complete(){
   const a=structuredClone(template);
@@ -40,6 +43,21 @@ test('Alpha promotion requires the independent source-bound WordPress receipt ev
   for(const removed of ['wordpress', 'browser', 'source snapshot']){
     const missing={...local,steps:local.steps.filter(step=>step.name!==removed)};
     assert.ok(evaluateAlphaRelease(args(complete(),missing)).blockers.includes('fresh_complete_local_validation_required'));
+  }
+});
+
+test('Alpha qualification rejects releases that omit specific measured 320px/390px table-row evidence',()=>{
+  const checks=[
+    {...local.browser,tableRowScenario:'NOT_RUN'},
+    {...local.browser,tableRowLayouts:TABLE_ROW_LAYOUT_KEYS.filter(x=>x!=='table-row-arrange-moved-320')},
+    {...local.browser,tableRowLayouts:[...TABLE_ROW_LAYOUT_KEYS].reverse()},
+    {scope:'full',checks:42,layoutChecks:TABLE_ROW_LAYOUT_KEYS.length},
+    {...local.browser,layoutChecks:TABLE_ROW_LAYOUT_KEYS.length-1}
+  ];
+  for(const browser of checks){
+    const decision=evaluateAlphaRelease(args(complete(),{...local,browser}));
+    assert.equal(decision.result,'BLOCKED');
+    assert.ok(decision.blockers.includes('fresh_complete_local_validation_required'));
   }
 });
 

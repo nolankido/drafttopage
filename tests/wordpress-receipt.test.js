@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceDigest, verifyWordPressReceipt } from '../scripts/verify-wordpress-receipt.mjs';
 import { verifyRelease } from '../scripts/verify-release.mjs';
+import { TABLE_ROW_SCENARIO, TABLE_ROW_LAYOUT_KEYS } from '../scripts/release-browser-contract.mjs';
 
 const configuration = JSON.parse(readFileSync(new URL('./fixtures/wordpress-roundtrip.json', import.meta.url), 'utf8'));
 const receiptScript = fileURLToPath(new URL('../scripts/verify-wordpress-receipt.mjs', import.meta.url));
@@ -133,7 +134,9 @@ test('Receipt and release source snapshots match Python with tracked, untracked,
   assert.equal(sourceDigest(root), committed);
   const result = verifyRelease({ root, env: {}, run: () => {
     if (++calls === 4) writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify({
-      result: 'PASS', scope: 'full', checks: ['Fictional browser receipt'], errors: [], unexpected_requests: [], layout: { narrow: false }
+      result: 'PASS', scope: 'full', checks: [TABLE_ROW_SCENARIO + ' (synthetic receipt contract test)'],
+      errors: [], unexpected_requests: [],
+      layout: Object.fromEntries(TABLE_ROW_LAYOUT_KEYS.map(key=>[key,false]))
     }));
     return { status: 0 };
   } });
@@ -201,8 +204,9 @@ test('Strict full release invokes a real independent receipt validator and rejec
   const head = git(['rev-parse', 'HEAD']), fingerprint = sourceDigest(root);
   const wordpress = completeReceipt(head, fingerprint);
   const browserEvidence = {
-    result: 'PASS', scope: 'full', checks: ['Fictional routed browser acceptance'],
-    errors: [], unexpected_requests: [], layout: { 'fictional-320': false }
+    result: 'PASS', scope: 'full', checks: [TABLE_ROW_SCENARIO + ' (synthetic receipt contract test)'],
+    errors: [], unexpected_requests: [],
+    layout: Object.fromEntries(TABLE_ROW_LAYOUT_KEYS.map(key=>[key,false]))
   };
   function runGate(tamper) {
     const commands = [];
