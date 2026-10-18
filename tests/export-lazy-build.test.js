@@ -30,7 +30,7 @@ const ids = [
   'wordpress-findings','copy-wordpress-excerpt','copy-wordpress-slug',
   'copy-wordpress-description','wordpress-fields-status','download-wordpress-kit',
   'wordpress-kit-status','wordpress-kit-panel','wordpress-kit-files','wordpress-edit-fields',
-  'page-details','excerpt','body','copy-brief','copy-questions'
+  'page-details','excerpt','body','wordpress-destination-check','wordpress-destination-status','wordpress-destination-expectations','wordpress-destination-ending','wp-destination-title','wp-destination-paste','wp-destination-structure','wp-destination-optional-fields','wp-destination-saved-draft','wp-destination-reopened-draft','wp-destination-second-save','copy-brief','copy-questions'
 ];
 function withExports(run) {
   const original = globalThis.document, nodes=Object.fromEntries(ids.map(id=>[id,node()]));

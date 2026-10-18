@@ -304,7 +304,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (/^h[1-6]$/.test(name)) {
       const hasStrike = nodes => nodes.some(part => part.type === 's' || part.children && hasStrike(part.children));
       if (name === 'h1' && hasStrike(inlineNodes(node))) warn('Strikethrough in a level-one heading was kept as plain text. Title fields do not retain inline formatting.');
-      const content = name === 'h1' ? escapeText(whitespace(plain(node)).trim()) : inheritedInline(node, ancestorBold && !styles(node).has('font-weight')).trim();
+      const content = name === 'h1' ? escapeText(whitespace(plain(node)).trim()) : inheritedInline(node, currentBold).trim();
       if (/[\r\n]/.test(content)) warn('Line breaks in a heading became spaces.');
       return '#'.repeat(Number(name[1])) + ' ' + content.replace(/\r\n?|\n/g, ' ');
     }
@@ -325,7 +325,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (name === 'hr') return '***';
     if (name === 'li') throw new Error('A list item is outside its list. Correct the source before importing.');
     if (blockDescendants.has(node)) return flow(node, currentBold);
-    return inheritedInline(node, ancestorBold && !styles(node).has('font-weight')).trim();
+    return inheritedInline(node, currentBold).trim();
   }
   function flow(node, ancestorBold = false) {
     const result = []; let run = [];
