@@ -208,6 +208,17 @@
 .approved-export-shortcut button{max-width:100%;white-space:normal}
 .approved-export-shortcut .small{margin:0;flex:1 1 14rem;overflow-wrap:anywhere}
 
+/* Keep the first review-and-export decision together, ahead of optional setup. */
+.export-essentials{min-width:0;margin:.55rem 0 1rem}
+.export-essentials>label[for=publishing-destination]{display:block;font-weight:650;margin-top:.6rem}
+.export-review-confirm{display:flex;align-items:flex-start;gap:.6rem;padding:.8rem .9rem;margin:.8rem 0 .2rem;border:1px solid var(--line);border-radius:5px;background:var(--soft);min-width:0;overflow-wrap:anywhere}
+.export-review-confirm input{flex:none;margin-top:.28rem}
+.export-essentials .approved-export-shortcut{margin-top:.6rem}
+.export-extra-settings{border-top:1px solid var(--line);padding-top:.75rem;margin:.75rem 0 1rem;min-width:0}
+.export-extra-settings>summary{font-size:.9rem;font-weight:600;cursor:pointer}
+.export-extra-settings[open]>summary{margin-bottom:.75rem}
+@media(max-width:600px){.export-review-confirm{padding:.7rem}.export-essentials .approved-export-shortcut button{min-height:2.75rem}}
+
 /* The table row arranger must fit 320px layouts. Only the data grid scrolls sideways. */
 #table-row-arrange{box-sizing:border-box;width:100%;max-width:100%;min-width:0;margin:.85rem 0;padding:.65rem .7rem;border:1px solid var(--line);overflow-wrap:anywhere}
 #table-row-arrange .checkpoint-columns{max-width:100%;min-width:0}
