@@ -53,12 +53,13 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     for (const child of children(node)) stack.push([child, depth + 1]);
   }
   function mark(node) {
+    // Omitted subtrees cannot create visible paragraph/block boundaries.
+    if (ignoredReason(node)) return false;
     let hasBlock = false;
     for (const child of children(node)) if (mark(child) || blocks.has(tag(child))) hasBlock = true;
     if (hasBlock) blockDescendants.add(node);
     return hasBlock;
   }
-  mark(root);
   const notices = new Map();
   const warn = message => notices.set(message, (notices.get(message) || 0) + 1);
   const checkboxRole = node => (attr(node, 'role') || '').trim().toLowerCase().split(/\s+/).includes('checkbox');
@@ -85,6 +86,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (name === 'ins' || name === 'del') throw new Error('Resolve tracked changes before importing this HTML. Current writing is unchanged.');
     return false;
   }
+  mark(root);
   function rejectFlattenedChecklist(node) {
     if (tag(node) === 'li' && (checkboxRole(node) || attr(node, 'aria-checked') !== null)) throw new Error('Checklist items inside this container cannot be preserved. Move the checklist into the main article before importing.');
   }
@@ -285,7 +287,19 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
   function table(node) {
     const rows = [], captions = [];
     for (const child of children(node)) {
-      if (tag(child) === 'caption') captions.push(inline(child).trim());
+      if (tag(child) === 'caption' && !skip(child)) {
+        // Caption text is flattened to one line. A visible native definition
+        // list has term/description boundaries that must not be concatenated.
+        const pending = children(child);
+        while (pending.length) {
+          const nested = pending.pop();
+          if (ignoredReason(nested)) continue;
+          if (['dl', 'dt', 'dd'].includes(tag(nested)))
+            throw new Error('Definition lists inside table captions cannot be preserved. Move terms and descriptions outside the table before importing.');
+          pending.push(...children(nested));
+        }
+        captions.push(inline(child).trim());
+      }
       else if (tag(child) === 'tr') rows.push(child);
       else if (['thead', 'tbody', 'tfoot'].includes(tag(child)) && !skip(child)) rows.push(...children(child).filter(n => tag(n) === 'tr'));
     }
@@ -446,6 +460,8 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     const result = []; let run = [];
     const flush = () => { const value = writeInline(run).trim(); if (value) result.push(value); run = []; };
     for (const child of children(node)) {
+      // Hidden and embedded blocks must not flush surrounding visible prose.
+      if (skip(child)) continue;
       if (blocks.has(tag(child)) || blockDescendants.has(child)) { flush(); const value = render(child, ancestorBold); if (value) result.push(value); }
       else run.push(...(ancestorBold ? [{ type: 'strong', children: inlineNodes(child) }] : inlineNodes(child)));
     }

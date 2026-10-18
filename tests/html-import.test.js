@@ -890,3 +890,70 @@ test('Hidden nested structures in definitions are omitted without rejecting visi
   assert.match(html, /Visible answer\./);
   assert.doesNotMatch(html, /HIDDEN|<ul|<li/);
 });
+
+
+test('Definition lists in table captions fail closed instead of joining visible terms and descriptions', () => {
+  const table = caption => element('table', [
+    caption,
+    element('tr', [element('th', ['Column'])]),
+    element('tr', [element('td', ['Value'])])
+  ]);
+  const entries = () => element('dl', [
+    element('dt', ['Start time']),
+    element('dd', ['Check in at 10:00.'])
+  ]);
+  for (const caption of [
+    element('caption', ['Schedule ', entries()]),
+    element('caption', [element('span', ['Before ', entries(), ' after'])]),
+    element('caption', [element('em', [element('dt', ['Unpaired'])])])
+  ]) {
+    const original = JSON.stringify(caption);
+    assert.throws(() => convert(table(caption)), /Definition lists inside table captions cannot be preserved/);
+    assert.equal(JSON.stringify(caption), original, 'a rejected import must not change its detached source');
+  }
+
+  const safe = convert(table(element('caption', [
+    'Visible caption ', element('span', [entries()], { hidden: '' }), 'ending.'
+  ])));
+  assert.doesNotMatch(safe.markdown, /Start time|Check in/);
+  const rendered = createHTMLSource({ body: safe.markdown });
+  assert.match(rendered, /Visible caption ending\./);
+  assert.match(rendered, /<th>Column<\/th>/);
+  assert.ok(safe.warnings.some(message => message.includes('hidden content')));
+});
+
+test('Omitted definition lists and nested blocks cannot invent paragraph boundaries', () => {
+  const entries = () => element('dl', [
+    element('dt', ['HIDDEN TERM']),
+    element('dd', ['HIDDEN DESCRIPTION'])
+  ]);
+  const cases = [
+    element('dl', [element('dt', ['HIDDEN']), element('dd', ['ANSWER'])], { hidden: '' }),
+    element('dl', [element('dt', ['HIDDEN']), element('dd', ['ANSWER'])], { 'aria-hidden': 'true' }),
+    element('dl', [element('dt', ['HIDDEN']), element('dd', ['ANSWER'])], { style: 'display: none' }),
+    element('dl', [element('dt', ['HIDDEN']), element('dd', ['ANSWER'])], { style: 'visibility: hidden !important' }),
+    element('span', [entries()], { hidden: '' }),
+    element('div', [element('p', ['HIDDEN TEXT'])], { hidden: '' }),
+    element('script', [element('div', ['HIDDEN SCRIPT'])])
+  ];
+  for (const omittedChild of cases) {
+    const root = element('section', [
+      element('div', ['Before ', omittedChild, 'after.']),
+      element('p', ['END_SENTINEL_20261018'])
+    ]);
+    const original = JSON.stringify(root);
+    const result = convert(root);
+    assert.equal(JSON.stringify(root), original);
+    assert.doesNotMatch(result.markdown, /HIDDEN|ANSWER|DESCRIPTION/);
+    assert.match(createHTMLSource({ body: result.markdown }), /<p>Before after\.<\/p>/);
+    assert.match(result.markdown, /END\\_SENTINEL\\_20261018$/);
+    assert.ok(result.warnings.some(message => /hidden content|Embedded, interactive/.test(message)), 'omission must remain disclosed');
+  }
+
+  const withRealParagraph = convert(element('div', [
+    'Before ', element('dl', [element('dt', ['Omitted']), element('dd', ['Omitted'])], { hidden: '' }),
+    'after.', element('p', ['Actual new paragraph.'])
+  ]));
+  assert.match(createHTMLSource({ body: withRealParagraph.markdown }),
+    /<p>Before after\.<\/p>\n<p>Actual new paragraph\.<\/p>/);
+});
