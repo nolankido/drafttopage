@@ -1,22 +1,18 @@
 <header class="desk-intro">
 <p class="eyebrow">Free article preparation</p>
 <h1>From draft to your next post.</h1>
-<p>Paste plain text or Markdown, review the article, then take editable blocks into WordPress or export for another editor. No account needed.</p>
+<p>Bring a draft, check its formatting, and copy reviewed WordPress blocks or take a file. No account needed.</p>
 </header>
 <!--WORKFLOW_NAVIGATION-->
 <div class="desk-intro-details">
 <p class="small">Have a Word file or a Google Docs draft? <button id="start-formatted-import" type="button" class="secondary">Import formatted writing</button> Open a .docx or paste a formatted selection, then preview before replacing your article.</p>
 <p id="sample" class="small">Nothing to paste yet? <button id="start-sample" type="button" class="secondary">Try a fictional sample</button> Use the same workspace and exports.</p>
 <details id="desk-more" class="desk-more"><summary>Start from notes or use more tools</summary><div class="desk-start"><button id="start-notes" type="button" class="secondary">Start with notes</button><button id="start-import" type="button" class="secondary">Import an article</button><button id="toggle-focus" type="button" class="secondary" aria-pressed="false">Focus on article</button><button id="start-checks" type="button" class="secondary">Check draft</button></div></details>
-<p class="small">Writing stays in this tab unless you explicitly enable browser recovery below. Keep a downloaded private backup for important work. <a href="/help/local-workspace/" target="_blank" rel="noopener">How to keep your work (new tab)</a></p>
+<p class="small">Your writing stays in this tab by default. Use Save options near the editor and keep a private backup for important work. <a href="/help/local-workspace/" target="_blank" rel="noopener">How to keep your work (new tab)</a></p>
 </div>
 <!--WORKSPACE_START-->
 <noscript><p>This workspace needs JavaScript. <a href="/templates/">Copy a note outline</a> or <a href="/examples/">read the examples</a> without it.</p></noscript>
 <p id="desk-status" class="message" role="status" aria-live="polite" aria-atomic="true"></p>
-<!--WORKSPACE_RECOVERY-->
-<!--BROWSER_RECOVERY-->
-<!--DRAFT_COLLECTION-->
-<!--WORKSPACE_REVISIONS-->
 <!--ARTICLE_IMPORT-->
 <div class="desk-columns">
 <section id="draft" class="paper article-editor" aria-labelledby="article-heading">
@@ -58,19 +54,23 @@
 <p class="workflow-continue"><button id="edit-from-preview" type="button" class="secondary workflow-edit" hidden>Back to editing</button></p>
 <!--REFERENCE_LINKS-->
 <section id="exports" class="export-panel" aria-labelledby="export-heading">
-<h3 id="export-heading">3. Choose your export</h3>
+<h3 id="export-heading">3. Review and export</h3>
 <p class="workflow-continue"><button id="edit-from-export" type="button" class="secondary workflow-edit" hidden>Back to editing</button></p>
 <p id="export-readiness" class="small" aria-live="polite"></p>
-<!--PUBLISHING_CHECKLIST-->
-<label for="publishing-destination">Where will you take this article?</label><select id="publishing-destination"><option value="wordpress">WordPress block editor</option><option value="markdown">Markdown article (.md)</option><option value="html">HTML source for a website</option><option value="word">Word document (.docx)</option><option value="other">Other exports and page Markdown</option></select>
-<!--PUBLISHING_PROFILE-->
+<div id="export-essentials" class="export-essentials">
+<label for="publishing-destination">Choose where this article will go</label><select id="publishing-destination"><option value="wordpress">WordPress block editor</option><option value="markdown">Markdown article (.md)</option><option value="html">HTML source for a website</option><option value="word">Word document (.docx)</option><option value="other">Other exports and page Markdown</option></select>
 <!--EXPORT_CONTENT_PREVIEW-->
 <!--EXPORT_FORMAT_REVIEW-->
-<label class="check"><input id="reviewed" type="checkbox"><span>I have reviewed the article and understand that exporting does not publish it.</span></label>
+<label class="check export-review-confirm"><input id="reviewed" type="checkbox"><span>I have reviewed the article and understand that exporting does not publish it.</span></label>
 <div id="approved-export-shortcut" class="approved-export-shortcut" hidden>
 <button id="jump-to-primary-export" type="button" class="button" aria-controls="copy-wordpress" aria-describedby="approved-export-hint" disabled>Go to Copy WordPress blocks</button>
 <p id="approved-export-hint" class="small">Review the article above to enable this shortcut. It moves to the existing export control without copying, downloading, or publishing.</p>
 </div>
+</div>
+<details id="export-extra-settings" class="export-extra-settings"><summary>Saved publishing options and optional checklist</summary>
+<!--PUBLISHING_PROFILE-->
+<!--PUBLISHING_CHECKLIST-->
+</details>
 <!--WORD_HANDOFF-->
 <!--MARKDOWN_HANDOFF-->
 <section id="html-source-handoff" hidden aria-labelledby="html-source-heading">
@@ -155,3 +155,7 @@
 <button id="clear" type="button" class="secondary">Clear this writing desk</button>
 <p class="small"><a href="/help/local-workspace/" target="_blank" rel="noopener">Save-and-restore help (new tab)</a> · <a href="/privacy/" target="_blank" rel="noopener">Data use (new tab)</a></p>
 </aside></div>
+<!--WORKSPACE_RECOVERY-->
+<!--BROWSER_RECOVERY-->
+<!--DRAFT_COLLECTION-->
+<!--WORKSPACE_REVISIONS-->

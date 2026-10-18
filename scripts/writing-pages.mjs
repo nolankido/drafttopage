@@ -42,17 +42,21 @@ const compactBase = deskBody.slice(workspaceStart + workspaceMarker.length)
   .replace('<details id="preview-panel">', '<details id="preview-panel" open>')
   .replace('<details id="additional-exports" open>', '<details id="additional-exports">')
   .replace('<details id="html-source-code-panel" open>', '<details id="html-source-code-panel">');
+// Remove standalone history panels before re-inserting them into the optional
+// editing tools. This keeps the shared source order independent of where
+// the full writing desk presents backups and revisions.
+if (!compactBase.includes(collectionPanel) || !compactBase.includes(revisionPanel)) throw new Error('The converter needs both in-tab history panels.');
+const compactWithoutHistory = compactBase.replace(collectionPanel, '').replace(revisionPanel, '');
 // Keep the conversion itself in view; richer editing and in-tab history stay
 // available together. The full writing desk retains its existing layout.
-const toolsStart = compactBase.indexOf('<div class="actions"><button id="start-link-editor"');
-const toolsEnd = compactBase.indexOf('<details id="page-details">', toolsStart);
+const toolsStart = compactWithoutHistory.indexOf('<div class="actions"><button id="start-link-editor"');
+const toolsEnd = compactWithoutHistory.indexOf('<details id="page-details">', toolsStart);
 if (toolsStart < 0 || toolsEnd <= toolsStart) throw new Error('The converter needs its shared editing controls.');
 const imageStatus = '<p id="article-image-status" class="small"></p>';
-const compactBody = (compactBase.slice(0, toolsStart) +
+const compactBody = compactWithoutHistory.slice(0, toolsStart) +
   imageStatus +
   '<details id="editing-tools" class="editing-tools"><summary>More editing tools and draft history</summary><p class="small">Edit links, images, and tables, check the draft, or compare earlier versions. Opening these tools keeps your writing and export approval.</p>' +
-  compactBase.slice(toolsStart, toolsEnd).replace(imageStatus, '') + collectionPanel + revisionPanel + '</details>' + compactBase.slice(toolsEnd))
-  .replace(collectionPanel, '').replace(revisionPanel, '');
+  compactWithoutHistory.slice(toolsStart, toolsEnd).replace(imageStatus, '') + collectionPanel + revisionPanel + '</details>' + compactWithoutHistory.slice(toolsEnd);
 const wordpressBody = readFileSync(new URL('./wordpress-tool-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('wordpress')) +
   compactBody + WORDPRESS_TOOL_GUIDE;
 const htmlBody = readFileSync(new URL('./html-tool-intro.html.inc', import.meta.url), 'utf8').replace('<!--WORKFLOW_NAVIGATION-->', workflowNavigation('html')) +
