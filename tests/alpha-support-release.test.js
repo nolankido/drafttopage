@@ -7,7 +7,7 @@ test('Support issue route offers safe issue template and explicit converter inpu
   const build=read('scripts/build-content.mjs');
   assert.match(build,/add\('\/help\/alpha-support\/'/);
   for(const name of ['alpha-diagnostic-copy','alpha-diagnostic-converter','alpha-diagnostic-text'])assert.ok(page.includes('id="'+name+'"'));
-  for(const name of ['Source and destination','Step','Expected','Observed','Fictional reproduction','Writing']) assert.ok(template.includes(name),name);
+  for(const name of ['Source and destination','Step','Expected','Observed','Fictional reproduction','writing']) assert.ok(template.includes(name),name);
   assert.match(page,/private support route has not been selected/);
 });
 test('Content-free diagnostics never read a document or browse browser storage',()=>{
