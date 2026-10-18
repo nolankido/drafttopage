@@ -29,6 +29,7 @@ scope.add_argument('--desk-only', action='store_true')
 scope.add_argument('--documents-only', action='store_true')
 scope.add_argument('--checklists-only', action='store_true')
 scope.add_argument('--import-continue-only', action='store_true')
+scope.add_argument('--table-rows-only', action='store_true')
 args = parser.parse_args()
 root = Path.cwd()
 out = root / 'test-results'
@@ -38,7 +39,7 @@ out.mkdir(exist_ok=True)
 origin = 'https://drafttopage.test'
 csp = next(line.split(':', 1)[1].strip() for line in (root/'public/_headers').read_text().splitlines() if 'Content-Security-Policy:' in line)
 app_html = subprocess.check_output(['node','--input-type=module','-e',"import {appPage} from './src/pages.js'; process.stdout.write(appPage)"], text=True)
-report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'documents-only' if args.documents_only else 'checklists-only' if args.checklists_only else 'import-continue-only' if args.import_continue_only else 'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}, 'motion':'reduced for deterministic fixture geometry'}
+report = {'mode':'local routed responses, real ES modules and CSP; no live authentication/provider', 'scope':'table-rows-only' if args.table_rows_only else 'documents-only' if args.documents_only else 'checklists-only' if args.checklists_only else 'import-continue-only' if args.import_continue_only else 'desk-only' if args.desk_only else 'full', 'checks':[], 'errors':[], 'unexpected_requests':[], 'layout':{}, 'motion':'reduced for deterministic fixture geometry'}
 source = {'profile':'update','notes':'Fictional source notes, not part of the article.','audience':'Readers','purpose':'Explain the experiment.'}
 draft = {'title':'An edited local article','excerpt':'A brief summary.','description':'A factual description.','slug':'edited-local-article','body':'An article paragraph.\n\n## A heading\n\n- One\n- Two','questions':['Does this preserve uncertainty?']}
 backup = {'format':'drafttopage-workspace','version':1,'source':source,'draft':draft}
@@ -170,6 +171,16 @@ with sync_playwright() as p:
         browser.close()
         assert not report['errors'] and not report['unexpected_requests'], report
         report['result']='PASS'
+        (out/'browser-results.json').write_text(json.dumps(report,indent=2))
+        print(json.dumps(report,indent=2))
+        sys.exit(0)
+    if args.table_rows_only:
+        from table_row_acceptance import run_table_row_acceptance
+        run_table_row_acceptance(open_page, report, open_details)
+        browser.close()
+        assert not report['errors'] and not report['unexpected_requests'], report
+        assert report['layout'] and not any(report['layout'].values()), report['layout']
+        report['result'] = 'PASS'
         (out/'browser-results.json').write_text(json.dumps(report,indent=2))
         print(json.dumps(report,indent=2))
         sys.exit(0)
@@ -2511,6 +2522,8 @@ with sync_playwright() as p:
     page.fill('#body','Fictional table fallback.');page.check('#reviewed');page.click('#copy-body');assert page.locator('#body').input_value()=='Fictional table fallback.' and state['api']==[]
     context.close()
     report['checks'].append('Guided table optional-module failure keeps article editing and ordinary exports available')
+    from table_row_acceptance import run_table_row_acceptance
+    run_table_row_acceptance(open_page, report, open_details)
 
     page,context,state=open_page('/markdown-to-wordpress/')
     page.fill('#title','Existing fictional title');page.fill('#body','Existing opening.');page.check('#reviewed')

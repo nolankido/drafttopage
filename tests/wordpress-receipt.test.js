@@ -179,6 +179,51 @@ test('Receipt fails closed for missing, stale, or incomplete local WordPress evi
   assert.throws(() => verifyWordPressReceipt({ root }), /No readable WordPress acceptance result/);
 }));
 
+test('Strict full release invokes a real independent receipt validator and rejects post-validation tampering', () => repoFixture(({ root, git }) => {
+  writeFileSync(join(root, 'package.json'), '{"name":"drafttopage"}');
+  writeFileSync(join(root, 'tests/fixture.test.js'), '// Fictional Node test fixture');
+  writeFileSync(join(root, 'tests/fixtures/wordpress-roundtrip.json'), JSON.stringify(configuration));
+  const head = git(['rev-parse', 'HEAD']), fingerprint = sourceDigest(root);
+  const wordpress = completeReceipt(head, fingerprint);
+  const browserEvidence = {
+    result: 'PASS', scope: 'full', checks: ['Fictional routed browser acceptance'],
+    errors: [], unexpected_requests: [], layout: { 'fictional-320': false }
+  };
+  function runGate(tamper) {
+    const commands = [];
+    const result = verifyRelease({ root, env: { DRAFTTOPAGE_WORDPRESS_CLI: '/fictional/playground-cli.js' }, requireWordPress: true,
+      run: (command, args, opts) => {
+        assert.equal(opts.shell, false);
+        const last = args.at(-1);
+        commands.push(last);
+        if (last === 'scripts/browser-smoke.py')
+          writeFileSync(join(root, 'test-results/browser-results.json'), JSON.stringify(browserEvidence));
+        if (last === 'scripts/wordpress_roundtrip.py')
+          writeFileSync(join(root, 'test-results/wordpress-results.json'), JSON.stringify(wordpress));
+        if (last === 'scripts/verify-wordpress-receipt.mjs') {
+          if (tamper) writeFileSync(join(root, 'test-results/wordpress-results.json'),
+            JSON.stringify({ ...wordpress, head: '0'.repeat(40) }));
+          // Use the actual independent receipt validator and source snapshot.
+          return spawnSync(process.execPath, [receiptScript], { cwd: root, encoding: 'utf8' });
+        }
+        return { status: 0 };
+      } });
+    return { result, commands };
+  }
+  const passing=runGate(false);
+  assert.equal(passing.result.result, 'PASS');
+  assert.equal(passing.result.wordpress.result, 'PASS');
+  assert.deepEqual(passing.result.steps.map(x=>x.name), ['build','tests','static','browser','wordpress','wordpress receipt','source snapshot']);
+  assert.equal(passing.result.steps.every(x=>x.result==='PASS'), true);
+  assert.equal(passing.commands.includes('scripts/verify-wordpress-receipt.mjs'), true);
+  const failing=runGate(true);
+  assert.equal(failing.result.result, 'FAIL');
+  assert.equal(failing.result.steps.find(x=>x.name==='wordpress').result,'PASS');
+  assert.equal(failing.result.steps.find(x=>x.name==='wordpress receipt').result,'FAIL');
+  assert.match(failing.result.error, /wordpress receipt failed/);
+  assert.equal(failing.result.steps.some(x=>x.name==='source snapshot'), false);
+}));
+
 test('The receipt check is an explicit manual script, never part of site build or automated Actions', () => {
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(pkg.scripts['verify:wordpress:receipt'], 'node scripts/verify-wordpress-receipt.mjs');
