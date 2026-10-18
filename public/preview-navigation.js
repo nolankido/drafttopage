@@ -62,7 +62,7 @@ export function installPreviewNavigation({ getDraft, isBusy = () => false, hasPe
     const dirty = snapshot !== signature;
     if (!panel.open) { queue.clear(); pending(false); }
     else if (dirty) {
-      const typingLongArticle = !force && !toggle.checked && body.length >= 12000 &&
+      const typingLongArticle = snapshot !== null && !force && !toggle.checked && body.length >= 12000 &&
         typeof window !== 'undefined' && typeof window.setTimeout === 'function' &&
         document.activeElement === $('body');
       if (typingLongArticle) {

@@ -30,8 +30,8 @@ test('The deadline prevents perpetual postponement during continuous editing',()
   const h=harness();
   for(let i=0;i<40;i++){h.queue.enqueue(()=>h.completed.push(i));h.advance(8)}
   assert.ok(h.completed.length>0);
-  assert.equal(h.completed[0],19);
-  assert.ok(h.queue.pending());
+  assert.deepEqual(h.completed,[19,39]);
+  assert.equal(h.queue.pending(),false);
 });
 test('Explicit review flushes immediately; clearing discards all scheduled source',()=>{
   const h=harness();

@@ -198,14 +198,14 @@ test('Large active edits coalesce full preview rebuilds and preserve synchronous
     globalThis.clearTimeout=id=>jobs.delete(id);
     Date.now=()=>clock;
     const ui=installPreviewNavigation({getDraft:()=>({title:'Fictional draft',body:$('body').value}),report:()=>{}});
-    assert.equal($('article-preview').renderCount,0,'Initial focused large preview is deferred');
+    assert.equal($('article-preview').renderCount,1,'First preview renders immediately');
     for (let i=0;i<15;i++){clock+=7;$('body').value+='x';$('reviewed').checked=false;ui.refresh();}
-    assert.equal($('article-preview').renderCount,0);
+    assert.equal($('article-preview').renderCount,1);
     assert.equal($('article-preview').inert,true);
     assert.equal($('article-preview').attrs['aria-busy'],'true');
     clock=170;
     for(const [id,job] of [...jobs])if(job.at<=clock){jobs.delete(id);job.callback();}
-    assert.equal($('article-preview').renderCount,1);
+    assert.equal($('article-preview').renderCount,2);
     assert.equal($('article-preview').inert,false);
     assert.equal($('article-preview').attrs['aria-busy'],'false');
     assert.match($('article-preview').textContent,/x{15}$/);
