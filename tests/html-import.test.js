@@ -1054,3 +1054,22 @@ test('Unsupported visible nested structures in table captions are rejected befor
   assert.doesNotMatch(omitted.markdown, /SECRET/);
   assert.match(omitted.markdown, /Important context/);
 });
+
+test('Table captions with fully hidden definition entries preserve visible caption and table', () => {
+  const source = element('table', [
+    element('caption', ['Schedule ', element('dl', [
+      element('dt', ['Hidden term'], { hidden: '' }),
+      element('dd', ['Hidden answer'], { 'aria-hidden': 'true' })
+    ]), 'remains.']),
+    element('tr', [element('th', ['Column'])]),
+    element('tr', [element('td', ['Visible row'])])
+  ]);
+  const original = JSON.stringify(source);
+  const result = convert(source);
+  assert.equal(JSON.stringify(source), original);
+  assert.match(result.markdown, /Schedule remains\\\./);
+  assert.doesNotMatch(result.markdown, /Hidden term|Hidden answer/);
+  assert.ok(result.warnings.some(w => w.includes('hidden content')));
+  const rendered = createHTMLSource({ body: result.markdown });
+  assert.match(rendered, /<th\\b[^>]*>Column<\\/th>/);
+});
