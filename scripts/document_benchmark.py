@@ -26,6 +26,10 @@ class ArticleHTML(HTMLParser):
         super().__init__(convert_charrefs=True)
         self.text = []
         self.rows = []
+        self.table_groups = []
+        self.table_stack = []
+        self.headings = []
+        self.ordered_starts = []
         self.items = []
         self.links = []
         self.strikes = []
@@ -42,6 +46,14 @@ class ArticleHTML(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
+        if tag == 'ol':
+            raw_start = attrs.get('start', '1')
+            assert re.fullmatch(r'[0-9]{1,9}', raw_start), 'Invalid ordered list start in export'
+            self.ordered_starts.append(int(raw_start))
+        if tag == 'table':
+            group = {'rows': [], 'cellTags': []}
+            self.table_groups.append(group)
+            self.table_stack.append(group)
         if tag in ['ul', 'ol']:
             if self.list_stack and self.list_item_stack:
                 parent = self.list_item_stack[-1]['path']
@@ -68,7 +80,11 @@ class ArticleHTML(HTMLParser):
                     node['text'].append(' ')
         if tag == 'tr':
             self.rows.append([])
-        if tag in ['th', 'td', 'li', 'a', 's', 'blockquote', 'strong', 'em', 'code']:
+            if self.table_stack:
+                self.table_stack[-1]['rows'].append([])
+                self.table_stack[-1]['cellTags'].append([])
+        if tag in ['th', 'td', 'li', 'a', 's', 'blockquote', 'strong', 'em', 'code',
+                   'h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
             self.active.append({'tag': tag, 'text': [], 'href': attrs.get('href')})
 
     def handle_data(self, text):
@@ -96,6 +112,11 @@ class ArticleHTML(HTMLParser):
             text = normalized(''.join(node['text']))
             if tag in ['th', 'td']:
                 self.rows[-1].append(text)
+                if self.table_stack:
+                    self.table_stack[-1]['rows'][-1].append(text)
+                    self.table_stack[-1]['cellTags'][-1].append(tag)
+            elif tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                self.headings.append({'level': int(tag[1]), 'text': text})
             elif tag == 'li':
                 self.items.append(text)
             elif tag == 's':
@@ -108,6 +129,8 @@ class ArticleHTML(HTMLParser):
                 self.links.append({'text': text, 'href': node['href']})
             self.active.pop(i)
             break
+        if tag == 'table' and self.table_stack:
+            self.table_stack.pop()
 
 
 def word_text(encoded):
@@ -208,7 +231,10 @@ def check_conversion(result, wanted):
         assert not any(warning in text for text in result['warnings']), 'Unexpected loss disclosure: ' + warning
     for article in articles:
         assert not article.unsafe and not article.images, 'Unexpected active HTML or image load'
-        for key, actual in [('rows', article.rows), ('listItems', article.items), ('listPaths', article.list_paths), ('links', article.links), ('strikes', article.strikes), ('quotes', article.quotes)]:
+        for key, actual in [('rows', article.rows), ('tableGroups', article.table_groups),
+                            ('headings', article.headings), ('listStarts', article.ordered_starts),
+                            ('listItems', article.items), ('listPaths', article.list_paths),
+                            ('links', article.links), ('strikes', article.strikes), ('quotes', article.quotes)]:
             if key in wanted:
                 assert actual == wanted[key], key + ' structure changed'
         for mark, expected in wanted.get('inlineMarks', {}).items():
@@ -228,25 +254,71 @@ def check_conversion(result, wanted):
             assert items == [{'depth': len(item['path']) - 2, 'text': item['text']} for item in wanted['listPaths']], 'Word list hierarchy or item text changed'
         checked['listHierarchy'] = 'exact HTML parent paths and Word paragraph levels checked'
     if wanted.get('wordStructure'):
-        assert 'rows' in wanted and 'listItems' in wanted, 'Word structure requires independent table and list expectations'
+        for key in ['rows', 'listItems', 'tableGroups', 'headings', 'listStarts']:
+            assert key in wanted, 'Compound Word structure requires explicit ' + key + ' expectations'
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
             document = ET.fromstring(archive.read('word/document.xml'))
+            numbering_root = ET.fromstring(archive.read('word/numbering.xml'))
             ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
-            list_rows = []
-            for paragraph in document.iter(ns + 'p'):
+            paragraphs = list(document.iter(ns + 'p'))
+            list_rows, list_starts, seen_numbering = [], [], set()
+            nums = {entry.get(ns + 'numId'): entry for entry in numbering_root.findall(ns + 'num')}
+            abstracts = {entry.get(ns + 'abstractNumId'): entry for entry in numbering_root.findall(ns + 'abstractNum')}
+            for paragraph in paragraphs:
                 numbering = paragraph.find(ns + 'pPr/' + ns + 'numPr')
                 if numbering is None:
                     continue
-                assert numbering.find(ns + 'ilvl') is not None and numbering.find(ns + 'numId') is not None, 'Word list numbering metadata missing'
+                level_node, id_node = numbering.find(ns + 'ilvl'), numbering.find(ns + 'numId')
+                assert level_node is not None and id_node is not None, 'Word list numbering metadata missing'
+                level, num_id = level_node.get(ns + 'val'), id_node.get(ns + 'val')
+                assert level is not None and num_id in nums, 'Word list references invalid numbering'
                 list_rows.append(normalized(''.join(item.text or '' for item in paragraph.iter(ns + 't'))))
-            tables = []
+                if (num_id, level) in seen_numbering:
+                    continue
+                seen_numbering.add((num_id, level))
+                num = nums[num_id]
+                abstract_link = num.find(ns + 'abstractNumId')
+                assert abstract_link is not None, 'Word list abstract numbering reference missing'
+                abstract = abstracts.get(abstract_link.get(ns + 'val'))
+                assert abstract is not None, 'Word abstract list definition missing'
+                levels = [item for item in abstract.findall(ns + 'lvl') if item.get(ns + 'ilvl') == level]
+                assert len(levels) == 1, 'Word numbered-list level is ambiguous'
+                num_format = levels[0].find(ns + 'numFmt')
+                assert num_format is not None, 'Word list format missing'
+                if num_format.get(ns + 'val') != 'decimal':
+                    continue
+                initial_node = levels[0].find(ns + 'start')
+                initial = int(initial_node.get(ns + 'val')) if initial_node is not None else 1
+                overrides = [item for item in num.findall(ns + 'lvlOverride') if item.get(ns + 'ilvl') == level]
+                assert len(overrides) <= 1, 'Word list has ambiguous start overrides'
+                if overrides:
+                    explicit = overrides[0].find(ns + 'startOverride')
+                    if explicit is not None:
+                        initial = int(explicit.get(ns + 'val'))
+                list_starts.append(initial)
+            groups = []
             for block in document.iter(ns + 'tbl'):
+                group = {'rows': [], 'cellTags': []}
                 for row in block.findall(ns + 'tr'):
-                    tables.append([normalized(''.join(item.text or '' for item in cell.iter(ns + 't')))
-                                   for cell in row.findall(ns + 'tc')])
+                    header = row.find(ns + 'trPr/' + ns + 'tblHeader') is not None
+                    cells = [normalized(''.join(item.text or '' for item in cell.iter(ns + 't')))
+                             for cell in row.findall(ns + 'tc')]
+                    group['rows'].append(cells)
+                    group['cellTags'].append(['th' if header else 'td'] * len(cells))
+                groups.append(group)
+            headings = []
+            for paragraph in paragraphs:
+                pstyle = paragraph.find(ns + 'pPr/' + ns + 'pStyle')
+                if pstyle is not None:
+                    match = re.fullmatch(r'Heading([1-6])', pstyle.get(ns + 'val', ''))
+                    if match:
+                        headings.append({'level': int(match.group(1)),
+                                         'text': normalized(''.join(item.text or '' for item in paragraph.iter(ns + 't')))})
             assert list_rows == wanted['listItems'], 'Word numbered-list structure changed'
-            assert tables == wanted['rows'], 'Word table rows/cells changed'
-        checked['wordStructure'] = 'independent Word numbered paragraphs and table cells checked'
+            assert list_starts == wanted['listStarts'], 'Word ordered-list start values changed'
+            assert groups == wanted['tableGroups'], 'Word table grouping or header-cell semantics changed'
+            assert headings == wanted['headings'], 'Word heading paragraph styles or ordering changed'
+        checked['wordStructure'] = 'independent Word list starts, table grouping/header cells and heading styles checked'
     if 'strikes' in wanted:
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
             document = ET.fromstring(archive.read('word/document.xml'))
