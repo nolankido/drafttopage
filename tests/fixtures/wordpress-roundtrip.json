@@ -510,7 +510,7 @@
         2
       ],
       "listStarts": [
-        1
+        null
       ],
       "listItems": 2,
       "rows": [
@@ -532,6 +532,17 @@
           "text": "fictional reference",
           "href": "https://example.com/solar-editorial?stage=review"
         }
+      ],
+      "inlineContents": [
+        {
+          "path": [
+            1
+          ],
+          "content": "Our fictional rooftop pilot combines <strong>regular checks</strong> with multilingual instructions for every volunteer."
+        }
+      ],
+      "strongs": [
+        "regular checks"
       ]
     },
     {
@@ -578,6 +589,17 @@
       ],
       "quotes": [
         "No customer results are represented here."
+      ],
+      "inlineContents": [
+        {
+          "path": [
+            1
+          ],
+          "content": "Our <strong>fictional editor</strong> checked a <a href=\"https://example.com/editorial-source\" target=\"_blank\" rel=\"noopener noreferrer\">reference link</a> before drafting."
+        }
+      ],
+      "strongs": [
+        "fictional editor"
       ]
     },
     {

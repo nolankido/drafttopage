@@ -5,6 +5,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { sourceDigest as snapshotSource } from './source-snapshot.mjs';
 import { validateFullBrowserEvidence } from './release-browser-contract.mjs';
+import { verifiedSyntheticSourceDigest } from './wordpress-fixture-identity.mjs';
 
 export function validateWordPressEvidence(evidence, configuration, sourceSha256) {
   const expected = configuration.cases;
@@ -41,8 +42,10 @@ export function validateWordPressEvidence(evidence, configuration, sourceSha256)
             !isDigest(found.editedSha256) || found.editedSha256 === found.savedSha256) ||
           item.strikes && found.strikethroughVerified !== true || item.rawText && found.rawTextVerified !== true ||
           item.listPaths && found.listHierarchyVerified !== true ||
-          item.sourceFixture && (found.sourceOrigin !== 'authored-synthetic' || !isDigest(found.sourceInputSha256) ||
-            typeof found.source !== 'string' || !/synthetic|fictional|programmatic/i.test(found.source)) ||
+          item.sourceFixture && (found.sourceOrigin !== 'authored-synthetic' ||
+            found.source !== item.sourceLabel || !isDigest(found.sourceInputSha256) ||
+            found.sourceInputSha256 !== verifiedSyntheticSourceDigest(item.sourceFixture)) ||
+          item.strongs && found.inlineEmphasisVerified !== true ||
           item.formatSelection && found.toolbarVerified !== true;
       })) throw new Error('WordPress evidence is incomplete, contains failures, or targets a different environment.');
   // The separate media case is not another parser-only block fixture. It must

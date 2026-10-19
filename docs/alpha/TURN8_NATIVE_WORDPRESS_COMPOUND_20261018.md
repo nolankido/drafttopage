@@ -25,3 +25,9 @@ This must launch WordPress 7.1.3 locally as an Author with unfiltered HTML disab
 ## Evidence boundaries
 
 The source is simulated. Real current Word and Google Docs application authoring sessions, native WordPress paste comparison with the **same original** file, hosted WordPress destination behavior, consented human tasks, mobile devices, screen-reader use and price/demand validation are all **NOT_RUN** and cannot be credited by these synthetic cases. No WordPress CLI was installed or run as part of authoring this change. The WordPress acceptance script does not run automatically on Cloudflare and must not be represented as completed until its signed source-bound local report exists.
+
+## Review-driven fidelity and receipt hardening
+
+The source-bound WordPress receipt now independently regenerates each allowlisted synthetic input using the same deterministic offline fixture loader as the browser journey and compares its **actual byte SHA-256** with the reported source input identity. Merely supplying any valid-looking 64-digit digest or saying "fictional" is insufficient. The configured provenance label and actual source bytes must match. The digest check runs in deliberate Node/Python release tooling, not in the public client-side app.
+
+The compound Word article uses WordPress's actual implicit list start (no serialized `start` attribute for the ordinary start of 1), retaining the explicit semantic text and list-item counts. Both compound cases require the authored bold span to appear in the native editor and survive saved and reopened raw/rendered WordPress drafts. The optional exact paragraph content check also catches lost nested markup, and receipt tests deliberately corrupt source digests, labels and emphasis evidence to ensure they fail. These are test implementations; no WordPress session or customer document was run in this turn.

@@ -58,6 +58,9 @@ def check_post(post, case, markers, text=None):
     assert article.images == len(case.get('images', [])), 'Rendered image count changed'
     if 'rows' in case:
         assert article.rows == case['rows'], 'Saved/rendered table structure changed'
+    if 'strongs' in case:
+        assert article.inline_marks['strong'] == case['strongs'], 'Rendered article lost authored bold emphasis'
+        assert ArticleHTML(post['content']['raw']).inline_marks['strong'] == case['strongs'], 'Stored article lost authored bold emphasis'
     if 'quotes' in case:
         assert article.quotes == case['quotes'], 'Saved/rendered quotation boundaries changed'
     if 'links' in case:
@@ -390,6 +393,8 @@ def main():
                     assert check_post(reopened, case, config['privateMarkers']) == raw, 'Stored block source changed after reopening'
                     if 'strikes' in case:
                         entry['strikethroughVerified'] = True
+                    if 'strongs' in case:
+                        entry['inlineEmphasisVerified'] = True
                     if 'listPaths' in case:
                         entry['listHierarchyVerified'] = True
                     if 'rawText' in case:
