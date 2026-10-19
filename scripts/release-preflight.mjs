@@ -3,19 +3,70 @@
 import { readFileSync, statSync } from 'node:fs';
 import { resolve, isAbsolute } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const browserProbe = String.raw`
-import os, shutil
-from playwright.sync_api import sync_playwright
-with sync_playwright() as p:
-    binary = os.environ.get('CHROMIUM_EXECUTABLE') or shutil.which('chromium') or shutil.which('chromium-browser')
-    options = {'headless': True, 'args': ['--no-sandbox', '--disable-dev-shm-usage']}
-    if binary: options['executable_path'] = binary
-    browser = p.chromium.launch(**options)
-    print(browser.version)
-    browser.close()
-`;
+const probePath = fileURLToPath(new URL('./browser-preflight.py', import.meta.url));
+const PROBE_CODES = new Set([
+  'BROWSER_POLICY_BLOCK', 'BROWSER_TIMEOUT', 'PLAYWRIGHT_UNAVAILABLE',
+  'CHROMIUM_LAUNCH_FAILED', 'BROWSER_PROBE_FAILED'
+]);
+
+// A version string is launch evidence only. Require the structured proof from
+// actual navigation/module execution, with a matching process exit status.
+export function parseBrowserProbe(response, requireLoopback = false) {
+  try {
+    if (!response || response.error || response.signal ||
+        ![0, 1].includes(response.status) || typeof response.stdout !== 'string' ||
+        response.stdout.length > 16384) return null;
+    const data = JSON.parse(response.stdout);
+    if (data?.format !== 'drafttopage-browser-preflight' || data.version !== 1 ||
+        !['PASS', 'BLOCKED'].includes(data.result) || !data.checks ||
+        Object.keys(data.checks).sort().join(',') !== 'launch,loopbackPage,routedPage') return null;
+    const { launch, routedPage, loopbackPage } = data.checks;
+    for (const [name, step] of Object.entries(data.checks)) {
+      if (!step || !['PASS', 'BLOCKED', 'NOT_RUN'].includes(step.result)) return null;
+      if (step.result === 'PASS' && (step.code !== 'OK' ||
+          name !== 'launch' && (step.moduleExecuted !== true ||
+            step.secureContext !== true || step.requestsMatched !== true))) return null;
+      if (step.result === 'BLOCKED' && !PROBE_CODES.has(step.code)) return null;
+      if (step.result === 'NOT_RUN' && step.code !== 'NOT_RUN') return null;
+    }
+    if (launch.result === 'NOT_RUN') return null;
+    if (launch.result === 'PASS') {
+      if (typeof data.browserVersion !== 'string' ||
+          !/^[0-9]{1,4}(?:\.[0-9]{1,10}){1,4}$/.test(data.browserVersion) ||
+          routedPage.result === 'NOT_RUN') return null;
+    } else if (data.browserVersion !== null || routedPage.result !== 'NOT_RUN' ||
+               loopbackPage.result !== 'NOT_RUN') return null;
+    if (!requireLoopback && loopbackPage.result !== 'NOT_RUN') return null;
+    if (routedPage.result !== 'PASS' && loopbackPage.result !== 'NOT_RUN') return null;
+    if (requireLoopback && routedPage.result === 'PASS' && loopbackPage.result === 'NOT_RUN') return null;
+    const passed = launch.result === 'PASS' && routedPage.result === 'PASS' &&
+      (!requireLoopback || loopbackPage.result === 'PASS');
+    if (data.result !== (passed ? 'PASS' : 'BLOCKED') || response.status !== (passed ? 0 : 1)) return null;
+    return data;
+  } catch { return null; }
+}
+
+function browserDetail(step, stage, version) {
+  if (!step) return 'No usable browser capability report. Page navigation and application acceptance are unverified.';
+  if (step.result === 'PASS') return stage === 'launch'
+    ? 'Chromium ' + version + ' started. Navigation is checked separately.'
+    : stage === 'routedPage'
+      ? 'Synthetic routed HTTPS page and ES module executed. This is not an application journey.'
+      : 'Ephemeral localhost page and ES module executed. WordPress itself was not started.';
+  if (step.result === 'NOT_RUN') return 'Not attempted; no successful navigation is claimed.';
+  if (step.code === 'BROWSER_POLICY_BLOCK')
+    return 'Browser policy blocks page navigation. Use an environment where local browser tests are permitted; do not disable administrator policy. Application acceptance was not run.';
+  if (step.code === 'PLAYWRIGHT_UNAVAILABLE')
+    return 'Python Playwright is unavailable. No browser test ran and no software was installed.';
+  if (step.code === 'CHROMIUM_LAUNCH_FAILED')
+    return 'Chromium could not start. Configure an already-installed browser and rerun preflight.';
+  if (step.code === 'BROWSER_TIMEOUT')
+    return 'The bounded browser probe timed out. No successful navigation is certified.';
+  return 'Browser capability check failed. Application and WordPress acceptance remain unverified.';
+}
+
 
 export function checkReleasePreflight({
   root = process.cwd(), env = process.env, run = spawnSync,
@@ -54,10 +105,26 @@ export function checkReleasePreflight({
     add('Clean checkout', 'BLOCKED', 'No verified repository checkout.');
     add('Complete Git index', 'BLOCKED', 'No verified repository checkout.');
   }
-  const python = command(env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3', ['-c', browserProbe]);
-  add('Playwright Chromium', python.ok ? 'PASS' : 'BLOCKED', python.ok ?
-    'Chromium ' + python.stdout : 'Install Python Playwright and a launchable Chromium in the local environment; no browser was started successfully.');
   const cli = env.DRAFTTOPAGE_WORDPRESS_CLI;
+  const requireLoopback = requireWordPress || Boolean(cli);
+  let browser = null;
+  try {
+    // Resolve the trusted probe beside this script, never a foreign root's file.
+    const response = run(env.DRAFTTOPAGE_BROWSER_PYTHON || 'python3',
+      [probePath, ...(requireLoopback ? ['--loopback'] : [])],
+      { cwd: root, env, encoding: 'utf8', shell: false, timeout: 30000, maxBuffer: 16384 });
+    browser = parseBrowserProbe(response, requireLoopback);
+  } catch { /* Never print raw provider errors, machine paths or stderr. */ }
+  const stages = [
+    ['Playwright Chromium', 'launch'],
+    ['Routed browser navigation', 'routedPage'],
+    ['Local WordPress browser navigation', 'loopbackPage']
+  ];
+  for (const [name, stage] of stages) {
+    const check = browser?.checks[stage];
+    add(name, check?.result || (stage === 'launch' ? 'BLOCKED' : 'NOT_RUN'),
+      browserDetail(check, stage, browser?.browserVersion));
+  }
   const validCli = typeof cli === 'string' && isAbsolute(cli) && exists(cli);
   add('Local WordPress Playground CLI', validCli ? 'PASS' : requireWordPress ? 'BLOCKED' : 'NOT_RUN',
     validCli ? 'Configured at an existing absolute local path.' : requireWordPress ?
