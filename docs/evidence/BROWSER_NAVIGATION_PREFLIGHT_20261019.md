@@ -16,7 +16,7 @@ The corrected native probe reports:
 | Routed test-page navigation | BLOCKED, BROWSER_POLICY_BLOCK |
 | Probe's optional localhost stage | NOT_RUN after the earlier navigation failure |
 | Corrected native probe exit | 1, BLOCKED |
-| Targeted Node regression suite | 12 tests passed, 0 failures |
+| Targeted Node regression suite | 13 tests passed, 0 failures |
 | Python syntax and redaction/resource tests | PASS |
 
 The Node suite uses mocked process responses to test the report contract. Its successful navigation cases are unit controls, not actual successful browser observations. The native blocked probe was executed separately. The unrelated missing Git checkout and unconfigured WordPress CLI remain visible in the complete preflight output. No browser-policy bypass, paid browser service, external test account or software installation was attempted.
@@ -43,5 +43,13 @@ No public application module, publishing behavior, provider integration, GitHub 
 | File | Git blob |
 | --- | --- |
 | `scripts/release-preflight.mjs` | `aaac6534c86e120f8c7a18d6efd9d422b2ab08b7` |
-| `scripts/browser-preflight.py` | `1b31b723a09ee2023b208a789aafebc4d444dc42` |
+| `scripts/browser-preflight.py` | `6b9113379d7512583a1e9f2971cc0a11368b631e` |
 | `tests/release-preflight.test.js` | `694d13b2586e33e18410c718ebddd56c0eb63886` |
+
+## Optimization-safe invariant checks
+
+Independent review identified that Python optimization could remove the original assertions around the secure context and request set. These are now explicit conditional failures, including the browser-version check. A separate test invokes Python with `-O` and mock page objects: one valid synthetic response is accepted, while insecure context, missing module request, unexpected request and duplicate request cases are rejected. Context cleanup is verified in each case. These five scenarios are unit controls, not actual successful browser navigation. The combined two Node test files passed all 13 tests, and the corrected native browser probe again reported launch PASS, routed navigation BLOCKED by administrator policy, loopback NOT_RUN and exit 1.
+
+| Additional locally tested file | Git blob |
+| --- | --- |
+| `tests/browser-preflight-optimized.test.js` | `b2d282561891838d815e901453172433dcb788af` |

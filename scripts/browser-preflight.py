@@ -80,8 +80,10 @@ def navigate(browser, origin, *, loopback=False):
         page.goto(origin + PAGE_PATH, wait_until='load', timeout=7000)
         page.wait_for_function('window.DTP_PREFLIGHT_READY === ' + json.dumps(MARKER), timeout=3000)
         secure = page.evaluate('window.isSecureContext') is True
-        assert secure, 'The local test origin is not a secure browser context'
-        assert not unexpected and sorted(seen) == sorted([PAGE_PATH, MODULE_PATH]), 'Unexpected browser request'
+        if not secure:
+            raise RuntimeError('The local test origin is not a secure browser context')
+        if unexpected or sorted(seen) != sorted([PAGE_PATH, MODULE_PATH]):
+            raise RuntimeError('Unexpected or missing browser request')
         return step('PASS', 'OK', moduleExecuted=True, secureContext=True, requestsMatched=True)
     finally:
         context.close()
@@ -125,7 +127,8 @@ def run_probe(require_loopback=False):
                     options['executable_path'] = binary
                 browser = playwright.chromium.launch(**options, timeout=10000)
                 version = browser.version
-                assert re.fullmatch(r'[0-9]{1,4}(?:\.[0-9]{1,10}){1,4}', version), 'Unexpected browser version'
+                if not isinstance(version, str) or not re.fullmatch(r'[0-9]{1,4}(?:\.[0-9]{1,10}){1,4}', version):
+                    raise RuntimeError('Unexpected browser version')
                 report['browserVersion'] = version
                 report['checks']['launch'] = step('PASS', 'OK')
                 stage = 'routedPage'
