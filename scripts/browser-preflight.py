@@ -9,7 +9,7 @@ import json
 import os
 import re
 import shutil
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
 
 FORMAT = 'drafttopage-browser-preflight'
@@ -132,7 +132,7 @@ def run_probe(require_loopback=False):
                 report['checks'][stage] = navigate(browser, ORIGIN)
                 if require_loopback:
                     stage = 'loopbackPage'
-                    server = HTTPServer(('127.0.0.1', 0), LocalProbeHandler)
+                    server = ThreadingHTTPServer(('127.0.0.1', 0), LocalProbeHandler)
                     thread = Thread(target=server.serve_forever, daemon=True)
                     thread.start()
                     report['checks'][stage] = navigate(browser, 'http://127.0.0.1:' + str(server.server_port), loopback=True)

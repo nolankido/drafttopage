@@ -43,5 +43,5 @@ No public application module, publishing behavior, provider integration, GitHub 
 | File | Git blob |
 | --- | --- |
 | `scripts/release-preflight.mjs` | `aaac6534c86e120f8c7a18d6efd9d422b2ab08b7` |
-| `scripts/browser-preflight.py` | `19b723e329d7b8d7fe69a4d8fd6e19184dc230fd` |
-| `tests/release-preflight.test.js` | `e140bbcea8e6951a1e50c73e0333a847fe17569c` |
+| `scripts/browser-preflight.py` | `1b31b723a09ee2023b208a789aafebc4d444dc42` |
+| `tests/release-preflight.test.js` | `694d13b2586e33e18410c718ebddd56c0eb63886` |

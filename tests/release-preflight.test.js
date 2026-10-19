@@ -41,7 +41,7 @@ function mockRuns({ dirty = false, chromium = true, head = 'a'.repeat(40), index
     if (tool === 'git' && args[0] === 'status') return { status: 0, stdout: dirty ? ' M scripts/source.js\n' : '' };
     if (tool === 'git' && args[0] === 'ls-files') return { status: 0, stdout: indexFlag + ' tests/fixture.test.js\0' };
     if (tool === 'python3') {
-      assert.ok(args[0].endsWith('scripts/browser-preflight.py'));
+      assert.match(args[0], /[\\/]scripts[\\/]browser-preflight\.py$/);
       assert.equal(options.timeout, 30000);
       assert.equal(options.maxBuffer, 16384);
       return browserReport({ loopback: args.includes('--loopback'), blocked: chromium ? null : 'launch', code: 'CHROMIUM_LAUNCH_FAILED' });
