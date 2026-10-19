@@ -17,6 +17,8 @@ from urllib.parse import urlparse, parse_qs
 
 from document_benchmark import ArticleHTML, normalized
 from wordpress_media_acceptance import run_wordpress_media_handoff
+from wordpress_source_fixtures import load_wordpress_source_fixture
+from wordpress_compound_contract import check_compound_post, check_compound_blocks
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'test-results'
@@ -57,6 +59,11 @@ def check_post(post, case, markers, text=None):
     assert article.images == len(case.get('images', [])), 'Rendered image count changed'
     if 'rows' in case:
         assert article.rows == case['rows'], 'Saved/rendered table structure changed'
+    if 'strongs' in case:
+        assert article.inline_marks['strong'] == case['strongs'], 'Rendered article lost authored bold emphasis'
+        assert ArticleHTML(post['content']['raw']).inline_marks['strong'] == case['strongs'], 'Stored article lost authored bold emphasis'
+    if 'quotes' in case:
+        assert article.quotes == case['quotes'], 'Saved/rendered quotation boundaries changed'
     if 'links' in case:
         assert article.links == case['links'], 'Saved/rendered link targets changed'
     if 'listPaths' in case:
@@ -69,6 +76,7 @@ def check_post(post, case, markers, text=None):
         assert normalized(''.join(ArticleHTML(post['content']['raw']).text)) == case['rawText'], 'Stored article text changed'
     raw = post['content']['raw']
     assert not any(marker in raw or marker in post['content']['rendered'] for marker in markers), 'Private field leaked'
+    check_compound_post(post, case)
     return raw
 
 
@@ -100,6 +108,7 @@ def check_blocks(page, case, edited=False):
         assert [{'src': b['attributes']['url'], 'alt': b['attributes']['alt']} for b in blocks['all'] if b['name'] == 'core/image'] == case['images']
     else:
         assert not any(b['name'] == 'core/image' for b in blocks['all'])
+    check_compound_blocks(blocks, case)
     return blocks
 
 
@@ -181,7 +190,7 @@ def main():
                 time.sleep(.25)
             print('Local WordPress editor ready', flush=True)
             with sync_playwright() as playwright:
-                launch = {'headless': True, 'args': ['--no-sandbox', '--disable-dev-shm-usage']}
+                launch = {'headless': True, 'args': ['--no-sandbox','--disable-dev-shm-usage']}
                 if os.environ.get('CHROMIUM_EXECUTABLE'):
                     launch['executable_path'] = os.environ['CHROMIUM_EXECUTABLE']
                 browser = playwright.chromium.launch(**launch)
@@ -262,10 +271,17 @@ def main():
                     entry = {'id': case['id'], 'result': 'RUNNING'}
                     report['cases'].append(entry)
                     source_page = new_page()
-                    source_page.goto('https://drafttopage.test' + case.get('sourceRoute', '/word-to-wordpress/' if case.get('file') else '/markdown-to-wordpress/'))
+                    source_page.goto('https://drafttopage.test' + case.get('sourceRoute', '/word-to-wordpress/' if case.get('file') or case.get('sourceFixture') else '/markdown-to-wordpress/'))
                     expect(source_page.locator('#desk-status')).to_contain_text('ready')
-                    if case.get('file'):
-                        source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
+                    if case.get('file') or case.get('sourceFixture'):
+                        if case.get('sourceFixture'):
+                            synthetic = load_wordpress_source_fixture(ROOT, case['sourceFixture'])
+                            source_page.locator('#import-file').set_input_files(synthetic['input'])
+                            entry['sourceOrigin'] = synthetic['origin']
+                            entry['sourceInputSha256'] = synthetic['sha256']
+                            entry['source'] = case.get('sourceLabel', 'Synthetic authored fixture, not an actual source-app export')
+                        else:
+                            source_page.locator('#import-file').set_input_files(str(ROOT / case['file']))
                         expect(source_page.locator('#import-preview')).to_be_visible()
                         source_page.check('#import-changes-ok')
                         source_page.click('#apply-import-and-continue')
@@ -273,7 +289,8 @@ def main():
                         expect(source_page.locator('#publishing-destination')).to_have_value('wordpress')
                         expect(source_page.locator('#reviewed')).not_to_be_checked()
                         entry['reviewedImportContinuation'] = True
-                        entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and Copy WordPress blocks')
+                        if not case.get('sourceFixture'):
+                            entry['source'] = case.get('sourceLabel', 'native Word file import, review, apply, and Copy WordPress blocks')
                     else:
                         source_page.fill('#body', case['body'])
                         entry['source'] = 'actual Markdown-to-WordPress article fields and Copy WordPress blocks'
@@ -379,6 +396,8 @@ def main():
                     assert check_post(reopened, case, config['privateMarkers']) == raw, 'Stored block source changed after reopening'
                     if 'strikes' in case:
                         entry['strikethroughVerified'] = True
+                    if 'strongs' in case:
+                        entry['inlineEmphasisVerified'] = True
                     if 'listPaths' in case:
                         entry['listHierarchyVerified'] = True
                     if 'rawText' in case:

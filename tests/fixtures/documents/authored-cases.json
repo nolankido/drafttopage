@@ -1,7 +1,7 @@
 {
   "version": 1,
   "origin": "authored-synthetic",
-  "scope": "Locally authored fictional Markdown and HTML input cases. These are not application-origin captures, real user documents, device tests, or compatibility evidence.",
+  "scope": "Locally authored fictional Markdown, HTML, and programmatically constructed DOCX cases. These are not application-origin captures, real user documents, device tests, or compatibility evidence.",
   "cases": [
     {
       "id": "authored-cjk",
@@ -381,6 +381,223 @@
         "error": "Checklist items inside this container cannot be preserved."
       },
       "reason": "Visible checkbox state inside a quote cannot be flattened silently and must reject without replacing the writer's existing article or approval.",
+      "ui": true
+    },
+    {
+      "id": "authored-compound-docx-article",
+      "kind": "docx",
+      "source": "<w:p><w:pPr><w:outlineLvl w:val=\"0\"/></w:pPr><w:r><w:t xml:space=\"preserve\">Fictional Community Solar Update</w:t></w:r></w:p><w:p><w:pPr><w:outlineLvl w:val=\"1\"/></w:pPr><w:r><w:t xml:space=\"preserve\">October maintenance plan</w:t></w:r></w:p><w:p><w:r><w:t xml:space=\"preserve\">Our fictional rooftop pilot combines </w:t></w:r><w:r><w:rPr><w:b/></w:rPr><w:t xml:space=\"preserve\">regular checks</w:t></w:r><w:r><w:t xml:space=\"preserve\"> with multilingual instructions for every volunteer.</w:t></w:r></w:p><w:p><w:r><w:t xml:space=\"preserve\">The team logs café notes, 日本語 instructions, and a 😀 marker in one shared article.</w:t></w:r></w:p><w:p><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"1\"/></w:numPr></w:pPr><w:r><w:t xml:space=\"preserve\">Check the inverter before opening.</w:t></w:r></w:p><w:p><w:pPr><w:numPr><w:ilvl w:val=\"0\"/><w:numId w:val=\"1\"/></w:numPr></w:pPr><w:r><w:t xml:space=\"preserve\">Record the meter values without publishing private addresses.</w:t></w:r></w:p><w:p><w:r><w:t xml:space=\"preserve\">Read the </w:t></w:r><w:hyperlink r:id=\"source1\"><w:r><w:t xml:space=\"preserve\">fictional reference</w:t></w:r></w:hyperlink><w:r><w:t xml:space=\"preserve\"> before the afternoon review.</w:t></w:r></w:p><w:tbl><w:tr><w:trPr><w:tblHeader/></w:trPr><w:tc><w:p><w:r><w:t xml:space=\"preserve\">Metric</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t xml:space=\"preserve\">Value</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t xml:space=\"preserve\">Inspection</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t xml:space=\"preserve\">Complete</w:t></w:r></w:p></w:tc></w:tr><w:tr><w:tc><w:p><w:r><w:t xml:space=\"preserve\">Next review</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t xml:space=\"preserve\">Friday</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:pPr><w:outlineLvl w:val=\"1\"/></w:pPr><w:r><w:t xml:space=\"preserve\">Editorial safeguards</w:t></w:r></w:p><w:p><w:r><w:t xml:space=\"preserve\">The draft is for demonstration only; nobody has installed equipment or supplied personal data.</w:t></w:r></w:p><w:p><w:r><w:t xml:space=\"preserve\">Keep the final sentence: harbor 924.</w:t></w:r></w:p>",
+      "numbering": true,
+      "relationships": [
+        {
+          "id": "source1",
+          "target": "https://example.com/solar-editorial?stage=review"
+        }
+      ],
+      "expect": {
+        "category": "preserved",
+        "title": "Fictional Community Solar Update",
+        "text": "October maintenance plan Our fictional rooftop pilot combines regular checks with multilingual instructions for every volunteer. The team logs café notes, 日本語 instructions, and a 😀 marker in one shared article. Check the inverter before opening. Record the meter values without publishing private addresses. Read the fictional reference before the afternoon review. Metric Value Inspection Complete Next review Friday Editorial safeguards The draft is for demonstration only; nobody has installed equipment or supplied personal data. Keep the final sentence: harbor 924.",
+        "rows": [
+          [
+            "Metric",
+            "Value"
+          ],
+          [
+            "Inspection",
+            "Complete"
+          ],
+          [
+            "Next review",
+            "Friday"
+          ]
+        ],
+        "listItems": [
+          "Check the inverter before opening.",
+          "Record the meter values without publishing private addresses."
+        ],
+        "links": [
+          {
+            "text": "fictional reference",
+            "href": "https://example.com/solar-editorial?stage=review"
+          }
+        ],
+        "inlineMarks": {
+          "strong": [
+            "regular checks"
+          ]
+        },
+        "wordLinks": [
+          {
+            "text": "fictional reference",
+            "href": "https://example.com/solar-editorial?stage=review"
+          }
+        ],
+        "wordStructure": true,
+        "tableGroups": [
+          {
+            "rows": [
+              [
+                "Metric",
+                "Value"
+              ],
+              [
+                "Inspection",
+                "Complete"
+              ],
+              [
+                "Next review",
+                "Friday"
+              ]
+            ],
+            "cellTags": [
+              [
+                "th",
+                "th"
+              ],
+              [
+                "td",
+                "td"
+              ],
+              [
+                "td",
+                "td"
+              ]
+            ]
+          }
+        ],
+        "listStarts": [
+          1
+        ],
+        "headings": [
+          {
+            "level": 2,
+            "text": "October maintenance plan"
+          },
+          {
+            "level": 2,
+            "text": "Editorial safeguards"
+          }
+        ]
+      },
+      "reason": "A complete, programmatically constructed fictional Word article must retain title, styled runs, list order, header table, Unicode, hyperlink and exact final sentence through all three exports.",
+      "ui": true
+    },
+    {
+      "id": "authored-compound-docs-style-html",
+      "kind": "html",
+      "source": "<h1>Fictional publishing checklist</h1><h2>Preparation</h2><p>Our <strong>fictional editor</strong> checked a <a href=\"https://example.com/editorial-source\">reference link</a> before drafting.</p><ol start=\"4\"><li>Confirm the opening heading.</li><li>Compare every table row.</li></ol><table><thead><tr><th>Stage</th><th>Owner</th></tr></thead><tbody><tr><td>Import</td><td>Writer</td></tr><tr><td>Review</td><td>Editor</td></tr></tbody></table><blockquote><p>No customer results are represented here.</p></blockquote><p>Final publishing sentinel: juniper 927.</p>",
+      "expect": {
+        "category": "preserved",
+        "title": "Fictional publishing checklist",
+        "text": "Preparation Our fictional editor checked a reference link before drafting. Confirm the opening heading. Compare every table row. Stage Owner Import Writer Review Editor No customer results are represented here. Final publishing sentinel: juniper 927.",
+        "rows": [
+          [
+            "Stage",
+            "Owner"
+          ],
+          [
+            "Import",
+            "Writer"
+          ],
+          [
+            "Review",
+            "Editor"
+          ]
+        ],
+        "listItems": [
+          "Confirm the opening heading.",
+          "Compare every table row."
+        ],
+        "quotes": [
+          "No customer results are represented here."
+        ],
+        "inlineMarks": {
+          "strong": [
+            "fictional editor"
+          ]
+        },
+        "links": [
+          {
+            "text": "reference link",
+            "href": "https://example.com/editorial-source"
+          }
+        ],
+        "wordLinks": [
+          {
+            "text": "reference link",
+            "href": "https://example.com/editorial-source"
+          }
+        ],
+        "wordStructure": true,
+        "tableGroups": [
+          {
+            "rows": [
+              [
+                "Stage",
+                "Owner"
+              ],
+              [
+                "Import",
+                "Writer"
+              ],
+              [
+                "Review",
+                "Editor"
+              ]
+            ],
+            "cellTags": [
+              [
+                "th",
+                "th"
+              ],
+              [
+                "td",
+                "td"
+              ],
+              [
+                "td",
+                "td"
+              ]
+            ]
+          }
+        ],
+        "listStarts": [
+          4
+        ],
+        "headings": [
+          {
+            "level": 2,
+            "text": "Preparation"
+          }
+        ]
+      },
+      "reason": "A multi-feature fictional HTML clipboard-like article combines heading, link, emphasis, list, table, quote and final sentinel to detect cross-feature losses in exports.",
+      "ui": true
+    },
+    {
+      "id": "authored-multiparagraph-table-caption",
+      "kind": "html",
+      "source": "<h1>Fictional quarterly results</h1><table><caption><p>First quarter</p><p>Second quarter</p></caption><tr><th>Metric</th><th>Count</th></tr><tr><td>Visitors</td><td>12</td></tr></table><p>Final caption sentinel: cedar 928.</p>",
+      "expect": {
+        "category": "disclosed",
+        "title": "Fictional quarterly results",
+        "text": "First quarter Second quarter Metric Count Visitors 12 Final caption sentinel: cedar 928.",
+        "rows": [
+          [
+            "Metric",
+            "Count"
+          ],
+          [
+            "Visitors",
+            "12"
+          ]
+        ],
+        "warnings": [
+          "Paragraphs inside HTML table captions became separate article paragraphs. Original caption placement and semantics were not retained."
+        ]
+      },
+      "reason": "Multi-paragraph HTML table captions must not silently concatenate visible words, and the changed caption semantics require explicit import acknowledgement.",
       "ui": true
     }
   ]

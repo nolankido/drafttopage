@@ -24,9 +24,16 @@ print(str(len(cases))+' independent 3-format export comparisons passed')
 test('Every authored Markdown probe executes its importer and independently checks the three export formats', () => {
   assert.equal(authored.origin, 'authored-synthetic');
   const accepted = [];
-  let rejected = 0, htmlCases = 0;
+  let rejected = 0, htmlCases = 0, docxCases = 0;
   for (const item of authored.cases) {
-    assert.ok(['md', 'html'].includes(item.kind), item.id + ' must declare a supported source format');
+    assert.ok(['md', 'html', 'docx'].includes(item.kind), item.id + ' must declare a supported source format');
+    if (item.kind === 'docx') {
+      assert.equal(item.ui, true, 'Synthetic DOCX must run the actual file import path in the browser corpus');
+      assert.match(item.source, /<w:p>/);
+      assert.ok(item.relationships?.length);
+      docxCases++;
+      continue;
+    }
     if (item.kind === 'html') {
       // The browser corpus uses the actual detached HTML parser and native file
       // input. Never reinterpret an HTML probe as Markdown in this Node loop.
@@ -57,7 +64,8 @@ test('Every authored Markdown probe executes its importer and independently chec
   }
   assert.equal(accepted.length, 17);
   assert.equal(rejected, 5);
-  assert.equal(htmlCases, 4);
+  assert.equal(htmlCases, 6);
+  assert.equal(docxCases, 1);
   const report = execFileSync('python3', ['-c', VERIFY], {
     input: JSON.stringify(accepted), encoding: 'utf8',
     maxBuffer: 16 * 1024 * 1024, timeout: 45000
@@ -66,7 +74,7 @@ test('Every authored Markdown probe executes its importer and independently chec
 });
 
 test('Authored HTML quote probes explicitly cover preservation, disclosed loss, and review-safe rejection', () => {
-  const htmlCases = authored.cases.filter(item => item.kind === 'html');
+  const htmlCases = authored.cases.filter(item => item.id.startsWith('authored-html-quote-'));
   assert.deepEqual(htmlCases.map(item => item.id), [
     'authored-html-quote-inline-citation',
     'authored-html-quote-nested-disclosure',

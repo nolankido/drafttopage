@@ -31,3 +31,17 @@ A synthetic, independently specified HTML article exposed a loss: `<dl><dt>Start
 Malformed or unsupported groups fail before applying: orphan descriptions, unmatched trailing terms, empty entries, nested lists/tables/quotes/headings/code, unexpected direct wrappers and more than 200 entries. This conservative subset is not a promise of full HTML definition-list, accessibility, CSS or browser layout fidelity. The source stays local and inert. No external link is fetched and no article is automatically published.
 
 Regression tests use fictional detached HTML source and confirm the actual HTML/WordPress exported paragraphs, inline formatting, original ending, explicit warning, unchanged source object and fail-closed invalid cases. The original licensed Word/Google Docs corpus and its pinned hashes remain unchanged; this is an authored HTML boundary case, not a new real-application capture. Full isolated Playwright/WordPress/device acceptance remains separate.
+
+## October 18, 2026: post-review boundary safeguards (Turn 5)
+
+The final automated review of PR #157 identified two additional edge cases. A visible native definition list embedded inside a table caption could be flattened into indistinguishable text; caption conversion now rejects direct or nested `dl/dt/dd` entries with a specific explanation. Hidden or otherwise omitted caption descendants are pruned before this check, so an invisible list does not prevent importing an otherwise supported caption.
+
+The block-boundary scanner and article flow now both omit hidden/embedded subtrees before deciding where paragraphs end. An empty visible wrapper around omitted descendants also cannot create a paragraph break. For example, `<div>Before <dl hidden>...</dl>after.</div>` remains one visible paragraph rather than two. Explicitly hidden content is still disclosed in import warnings. Legitimate visible paragraphs remain separated. New synthetic tree regression cases cover direct and wrapped captions, hidden caption entries, hidden/aria-hidden/style-hidden blocks, embedded content, preservation of actual paragraph breaks, a retained ending marker, and unchanged original input trees.
+
+These are scoped source-fidelity fixes, not evidence of successful conversion of arbitrary HTML, real author documents, hosted WordPress acceptance, physical devices, or human alpha readiness. No credential, API, network fetch, tracking, AI provider, payment, publishing automation, or GitHub Actions change is included.
+
+## Additional post-review controls
+
+Break-only and explicit empty visible blocks still separate adjacent visible prose. An omitted-only wrapper does not. Caption definition lists whose term and description entries are all hidden are omitted with the existing warning rather than rejected; any visible term, definition, or other definition-list material still fails closed before import. Fictional regression tests cover both distinctions. These focused fixes do not imply broad HTML fidelity or a completed human/browser/WordPress release gate.
+
+Whitespace-only text inside an otherwise empty visible HTML block, including a nonbreaking space, still creates a source paragraph boundary. Only fully omitted descendant trees are ignored when joining surrounding visible runs. This closes the additional P2 edge case from the final review.

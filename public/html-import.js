@@ -53,12 +53,17 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     for (const child of children(node)) stack.push([child, depth + 1]);
   }
   function mark(node) {
+    // Omitted subtrees cannot create visible paragraph/block boundaries.
+    if (ignoredReason(node)) return false;
     let hasBlock = false;
-    for (const child of children(node)) if (mark(child) || blocks.has(tag(child))) hasBlock = true;
+    for (const child of children(node)) {
+      // A hidden block is not a visible block just because its tag is block-level.
+      if (ignoredReason(child)) continue;
+      if (mark(child) || blocks.has(tag(child))) hasBlock = true;
+    }
     if (hasBlock) blockDescendants.add(node);
     return hasBlock;
   }
-  mark(root);
   const notices = new Map();
   const warn = message => notices.set(message, (notices.get(message) || 0) + 1);
   const checkboxRole = node => (attr(node, 'role') || '').trim().toLowerCase().split(/\s+/).includes('checkbox');
@@ -85,6 +90,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (name === 'ins' || name === 'del') throw new Error('Resolve tracked changes before importing this HTML. Current writing is unchanged.');
     return false;
   }
+  mark(root);
   function rejectFlattenedChecklist(node) {
     if (tag(node) === 'li' && (checkboxRole(node) || attr(node, 'aria-checked') !== null)) throw new Error('Checklist items inside this container cannot be preserved. Move the checklist into the main article before importing.');
   }
@@ -282,10 +288,91 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     }
     return lines;
   }
+  // A caption is flattened to inline Markdown. Reject only definition
+  // material that would become visible and lose its term/description meaning.
+  function visibleDefinitionMaterial(node) {
+    if (ignoredReason(node)) return false;
+    if (node.nodeType === 3) return /\S/.test(node.nodeValue);
+    if (['dt', 'dd', 'br', 'hr', 'wbr', 'img'].includes(tag(node))) return true;
+    return children(node).some(visibleDefinitionMaterial);
+  }
+  // Reach omitted grandchildren inside transparent wrappers. Otherwise a
+  // completely hidden definition list can be discarded without a warning.
+  function discloseOmittedDescendants(node) {
+    for (const child of children(node)) {
+      if (ignoredReason(child)) skip(child);
+      else discloseOmittedDescendants(child);
+    }
+  }
+  function captionParagraphs(node) {
+    // Preserve the caption's own inline styling around each simple paragraph.
+    // Original table-caption placement still requires a visible loss notice.
+    const paragraphs = []; let run = [];
+    const wrapped = content => ({
+      nodeType: 1, localName: tag(node), childNodes: content,
+      getAttribute: name => attr(node, name),
+      hasAttribute: name => node.hasAttribute(name)
+    });
+    const flush = () => {
+      if (run.length) {
+        const value = inline(wrapped(run)).trim();
+        if (value) paragraphs.push(value);
+      }
+      run = [];
+    };
+    for (const child of children(node)) {
+      if (skip(child)) continue;
+      const name = tag(child);
+      if (name === 'dl' && !visibleDefinitionMaterial(child)) {
+        discloseOmittedDescendants(child);
+        continue;
+      }
+      // All recognized simple block containers delimit visible caption prose.
+      // The scan above rejects complex block semantics. Nested structures
+      // that would flatten ambiguously are still explicitly refused.
+      if (blocks.has(name)) {
+        if (blockDescendants.has(child))
+          throw new Error('Nested paragraph wrappers inside HTML table captions need review in the source editor before importing.');
+        flush();
+        const value = inline(wrapped([child])).trim();
+        if (value) paragraphs.push(value);
+      } else {
+        if (blockDescendants.has(child))
+          throw new Error('Nested block wrappers inside HTML table captions need review in the source editor before importing.');
+        run.push(child);
+      }
+    }
+    flush();
+    return paragraphs.join('\n\n');
+  }
   function table(node) {
     const rows = [], captions = [];
     for (const child of children(node)) {
-      if (tag(child) === 'caption') captions.push(inline(child).trim());
+      if (tag(child) === 'caption' && !skip(child)) {
+        // Caption text is flattened to one line. A visible native definition
+        // list has term/description boundaries that must not be concatenated.
+        const pending = children(child);
+        while (pending.length) {
+          const nested = pending.pop();
+          if (ignoredReason(nested)) continue;
+          if (tag(nested) === 'dl') {
+            if (visibleDefinitionMaterial(nested))
+              throw new Error('Definition lists inside table captions cannot be preserved. Move terms and descriptions outside the table before importing.');
+            continue; // Only omitted entries: the inline parser still discloses them.
+          }
+          if (['dt', 'dd'].includes(tag(nested)))
+            throw new Error('Definition lists inside table captions cannot be preserved. Move terms and descriptions outside the table before importing.');
+          // A caption is otherwise flattened into article prose. Complex block
+          // semantics cannot survive that conversion without an explicit repair.
+          if (['h1','h2','h3','h4','h5','h6','blockquote','pre','ul','ol','li','table','hr'].includes(tag(nested)))
+            throw new Error('Headings, lists, quotes, code, tables and rules inside table captions need review in the source editor before importing.');
+          pending.push(...children(nested));
+        }
+        const caption = blockDescendants.has(child) ? captionParagraphs(child) : inline(child).trim();
+        if (caption) captions.push(caption);
+        if (blockDescendants.has(child))
+          warn('Paragraphs inside HTML table captions became separate article paragraphs. Original caption placement and semantics were not retained.');
+      }
       else if (tag(child) === 'tr') rows.push(child);
       else if (['thead', 'tbody', 'tfoot'].includes(tag(child)) && !skip(child)) rows.push(...children(child).filter(n => tag(n) === 'tr'));
     }
@@ -435,18 +522,57 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       return fence + '\n' + text + (text.endsWith('\n') ? '' : '\n') + fence;
     }
     if (name === 'blockquote') return quote(node, currentBold);
-    if (name === 'dl') return definitionList(node, currentBold);
+    if (name === 'dl') {
+      // A definition-list shell whose entries are all omitted has no visible
+      // semantics to export. Disclose its hidden children without treating it
+      // as an orphaned visible definition or a text boundary.
+      if (!visibleDefinitionMaterial(node)) {
+        discloseOmittedDescendants(node);
+        return '';
+      }
+      return definitionList(node, currentBold);
+    }
     if (name === 'dt' || name === 'dd') throw new Error('A definition term or description must be inside a definition list. Correct the source before importing.');
     if (name === 'hr') return '***';
     if (name === 'li') throw new Error('A list item is outside its list. Correct the source before importing.');
     if (blockDescendants.has(node)) return flow(node, currentBold);
     return inheritedInline(node, currentBold).trim();
   }
+  // Empty rendered output can mean either a genuine blank/break-only
+  // visible block or a wrapper around solely omitted content. Preserve
+  // real source boundaries without giving hidden content a visible effect.
+  // Distinguish a visible empty inline shell from a subtree made entirely of
+  // hidden/omitted content. A hidden sibling cannot cancel an empty block.
+  function hasVisibleSourceShape(node) {
+    if (ignoredReason(node)) return false;
+    if (node.nodeType === 3) return node.nodeValue.length > 0;
+    if (node.nodeType !== 1 && node.nodeType !== 11) return false;
+    // Comment nodes are neutral: <p><!-- marker --></p> remains an
+    // intentional visible empty paragraph. Hidden-only content does not.
+    const nested = children(node).filter(child => child.nodeType !== 8);
+    return !nested.length ? node.nodeType === 1 : nested.some(hasVisibleSourceShape);
+  }
+  function visibleEmptyBoundary(node) {
+    if (ignoredReason(node)) return false;
+    if (node.nodeType === 3) return node.nodeValue.length > 0;
+    if (node.nodeType === 8) return false;
+    const nested = children(node).filter(child => child.nodeType !== 8);
+    if (!nested.length) return blocks.has(tag(node)) || tag(node) === 'br';
+    if (nested.some(visibleEmptyBoundary)) return true;
+    return blocks.has(tag(node)) && nested.some(hasVisibleSourceShape);
+  }
   function flow(node, ancestorBold = false) {
     const result = []; let run = [];
     const flush = () => { const value = writeInline(run).trim(); if (value) result.push(value); run = []; };
     for (const child of children(node)) {
-      if (blocks.has(tag(child)) || blockDescendants.has(child)) { flush(); const value = render(child, ancestorBold); if (value) result.push(value); }
+      // Hidden and embedded blocks must not flush surrounding visible prose.
+      if (skip(child)) continue;
+      if (blocks.has(tag(child)) || blockDescendants.has(child)) {
+        const value = render(child, ancestorBold);
+        // Empty hidden-only wrappers do not divide prose, but explicit
+        // visible blank blocks still separate neighboring text runs.
+        if (value || visibleEmptyBoundary(child)) { flush(); if (value) result.push(value); }
+      }
       else run.push(...(ancestorBold ? [{ type: 'strong', children: inlineNodes(child) }] : inlineNodes(child)));
     }
     flush(); return result.join('\n\n');

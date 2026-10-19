@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sourceDigest, verifyWordPressReceipt } from '../scripts/verify-wordpress-receipt.mjs';
 import { verifyRelease } from '../scripts/verify-release.mjs';
+import { verifiedSyntheticSourceDigests } from '../scripts/wordpress-fixture-identity.mjs';
 import { TABLE_ROW_SCENARIO, TABLE_ROW_LAYOUT_KEYS } from '../scripts/release-browser-contract.mjs';
 
 const configuration = JSON.parse(readFileSync(new URL('./fixtures/wordpress-roundtrip.json', import.meta.url), 'utf8'));
@@ -66,7 +67,11 @@ function completeReceipt(head, sourceSha256) {
       savedSha256: digest(item.expectedSavedSource ?? 'Fictional saved article'),
       expectedSavedSha256: digest(item.expectedSavedSource ?? 'Fictional saved article'),
       savedSourceExact: true, validAfterReopen: true, inputMode: item.inputMode,
-      source: 'Fictional receipt unit-test source', sourceTransport: 'copy-wordpress-button', privateFieldsPopulated: true,
+      source: item.sourceFixture ? item.sourceLabel : 'Fictional receipt unit-test source',
+      ...(item.sourceFixture ? { sourceOrigin: 'authored-synthetic',
+        sourceInputSha256: verifiedSyntheticSourceDigests()[item.sourceFixture] } : {}),
+      ...(item.strongs ? { inlineEmphasisVerified: true } : {}),
+      sourceTransport: 'copy-wordpress-button', privateFieldsPopulated: true,
       exportSha256: copiedDigest, clipboardSha256: copiedDigest,
       paste: { trusted: true, textSha256: copiedDigest, htmlEmpty: true, types: ['text/plain'],
         targetKind: item.inputMode === 'native-visual-paste' ? 'visual-paragraph' : 'code-textarea',
@@ -154,12 +159,12 @@ test('A complete source-bound synthetic receipt passes the API and CLI, while ch
   const path = join(root, 'test-results/wordpress-results.json');
   writeFileSync(path, JSON.stringify(evidence));
   assert.deepEqual(verifyWordPressReceipt({ root }), {
-    result: 'PASS', version: configuration.wordpress, cases: 14, nativePasteCases: 13, codeEditorCases: 1,
+    result: 'PASS', version: configuration.wordpress, cases: 16, nativePasteCases: 15, codeEditorCases: 1,
     mediaLibraryUploads: 2, mediaLibraryImageBlocks: 3, role: 'author', head, sourceSha256
   });
   const cli = spawnSync(process.execPath, [receiptScript], { cwd: root, encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr);
-  assert.match(cli.stdout, /14 saved\/reopened cases; 2 Media Library uploads; 3 image blocks/);
+  assert.match(cli.stdout, /16 saved\/reopened cases; 2 Media Library uploads; 3 image blocks/);
   assert.ok(cli.stdout.includes(head));
 
   const incomplete = structuredClone(evidence);
@@ -249,3 +254,25 @@ test('The receipt check is an explicit manual script, never part of site build o
   const build = readFileSync(new URL('../scripts/build-site.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(build, /playground|wordpress_roundtrip|verify-wordpress-receipt/);
 });
+
+test('Synthetic source provenance must match allowlisted exact bytes, configured label and marks', () => repoFixture(({root,git}) => {
+  const old = configuration.cases.find(x => x.sourceFixture);
+  assert.ok(old?.strongs?.length);
+  writeFileSync(join(root,'tests/fixtures/wordpress-roundtrip.json'),JSON.stringify(configuration));
+  const head = git(['rev-parse','HEAD']), sha = pythonSourceDigest(root);
+  const receiptPath = join(root,'test-results/wordpress-results.json');
+  const complete = completeReceipt(head,sha);
+  writeFileSync(receiptPath,JSON.stringify(complete));
+  assert.equal(verifyWordPressReceipt({root}).result,'PASS');
+  for(const change of [
+    item => { item.sourceInputSha256 = 'b'.repeat(64); },
+    item => { item.source = 'fictional'; },
+    item => { item.sourceOrigin = 'customer-data'; },
+    item => { item.inlineEmphasisVerified = false; }
+  ]) {
+    const damaged = structuredClone(complete);
+    change(damaged.cases.find(item => item.sourceOrigin === 'authored-synthetic'));
+    writeFileSync(receiptPath,JSON.stringify(damaged));
+    assert.throws(() => verifyWordPressReceipt({root}),/WordPress evidence/);
+  }
+}));

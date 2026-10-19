@@ -434,3 +434,31 @@ test('All shared desks offer local Word import with explicit acknowledgement and
   const release = JSON.parse(await readFile('public/release.json', 'utf8')); assert.equal(release.wordDocumentImport, true);
   const source = await readFile('public/docx-import.js', 'utf8'); assert.doesNotMatch(source, /\bfetch\s*\(|innerHTML|localStorage|sessionStorage|indexedDB/);
 });
+
+test('Authored combined Word article preserves styled text, links, list, table and final sentence', async () => {
+  const { readFileSync } = await import('node:fs');
+  const authored = JSON.parse(readFileSync(new URL('./fixtures/documents/authored-cases.json', import.meta.url), 'utf8'));
+  const spec = authored.cases.find(item => item.id === 'authored-compound-docx-article');
+  const W = WORD_NS, R = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  const num = word('numbering',
+    '<w:abstractNum w:abstractNumId="0">' +
+    [0,1].map(i => '<w:lvl w:ilvl="' + i + '"><w:start w:val="1"/><w:numFmt w:val="decimal"/><w:lvlText w:val="%' + (i + 1) + '."/></w:lvl>').join('') +
+    '</w:abstractNum><w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>');
+  const rels = '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
+    '<Relationship Id="numbering" Type="' + R + '/numbering" Target="numbering.xml"/>' +
+    '<Relationship Id="source1" Type="' + R + '/hyperlink" Target="https://example.com/solar-editorial?stage=review" TargetMode="External"/>' +
+    '</Relationships>';
+  const result = convert(fixture(spec.source, { 'word/numbering.xml': num, 'word/_rels/document.xml.rels': rels }));
+  const imported = parseArticleImport(result.markdown);
+  assert.equal(imported.draft.title, spec.expect.title);
+  assert.match(imported.draft.body, /regular checks/);
+  assert.match(imported.draft.body, /日本語/);
+  assert.match(result.markdown, /\[fictional reference\]\(https:\/\/example\.com\/solar-editorial\?stage=review\)/);
+  assert.match(imported.draft.body, /harbor 924\\\./);
+  assert.match(result.markdown, /1\. Check the inverter/);
+  const html = createWordPressArticle(imported.draft).html;
+  assert.match(html, /<strong>regular checks<\/strong>/);
+  assert.match(html, /fictional reference/);
+  assert.match(html, /<th[^>]*>Metric<\/th>/);
+  assert.match(html, /harbor 924\./);
+});

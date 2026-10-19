@@ -148,22 +148,28 @@ test('Authored regression probes are explicit, independent of historical source 
   assert.equal(authored.version, 1);
   assert.equal(authored.origin, 'authored-synthetic');
   assert.match(authored.scope, /not application-origin captures/i);
-  assert.equal(authored.cases.length, 26);
-  assert.equal(manifest.cases.length + authored.cases.length, 41);
+  assert.equal(authored.cases.length, 29);
+  assert.equal(manifest.cases.length + authored.cases.length, 44);
   const ids = new Set(manifest.cases.map(item => item.id));
   let rejected = 0, withStructure = 0, withUI = 0;
-  const kinds = { md: 0, html: 0 };
+  const kinds = { md: 0, html: 0, docx: 0 };
   for (const item of authored.cases) {
     assert.match(item.id, /^authored-[a-z0-9-]+$/);
     assert.equal(ids.has(item.id), false, 'A pinned corpus ID was reused.');
     ids.add(item.id);
-    assert.ok(['md', 'html'].includes(item.kind));
+    assert.ok(['md', 'html', 'docx'].includes(item.kind));
     kinds[item.kind]++;
     assert.equal(typeof item.source, 'string');
     assert.ok(item.source.trim());
     assert.ok(Buffer.byteLength(item.source, 'utf8') <= 512 * 1024);
     assert.ok(typeof item.reason === 'string' && item.reason.length > 45, 'Explain why this authored probe matters.');
-    assert.deepEqual(Object.keys(item).sort().filter(k => !['id', 'kind', 'source', 'expect', 'reason', 'ui'].includes(k)), []);
+    assert.deepEqual(Object.keys(item).sort().filter(k => !['id', 'kind', 'source', 'expect', 'reason', 'ui', ...(item.kind === 'docx' ? ['numbering', 'relationships'] : [])].includes(k)), []);
+    if (item.kind === 'docx') {
+      assert.equal(item.ui, true);
+      assert.equal(item.numbering, true);
+      assert.ok(item.source.includes('<w:p>') && item.source.includes('<w:tbl>'));
+      assert.ok(item.relationships.every(link => link.id && link.target.startsWith('https://')));
+    }
     assert.ok(['preserved', 'disclosed', 'rejected'].includes(item.expect.category));
     assert.equal(typeof item.ui === 'undefined' || typeof item.ui === 'boolean', true);
     if (item.ui) withUI++;
@@ -175,15 +181,69 @@ test('Authored regression probes are explicit, independent of historical source 
       if (item.expect.category === 'disclosed') assert.ok(Array.isArray(item.expect.warnings) && item.expect.warnings.length);
       if (['rows', 'listItems', 'listPaths', 'links', 'strikes', 'quotes', 'inlineMarks', 'wordLinks'].some(key => key in item.expect)) withStructure++;
       for (const key of ['quotes', 'wordLinks']) if (key in item.expect) assert.ok(Array.isArray(item.expect[key]));
+      if ('wordStructure' in item.expect) {
+        assert.ok(['docx', 'html'].includes(item.kind));
+        assert.equal(item.expect.wordStructure, true);
+        assert.ok(item.expect.rows?.length && item.expect.listItems?.length);
+        assert.equal(item.expect.tableGroups?.length, 1);
+        assert.deepEqual(item.expect.tableGroups[0].rows, item.expect.rows);
+        assert.deepEqual(item.expect.tableGroups[0].cellTags[0], item.expect.rows[0].map(() => 'th'));
+        assert.ok(item.expect.tableGroups[0].cellTags.slice(1).every(row => row.every(tag => tag === 'td')));
+        assert.equal(item.expect.listStarts?.length, 1);
+        assert.ok(Number.isInteger(item.expect.listStarts[0]) && item.expect.listStarts[0] >= 1);
+        assert.ok(item.expect.headings?.length);
+        assert.ok(item.expect.headings.every(h => h.level === 2 && typeof h.text === 'string' && h.text.length));
+      }
       if ('inlineMarks' in item.expect) {
         assert.deepEqual(Object.keys(item.expect.inlineMarks).filter(key => !['strong', 'em', 'code'].includes(key)), []);
         for (const marks of Object.values(item.expect.inlineMarks)) assert.ok(Array.isArray(marks) && marks.every(text => typeof text === 'string'));
       }
     }
   }
-  assert.deepEqual(kinds, { md: 22, html: 4 });
+  assert.deepEqual(kinds, { md: 22, html: 6, docx: 1 });
   assert.ok(withUI >= 8);
   assert.equal(rejected, 6);
   assert.ok(withStructure >= 5, 'Keep meaningful structural assertions instead of text-only probes.');
-  assert.equal(ids.size, 41);
+  assert.equal(ids.size, 44);
+});
+
+test('Authored DOCX source builds as deterministic, independent synthetic ZIP', () => {
+  const output = execFileSync('python3', ['-c', String.raw`
+import io,json,sys,zipfile,xml.etree.ElementTree as ET
+from scripts.document_benchmark import build_authored_docx
+with open(sys.argv[1],encoding='utf-8') as file:
+    corpus=json.load(file)
+case=next(x for x in corpus['cases'] if x['id']=='authored-compound-docx-article')
+a=build_authored_docx(case)
+b=build_authored_docx(case)
+assert a==b
+assert len(a)<8*1024*1024
+with zipfile.ZipFile(io.BytesIO(a)) as z:
+    assert z.testzip() is None
+    assert 'word/document.xml' in z.namelist()
+    assert 'word/numbering.xml' in z.namelist()
+    assert 'word/_rels/document.xml.rels' in z.namelist()
+    content_types=ET.fromstring(z.read('[Content_Types].xml'))
+    types_ns='{http://schemas.openxmlformats.org/package/2006/content-types}'
+    overrides={x.get('PartName'):x.get('ContentType') for x in content_types.findall(types_ns+'Override')}
+    defaults={x.get('Extension'):x.get('ContentType') for x in content_types.findall(types_ns+'Default')}
+    assert overrides['/word/numbering.xml']=='application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml'
+    assert overrides['/word/document.xml']=='application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml'
+    assert defaults['rels']=='application/vnd.openxmlformats-package.relationships+xml'
+    assert defaults['xml']=='application/xml'
+    content=ET.fromstring(z.read('word/document.xml'))
+    t=''.join((n.text or '') for n in content.iter() if n.tag.endswith('}t'))
+    assert 'harbor 924.' in t
+    assert '日本語' in t
+    assert 'private addresses' in t
+assert 'Microsoft Word' not in corpus['scope']
+bad=dict(case, relationships=[{'id':'x','target':'javascript:unsafe'}])
+try:build_authored_docx(bad)
+except AssertionError:pass
+else:raise AssertionError('unsafe relationship accepted')
+print('deterministic synthetic DOCX ZIP valid')
+`, new URL('./fixtures/documents/authored-cases.json', import.meta.url).pathname], {
+    cwd: fileURLToPath(root), encoding: 'utf8', timeout: 45000
+  });
+  assert.equal(output.trim(), 'deterministic synthetic DOCX ZIP valid');
 });
