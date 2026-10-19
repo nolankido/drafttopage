@@ -185,6 +185,14 @@ test('Authored regression probes are explicit, independent of historical source 
         assert.ok(['docx', 'html'].includes(item.kind));
         assert.equal(item.expect.wordStructure, true);
         assert.ok(item.expect.rows?.length && item.expect.listItems?.length);
+        assert.equal(item.expect.tableGroups?.length, 1);
+        assert.deepEqual(item.expect.tableGroups[0].rows, item.expect.rows);
+        assert.deepEqual(item.expect.tableGroups[0].cellTags[0], item.expect.rows[0].map(() => 'th'));
+        assert.ok(item.expect.tableGroups[0].cellTags.slice(1).every(row => row.every(tag => tag === 'td')));
+        assert.equal(item.expect.listStarts?.length, 1);
+        assert.ok(Number.isInteger(item.expect.listStarts[0]) && item.expect.listStarts[0] >= 1);
+        assert.ok(item.expect.headings?.length);
+        assert.ok(item.expect.headings.every(h => h.level === 2 && typeof h.text === 'string' && h.text.length));
       }
       if ('inlineMarks' in item.expect) {
         assert.deepEqual(Object.keys(item.expect.inlineMarks).filter(key => !['strong', 'em', 'code'].includes(key)), []);
