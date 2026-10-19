@@ -15,6 +15,11 @@ import xml.etree.ElementTree as ET
 from html.parser import HTMLParser
 from pathlib import Path
 
+if __package__:
+    from .word_style_contract import numbering_index, resolved_word_headings
+else:
+    from word_style_contract import numbering_index, resolved_word_headings
+
 
 def normalized(text):
     return re.sub(r'\s+', ' ', text).strip()
@@ -291,6 +296,12 @@ def check_unmerged_word_row(row, ns):
 
 
 def check_conversion(result, wanted):
+    # A compound export claims the complete supported explicit-mark contract.
+    # Omitted mark names mean absent, not "unchecked". Do not mutate the oracle.
+    if wanted.get('wordStructure'):
+        marks = wanted.get('inlineMarks', {})
+        assert set(marks) <= {'strong', 'em', 'code'}, 'Unknown compound inline mark expectation'
+        wanted = {**wanted, 'inlineMarks': {name: marks.get(name, []) for name in ['strong', 'em', 'code']}}
     checked = {}
     articles = [ArticleHTML(result[key]) for key in ['wordpress', 'html']]
     texts = [normalized(''.join(article.text)) for article in articles]
@@ -350,8 +361,8 @@ def check_conversion(result, wanted):
             ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
             paragraphs = list(document.iter(ns + 'p'))
             list_rows, list_starts, seen_numbering = [], [], set()
-            nums = {entry.get(ns + 'numId'): entry for entry in numbering_root.findall(ns + 'num')}
-            abstracts = {entry.get(ns + 'abstractNumId'): entry for entry in numbering_root.findall(ns + 'abstractNum')}
+            nums = numbering_index(numbering_root, 'num', 'numId')
+            abstracts = numbering_index(numbering_root, 'abstractNum', 'abstractNumId')
             for paragraph in paragraphs:
                 numbering = paragraph.find(ns + 'pPr/' + ns + 'numPr')
                 if numbering is None:
@@ -406,14 +417,7 @@ def check_conversion(result, wanted):
                     group['rows'].append(cells)
                     group['cellTags'].append(['th' if header else 'td'] * len(cells))
                 groups.append(group)
-            headings = []
-            for paragraph in paragraphs:
-                pstyle = paragraph.find(ns + 'pPr/' + ns + 'pStyle')
-                if pstyle is not None:
-                    match = re.fullmatch(r'Heading([1-6])', pstyle.get(ns + 'val', ''))
-                    if match:
-                        headings.append({'level': int(match.group(1)),
-                                         'text': normalized(''.join(item.text or '' for item in paragraph.iter(ns + 't')))})
+            headings = resolved_word_headings(archive, document)
             assert list_rows == wanted['listItems'], 'Word numbered-list structure changed'
             assert list_starts == wanted['listStarts'], 'Word ordered-list start values changed'
             assert groups == wanted['tableGroups'], 'Word table grouping or header-cell semantics changed'
