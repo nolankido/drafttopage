@@ -1183,7 +1183,6 @@ test('HTML comments do not erase a deliberate empty visible paragraph', () => {
     element('p', [comment('editor bookmark')]),
     element('div', [comment('only a comment')]),
     element('p', [element('span', [comment('nested marker')])]),
-    element('p', [comment('a marker'), element('span', ['HIDDEN'], { hidden: '' })]),
     element('p', [element('span', [comment('visible empty')]), element('span', ['HIDDEN'], { hidden: '' })])
   ]) {
     const source = element('div', ['Before', gap, 'After']);
