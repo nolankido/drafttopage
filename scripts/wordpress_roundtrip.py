@@ -18,6 +18,7 @@ from urllib.parse import urlparse, parse_qs
 from document_benchmark import ArticleHTML, normalized
 from wordpress_media_acceptance import run_wordpress_media_handoff
 from wordpress_source_fixtures import load_wordpress_source_fixture
+from wordpress_compound_contract import check_compound_post, check_compound_blocks
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / 'test-results'
@@ -75,6 +76,7 @@ def check_post(post, case, markers, text=None):
         assert normalized(''.join(ArticleHTML(post['content']['raw']).text)) == case['rawText'], 'Stored article text changed'
     raw = post['content']['raw']
     assert not any(marker in raw or marker in post['content']['rendered'] for marker in markers), 'Private field leaked'
+    check_compound_post(post, case)
     return raw
 
 
@@ -106,6 +108,7 @@ def check_blocks(page, case, edited=False):
         assert [{'src': b['attributes']['url'], 'alt': b['attributes']['alt']} for b in blocks['all'] if b['name'] == 'core/image'] == case['images']
     else:
         assert not any(b['name'] == 'core/image' for b in blocks['all'])
+    check_compound_blocks(blocks, case)
     return blocks
 
 
@@ -187,7 +190,7 @@ def main():
                 time.sleep(.25)
             print('Local WordPress editor ready', flush=True)
             with sync_playwright() as playwright:
-                launch = {'headless': True, 'args': ['--no-sandbox', '--disable-dev-shm-usage']}
+                launch = {'headless': True, 'args': ['--no-sandbox','--disable-dev-shm-usage']}
                 if os.environ.get('CHROMIUM_EXECUTABLE'):
                     launch['executable_path'] = os.environ['CHROMIUM_EXECUTABLE']
                 browser = playwright.chromium.launch(**launch)

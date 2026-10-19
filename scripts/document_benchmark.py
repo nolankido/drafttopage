@@ -30,6 +30,8 @@ class ArticleHTML(HTMLParser):
         self.table_stack = []
         self.headings = []
         self.ordered_starts = []
+        self.numbering_issues = []
+        self.table_issues = []
         self.items = []
         self.links = []
         self.strikes = []
@@ -45,7 +47,31 @@ class ArticleHTML(HTMLParser):
         self.feed(html)
 
     def handle_starttag(self, tag, attrs):
+        # Keep parsing broad enough for diagnostics, but never certify custom
+        # numbering or a merged grid merely because plain text survived.
+        seen = set()
+        for name, value in attrs:
+            if name in seen:
+                if tag in ['ol', 'li'] and name in ['start', 'reversed', 'type', 'value']:
+                    self.numbering_issues.append('duplicate numbering attribute')
+                if tag in ['th', 'td'] and name in ['rowspan', 'colspan']:
+                    self.table_issues.append('duplicate cell span attribute')
+            seen.add(name)
         attrs = dict(attrs)
+        if tag == 'ol':
+            if 'reversed' in attrs:
+                self.numbering_issues.append('reversed ordered list')
+            if 'type' in attrs and attrs['type'] != '1':
+                self.numbering_issues.append('non-decimal ordered list')
+        if tag == 'li':
+            if 'value' in attrs:
+                self.numbering_issues.append('explicit list-item value override')
+            if 'type' in attrs and attrs['type'] != '1':
+                self.numbering_issues.append('list-item marker type override')
+        if tag in ['th', 'td']:
+            for name in ['colspan', 'rowspan']:
+                if name in attrs and attrs[name] != '1':
+                    self.table_issues.append('unsupported ' + name)
         if tag == 'ol':
             raw_start = attrs.get('start', '1')
             assert re.fullmatch(r'[0-9]{1,9}', raw_start), 'Invalid ordered list start in export'
@@ -207,6 +233,63 @@ def check_word_quote_fidelity(encoded, wanted):
     return checked
 
 
+def check_numbering_package(archive):
+    """Verify the canonical package links used by our numbered Word exports.
+
+    This checks package wiring, not arbitrary Word compatibility. It performs
+    no relationship fetches and accepts only the exporter's local part paths.
+    """
+    names = archive.namelist()
+    assert len(names) == len(set(names)), 'Word package contains duplicate parts'
+    for name in ['[Content_Types].xml', '_rels/.rels', 'word/document.xml',
+                 'word/numbering.xml', 'word/_rels/document.xml.rels']:
+        assert name in names, 'Word numbering package part is missing: ' + name
+    c = '{http://schemas.openxmlformats.org/package/2006/content-types}'
+    r = '{http://schemas.openxmlformats.org/package/2006/relationships}'
+    office = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/'
+    types = ET.fromstring(archive.read('[Content_Types].xml'))
+    assert types.tag == c + 'Types', 'Word content-types namespace is invalid'
+    expected = {
+        '/word/document.xml': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml',
+        '/word/numbering.xml': 'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml',
+    }
+    for name, mime in expected.items():
+        declarations = [item for item in types.findall(c + 'Override') if item.get('PartName') == name]
+        assert len(declarations) == 1 and declarations[0].get('ContentType') == mime, 'Word part content type is missing, duplicated or wrong: ' + name
+    defaults = [item for item in types.findall(c + 'Default') if item.get('Extension') == 'rels']
+    assert len(defaults) == 1 and defaults[0].get('ContentType') == 'application/vnd.openxmlformats-package.relationships+xml', 'Word relationship content type is invalid'
+    for part, kind, allowed in [
+        ('_rels/.rels', 'officeDocument', ['word/document.xml', '/word/document.xml']),
+        ('word/_rels/document.xml.rels', 'numbering', ['numbering.xml', '/word/numbering.xml'])
+    ]:
+        relationships = ET.fromstring(archive.read(part))
+        assert relationships.tag == r + 'Relationships', 'Word relationships namespace is invalid'
+        entries = list(relationships)
+        assert all(item.tag == r + 'Relationship' and item.get('Id') for item in entries), 'Invalid Word relationship entry'
+        assert len({item.get('Id') for item in entries}) == len(entries), 'Word relationship identifiers are duplicated'
+        links = [item for item in entries if item.get('Type') == office + kind]
+        assert len(links) == 1, 'Word package needs exactly one ' + kind + ' relationship'
+        link = links[0]
+        assert link.get('Target') in allowed and link.get('TargetMode', 'Internal') == 'Internal', 'Word package relationship target is not its local ' + kind + ' part'
+
+
+def check_unmerged_word_row(row, ns):
+    """The supported compound table contract has no merged or skipped cells."""
+    properties = row.findall(ns + 'trPr')
+    assert len(properties) <= 1, 'Word row has ambiguous properties'
+    for prop in properties:
+        for name in ['gridBefore', 'gridAfter']:
+            nodes = prop.findall(ns + name)
+            assert len(nodes) <= 1 and all(node.get(ns + 'val') == '0' for node in nodes), 'Word table row has skipped grid positions'
+    for cell in row.findall(ns + 'tc'):
+        properties = cell.findall(ns + 'tcPr')
+        assert len(properties) <= 1, 'Word cell has ambiguous properties'
+        for prop in properties:
+            assert not prop.findall(ns + 'vMerge') and not prop.findall(ns + 'hMerge'), 'Word table has merged cells'
+            spans = prop.findall(ns + 'gridSpan')
+            assert len(spans) <= 1 and all(span.get(ns + 'val') == '1' for span in spans), 'Word table has a non-unit grid span'
+
+
 def check_conversion(result, wanted):
     checked = {}
     articles = [ArticleHTML(result[key]) for key in ['wordpress', 'html']]
@@ -231,6 +314,10 @@ def check_conversion(result, wanted):
         assert not any(warning in text for text in result['warnings']), 'Unexpected loss disclosure: ' + warning
     for article in articles:
         assert not article.unsafe and not article.images, 'Unexpected active HTML or image load'
+        if any(key in wanted for key in ['listStarts', 'listItems', 'listPaths']):
+            assert not article.numbering_issues, 'HTML list numbering overrides changed: ' + ', '.join(article.numbering_issues)
+        if any(key in wanted for key in ['tableGroups', 'rows']):
+            assert not article.table_issues, 'HTML table grid changed: ' + ', '.join(article.table_issues)
         for key, actual in [('rows', article.rows), ('tableGroups', article.table_groups),
                             ('headings', article.headings), ('listStarts', article.ordered_starts),
                             ('listItems', article.items), ('listPaths', article.list_paths),
@@ -257,6 +344,7 @@ def check_conversion(result, wanted):
         for key in ['rows', 'listItems', 'tableGroups', 'headings', 'listStarts']:
             assert key in wanted, 'Compound Word structure requires explicit ' + key + ' expectations'
         with zipfile.ZipFile(io.BytesIO(base64.b64decode(result['word']))) as archive:
+            check_numbering_package(archive)
             document = ET.fromstring(archive.read('word/document.xml'))
             numbering_root = ET.fromstring(archive.read('word/numbering.xml'))
             ns = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
@@ -287,11 +375,15 @@ def check_conversion(result, wanted):
                 assert num_format is not None, 'Word list format missing'
                 if num_format.get(ns + 'val') != 'decimal':
                     continue
+                labels = levels[0].findall(ns + 'lvlText')
+                assert len(labels) == 1 and labels[0].get(ns + 'val') == '%' + str(int(level) + 1) + '.', 'Word decimal list marker template changed'
                 initial_node = levels[0].find(ns + 'start')
                 initial = int(initial_node.get(ns + 'val')) if initial_node is not None else 1
                 overrides = [item for item in num.findall(ns + 'lvlOverride') if item.get(ns + 'ilvl') == level]
                 assert len(overrides) <= 1, 'Word list has ambiguous start overrides'
                 if overrides:
+                    assert not overrides[0].findall(ns + 'lvl'), 'Word custom list-level override is unsupported'
+                    assert len(overrides[0].findall(ns + 'startOverride')) <= 1, 'Word list has duplicate start overrides'
                     explicit = overrides[0].find(ns + 'startOverride')
                     if explicit is not None:
                         initial = int(explicit.get(ns + 'val'))
@@ -300,6 +392,7 @@ def check_conversion(result, wanted):
             for block in document.iter(ns + 'tbl'):
                 group = {'rows': [], 'cellTags': []}
                 for row in block.findall(ns + 'tr'):
+                    check_unmerged_word_row(row, ns)
                     # Presence alone is insufficient: w:val="false" explicitly
                     # disables a header. Reject ambiguous or invalid flags rather
                     # than certifying a lost header as preserved structure.
