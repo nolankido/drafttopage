@@ -433,7 +433,52 @@
             "href": "https://example.com/solar-editorial?stage=review"
           }
         ],
-        "wordStructure": true
+        "wordStructure": true,
+        "tableGroups": [
+          {
+            "rows": [
+              [
+                "Metric",
+                "Value"
+              ],
+              [
+                "Inspection",
+                "Complete"
+              ],
+              [
+                "Next review",
+                "Friday"
+              ]
+            ],
+            "cellTags": [
+              [
+                "th",
+                "th"
+              ],
+              [
+                "td",
+                "td"
+              ],
+              [
+                "td",
+                "td"
+              ]
+            ]
+          }
+        ],
+        "listStarts": [
+          1
+        ],
+        "headings": [
+          {
+            "level": 2,
+            "text": "October maintenance plan"
+          },
+          {
+            "level": 2,
+            "text": "Editorial safeguards"
+          }
+        ]
       },
       "reason": "A complete, programmatically constructed fictional Word article must retain title, styled runs, list order, header table, Unicode, hyperlink and exact final sentence through all three exports.",
       "ui": true
@@ -484,7 +529,48 @@
             "href": "https://example.com/editorial-source"
           }
         ],
-        "wordStructure": true
+        "wordStructure": true,
+        "tableGroups": [
+          {
+            "rows": [
+              [
+                "Stage",
+                "Owner"
+              ],
+              [
+                "Import",
+                "Writer"
+              ],
+              [
+                "Review",
+                "Editor"
+              ]
+            ],
+            "cellTags": [
+              [
+                "th",
+                "th"
+              ],
+              [
+                "td",
+                "td"
+              ],
+              [
+                "td",
+                "td"
+              ]
+            ]
+          }
+        ],
+        "listStarts": [
+          4
+        ],
+        "headings": [
+          {
+            "level": 2,
+            "text": "Preparation"
+          }
+        ]
       },
       "reason": "A multi-feature fictional HTML clipboard-like article combines heading, link, emphasis, list, table, quote and final sentinel to detect cross-feature losses in exports.",
       "ui": true

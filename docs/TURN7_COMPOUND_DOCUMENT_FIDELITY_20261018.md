@@ -37,3 +37,7 @@ Both compound fixtures, including the synthetic HTML Docs-style case, now requir
 ## Post-review corrections: comment markers and hidden definition descendants
 
 A visible empty paragraph remains a paragraph separator even when it contains only HTML comment nodes, including nested empty inline wrappers. A completely hidden child subtree plus a neutral comment still does not create an artificial visible paragraph boundary. For omitted-only definition lists, the warning scan now recursively reaches hidden terms and descriptions nested within visible wrappers, disclosing hidden content without admitting visible definition semantics that could be flattened. Fictional regression cases preserve source identity, visible article prose, and the omission warning.
+
+## Stronger compound export semantics
+
+The fictional compound DOCX and Docs-style HTML cases now independently specify ordered-list start values (1 and 4), exact table grouping and TH/TD cell semantics, and every H2 heading. The HTML and WordPress readers inspect actual OL attributes, table boundaries, header cells and heading tags. Word ZIP/XML checks resolve numbering references and `w:startOverride`, inspect each complete `w:tbl` and its `w:tblHeader` flag, and inspect HeadingN paragraph styles. A flattened list, reset start, split table, lost header or demoted heading cannot pass merely because plain text survived. These remain synthetic source-fidelity contracts, not observed WordPress or human acceptance.
