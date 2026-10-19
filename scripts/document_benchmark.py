@@ -300,7 +300,14 @@ def check_conversion(result, wanted):
             for block in document.iter(ns + 'tbl'):
                 group = {'rows': [], 'cellTags': []}
                 for row in block.findall(ns + 'tr'):
-                    header = row.find(ns + 'trPr/' + ns + 'tblHeader') is not None
+                    # Presence alone is insufficient: w:val="false" explicitly
+                    # disables a header. Reject ambiguous or invalid flags rather
+                    # than certifying a lost header as preserved structure.
+                    header_nodes = row.findall(ns + 'trPr/' + ns + 'tblHeader')
+                    assert len(header_nodes) <= 1, 'Word table has duplicate header flags'
+                    header_value = header_nodes[0].get(ns + 'val', 'true') if header_nodes else 'false'
+                    assert header_value in ['true', 'false', '1', '0', 'on', 'off'], 'Word table header flag is invalid'
+                    header = header_value in ['true', '1', 'on']
                     cells = [normalized(''.join(item.text or '' for item in cell.iter(ns + 't')))
                              for cell in row.findall(ns + 'tc')]
                     group['rows'].append(cells)
