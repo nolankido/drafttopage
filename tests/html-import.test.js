@@ -1176,3 +1176,51 @@ test('Visible empty wrapper boundary survives a separately omitted sibling', () 
   assert.equal(onlyHidden.markdown, 'BeforeAfter');
   assert.doesNotMatch(onlyHidden.markdown, /PRIVATE/);
 });
+
+test('HTML comments do not erase a deliberate empty visible paragraph', () => {
+  const comment = value => ({ nodeType: 8, nodeValue: value, childNodes: [] });
+  for (const gap of [
+    element('p', [comment('editor bookmark')]),
+    element('div', [comment('only a comment')]),
+    element('p', [element('span', [comment('nested marker')])]),
+    element('p', [element('span', [comment('visible empty')]), element('span', ['HIDDEN'], { hidden: '' })])
+  ]) {
+    const source = element('div', ['Before', gap, 'After']);
+    const original = JSON.stringify(source);
+    const result = convert(source);
+    assert.equal(JSON.stringify(source), original);
+    assert.equal(result.markdown, 'Before\n\nAfter');
+    assert.doesNotMatch(result.markdown, /HIDDEN|editor bookmark|nested marker/);
+  }
+  const ignoredOnly = convert(element('div', [
+    'Before', element('p', [comment('neutral'), element('span', ['HIDDEN'], { hidden: '' })]), 'After'
+  ]));
+  assert.equal(ignoredOnly.markdown, 'BeforeAfter');
+});
+
+test('Nested hidden definition entries disclose omissions without inventing paragraph boundaries', () => {
+  const list = () => element('dl', [element('div', [
+    element('dt', ['PRIVATE_TERM'], { hidden: '' }),
+    element('span', [element('dd', ['PRIVATE_DETAIL'], { style: 'display:none' })])
+  ])]);
+  const table = element('table', [
+    element('caption', ['Before ', list(), 'after.']),
+    element('tr', [element('th', ['Column'])]),
+    element('tr', [element('td', ['Value'])])
+  ]);
+  for (const source of [table, element('div', ['Before ', list(), 'after.'])]) {
+    const original = JSON.stringify(source);
+    const result = convert(source);
+    assert.equal(JSON.stringify(source), original);
+    assert.doesNotMatch(result.markdown, /PRIVATE_TERM|PRIVATE_DETAIL/);
+    assert.ok(result.warnings.some(w => w.includes('Explicitly hidden content was omitted')));
+    assert.match(result.markdown, /Before\s+after\\\./);
+  }
+  assert.throws(() => convert(element('table', [
+    element('caption', ['Caption', element('dl', [
+      element('div', [element('dt', ['Visible term']), element('dd', ['Visible answer'])])
+    ])]),
+    element('tr', [element('th', ['H'])]),
+    element('tr', [element('td', ['Value'])])
+  ])), /Definition lists inside table captions cannot be preserved/);
+});
