@@ -296,6 +296,14 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (['dt', 'dd', 'br', 'hr', 'wbr', 'img'].includes(tag(node))) return true;
     return children(node).some(visibleDefinitionMaterial);
   }
+  // Reach omitted grandchildren inside transparent wrappers. Otherwise a
+  // completely hidden definition list can be discarded without a warning.
+  function discloseOmittedDescendants(node) {
+    for (const child of children(node)) {
+      if (ignoredReason(child)) skip(child);
+      else discloseOmittedDescendants(child);
+    }
+  }
   function captionParagraphs(node) {
     // Preserve the caption's own inline styling around each simple paragraph.
     // Original table-caption placement still requires a visible loss notice.
@@ -316,7 +324,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       if (skip(child)) continue;
       const name = tag(child);
       if (name === 'dl' && !visibleDefinitionMaterial(child)) {
-        for (const item of children(child)) if (ignoredReason(item)) skip(item);
+        discloseOmittedDescendants(child);
         continue;
       }
       // All recognized simple block containers delimit visible caption prose.
@@ -519,7 +527,7 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
       // semantics to export. Disclose its hidden children without treating it
       // as an orphaned visible definition or a text boundary.
       if (!visibleDefinitionMaterial(node)) {
-        for (const child of children(node)) if (ignoredReason(child)) skip(child);
+        discloseOmittedDescendants(node);
         return '';
       }
       return definitionList(node, currentBold);
@@ -539,13 +547,16 @@ export function htmlTreeToMarkdown(root, { firstRowHeaders = false, sourceURL = 
     if (ignoredReason(node)) return false;
     if (node.nodeType === 3) return node.nodeValue.length > 0;
     if (node.nodeType !== 1 && node.nodeType !== 11) return false;
-    const nested = children(node);
+    // Comment nodes are neutral: <p><!-- marker --></p> remains an
+    // intentional visible empty paragraph. Hidden-only content does not.
+    const nested = children(node).filter(child => child.nodeType !== 8);
     return !nested.length ? node.nodeType === 1 : nested.some(hasVisibleSourceShape);
   }
   function visibleEmptyBoundary(node) {
     if (ignoredReason(node)) return false;
     if (node.nodeType === 3) return node.nodeValue.length > 0;
-    const nested = children(node);
+    if (node.nodeType === 8) return false;
+    const nested = children(node).filter(child => child.nodeType !== 8);
     if (!nested.length) return blocks.has(tag(node)) || tag(node) === 'br';
     if (nested.some(visibleEmptyBoundary)) return true;
     return blocks.has(tag(node)) && nested.some(hasVisibleSourceShape);
